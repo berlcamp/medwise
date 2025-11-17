@@ -440,14 +440,14 @@ export default function CreateTransactionPage() {
                                       'opacity-50 cursor-not-allowed' // visual cue
                                   )}
                                 >
-                                  <Check
+                                  {/* <Check
                                     className={cn(
                                       'mr-2 h-4 w-4',
                                       p.id === field.value
                                         ? 'opacity-100'
                                         : 'opacity-0'
                                     )}
-                                  />
+                                  /> */}
                                   <div className="flex flex-col">
                                     <span
                                       className={cn(
