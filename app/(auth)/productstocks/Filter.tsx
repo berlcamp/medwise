@@ -43,13 +43,13 @@ export const Filter = ({
         {/* Keyword Search */}
         <div className="flex flex-col">
           <label className="text-xs font-medium text-gray-600 mb-1">
-            Customer Name
+            Product Name
           </label>
           <div className="flex items-center border rounded-md px-2">
             <Search size={16} className="text-gray-400" />
             <Input
               {...register('keyword')}
-              placeholder="Search customer..."
+              placeholder="Search product..."
               className="border-0 focus-visible:ring-0 text-sm"
             />
           </div>

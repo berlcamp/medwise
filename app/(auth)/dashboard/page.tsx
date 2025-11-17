@@ -16,21 +16,6 @@ import {
   YAxis
 } from 'recharts'
 
-interface ProductStock {
-  id: number
-  product_id: number
-  quantity: number
-  expiration_date: string | null
-  type: string | null
-  created_at: string
-  product: {
-    id: number
-    name: string
-    category: string
-    unit: string
-  }
-}
-
 interface Transaction {
   id: number
   total_amount: number
@@ -38,13 +23,21 @@ interface Transaction {
   customer_name: string | null
 }
 
+interface LowStock {
+  category: string
+  name: string
+  product_id: number
+  reorder_point: number
+  stock_qty: number
+  unit: string
+}
 export default function DashboardPage() {
   const [totalSalesToday, setTotalSalesToday] = useState(0)
   const [totalTransactions, setTotalTransactions] = useState(0)
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
     []
   )
-  const [lowStockProducts, setLowStockProducts] = useState<ProductStock[]>([])
+  const [lowStockProducts, setLowStockProducts] = useState<LowStock[]>([])
   const [salesData, setSalesData] = useState<any[]>([])
 
   const selectedBranchId = useAppSelector(
@@ -82,13 +75,10 @@ export default function DashboardPage() {
         .limit(5)
       setRecentTransactions(recent || [])
 
-      // 4️⃣ Low stock products
-      const { data: lowStock } = await supabase
-        .from('product_stocks')
-        .select('*, product:products(id,name,category,unit)')
-        .eq('branch_id', selectedBranchId)
-        .lte('quantity', 5) // customizable threshold
-        .order('quantity', { ascending: true })
+      // Fetch all product stocks for this branch with product info
+      const { data: lowStock } = await supabase.rpc('get_low_stock', {
+        branch: selectedBranchId
+      })
       setLowStockProducts(lowStock || [])
 
       // 5️⃣ Sales over the last 7 days (chart)
@@ -155,9 +145,9 @@ export default function DashboardPage() {
               </p>
             ) : (
               <ul className="space-y-1">
-                {lowStockProducts.map((p) => (
-                  <li key={p.id} className="text-sm">
-                    {p.product.name} ({p.quantity} {p.product.unit})
+                {lowStockProducts.map((p, idx) => (
+                  <li key={idx} className="text-sm">
+                    {p.name} ({p.stock_qty} {p.unit})
                   </li>
                 ))}
               </ul>

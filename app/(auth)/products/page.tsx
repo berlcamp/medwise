@@ -44,7 +44,7 @@ export default function Page() {
   unit,
   category,
   selling_price,
-  product_stocks:product_stocks (quantity, type,expiration_date)
+  product_stocks:product_stocks (branch_id,quantity, type,expiration_date)
 `,
           { count: 'exact' }
         )
@@ -58,6 +58,7 @@ export default function Page() {
       if (error) {
         console.error('Error fetching products:', error)
       } else {
+        console.log('xx', data)
         // calculate stock
         const formatted = (data || []).map((p) => {
           const stocks = (p.product_stocks as ProductStock[]) || []
