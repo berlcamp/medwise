@@ -74,13 +74,13 @@ export const Filter = ({
           <Button
             variant="blue"
             type="submit"
-            size="sm"
+            size="xs"
             className="rounded-md shadow-sm"
           >
             Apply Filter
           </Button>
           <Button
-            size="sm"
+            size="xs"
             type="button"
             variant="outline"
             className="rounded-md"

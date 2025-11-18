@@ -1,75 +1,76 @@
 'use client'
 
 import LoadingSkeleton from '@/components/LoadingSkeleton'
-import Notfoundpage from '@/components/Notfoundpage'
 import { Button } from '@/components/ui/button'
+
+import Notfoundpage from '@/components/Notfoundpage'
 import { PER_PAGE } from '@/lib/constants'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
+import { AddModal } from './AddModal'
 import { Filter } from './Filter'
 import { List } from './List'
 
 export default function Page() {
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
+  const [modalAddOpen, setModalAddOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({
-    keyword: '',
-    transaction_number: ''
+    keyword: ''
   })
 
   const dispatch = useAppDispatch()
+
   const user = useAppSelector((state) => state.user.user)
 
-  const selectedBranchId = useAppSelector(
-    (state) => state.branch.selectedBranchId
-  )
-
+  // Fetch data on page load
   useEffect(() => {
-    dispatch(addList([]))
+    dispatch(addList([])) // Reset the list first on page load
 
     const fetchData = async () => {
       setLoading(true)
-      let query = supabase
-        .from('transactions')
-        .select('*, customer:customer_id(name)', { count: 'exact' })
-        .eq('branch_id', selectedBranchId)
-        .ilike('transaction_number', `%${filter.transaction_number}%`)
-
+      const { data, count, error } = await supabase
+        .from('suppliers')
+        .select('*', { count: 'exact' })
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+        .ilike('name', `%${filter.keyword}%`)
+        .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
         .order('id', { ascending: false })
 
-      // Apply customer name filter only if provided
-      if (filter.keyword && filter.keyword.trim() !== '') {
-        query = query.ilike('customer_name', `%${filter.keyword}%`)
-      }
-
-      if (!filter.keyword && !filter.transaction_number) {
-        query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      }
-
-      const { data, count, error } = await query
-
-      if (error) console.error(error)
-      else {
+      if (error) {
+        console.error(error)
+      } else {
+        // Update the list of suppliers in Redux store
         dispatch(addList(data))
         setTotalCount(count || 0)
       }
-
       setLoading(false)
     }
 
     fetchData()
-  }, [page, filter, dispatch, selectedBranchId])
+  }, [page, filter, dispatch]) // Add `dispatch` to dependency array
 
-  if (user?.type === 'user') return <Notfoundpage />
+  if (user?.type === 'user') {
+    return <Notfoundpage />
+  }
 
   return (
     <div>
       <div className="app__title">
-        <h1 className="text-3xl font-normal">Transactions</h1>
+        <h1 className="text-3xl font-normal">Suppliers</h1>
+        <Button
+          variant="green"
+          onClick={() => setModalAddOpen(true)}
+          className="ml-auto"
+          size="xs"
+        >
+          Add Supplier
+        </Button>
       </div>
+
       <Filter filter={filter} setFilter={setFilter} />
       <div className="app__content">
         <div className="py-2 text-xs text-gray-500">
@@ -77,8 +78,10 @@ export default function Page() {
           {Math.min(page * PER_PAGE, totalCount)} of {totalCount} results
         </div>
 
+        {/* Pass Redux data to List Table */}
         <List />
 
+        {/* Loading Skeleton */}
         {loading && <LoadingSkeleton />}
 
         {totalCount === 0 && !loading && (
@@ -86,7 +89,6 @@ export default function Page() {
             No records found.
           </div>
         )}
-
         {totalCount > 0 && totalCount > PER_PAGE && (
           <div className="mt-4 text-xs flex justify-center items-center space-x-2">
             <Button
@@ -110,6 +112,10 @@ export default function Page() {
             </Button>
           </div>
         )}
+        <AddModal
+          isOpen={modalAddOpen}
+          onClose={() => setModalAddOpen(false)}
+        />
       </div>
     </div>
   )

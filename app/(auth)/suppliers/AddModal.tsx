@@ -11,18 +11,11 @@ import {
   FormMessage
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
+import { useAppDispatch } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 
-import { Service, ServiceCategory } from '@/types'
+import { Supplier } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
@@ -31,9 +24,10 @@ import toast from 'react-hot-toast'
 import { z } from 'zod'
 
 // Always update this on other pages
-type ItemType = Service
-const table = 'services'
-const title = 'Procedure'
+type ItemType = Supplier
+
+const table = 'suppliers'
+const title = 'Supplier'
 
 interface ModalProps {
   isOpen: boolean
@@ -42,30 +36,23 @@ interface ModalProps {
 }
 
 const FormSchema = z.object({
-  name: z.string().min(1, 'Service Name is required'),
-  category_id: z.string().min(1, 'Category is required'),
-  base_price: z.coerce.number().min(0, 'Base Price is required') // ✅ coercion fixes string->number from inputs
+  name: z.string().min(1, 'Name is required'),
+  contact_number: z.string().min(1, 'Contact No is required'),
+  address: z.string().min(1, 'Address is required')
 })
 type FormType = z.infer<typeof FormSchema>
 
 export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   //
-  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>(
-    []
-  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
-
-  const selectedBranchId = useAppSelector(
-    (state) => state.branch.selectedBranchId
-  )
 
   const form = useForm<FormType>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       name: editData ? editData.name : '',
-      category_id: editData ? editData.category_id.toString() : '',
-      base_price: editData ? editData.base_price : 0
+      contact_number: editData ? editData.contact_number : '',
+      address: editData ? editData.address : ''
     }
   })
 
@@ -77,47 +64,39 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     try {
       const newData = {
         name: data.name.trim(),
-        base_price: data.base_price,
-        category_id: data.category_id,
-        branch_id: selectedBranchId,
+        contact_number: data.contact_number,
+        address: data.address,
         org_id: process.env.NEXT_PUBLIC_ORG_ID
       }
 
+      // If exists (editing), update it
       if (editData?.id) {
-        // ---- UPDATE ----
         const { error } = await supabase
           .from(table)
           .update(newData)
           .eq('id', editData.id)
 
-        if (error) throw new Error(error.message)
-
-        // ✅ Fetch updated record with category join
-        const { data: updated } = await supabase
-          .from(table)
-          .select('*, category:category_id(name)')
-          .eq('id', editData.id)
-          .single()
-
-        if (updated) {
-          dispatch(updateList(updated))
+        if (error) {
+          throw new Error(error.message)
+        } else {
+          //Update list on redux
+          dispatch(updateList({ ...newData, id: editData.id })) // ✅ Update Redux with new data
+          onClose()
         }
-
-        onClose()
       } else {
-        // ---- INSERT ----
-        const { data: inserted, error } = await supabase
+        // Add new one
+        const { data, error } = await supabase
           .from(table)
           .insert([newData])
-          .select('*, category:category_id(name)') // ✅ include join
+          .select()
 
-        if (error) throw new Error(error.message)
-
-        if (inserted?.[0]) {
-          dispatch(addItem(inserted[0]))
+        if (error) {
+          throw new Error(error.message)
+        } else {
+          // Insert new item to Redux
+          dispatch(addItem({ ...newData, id: data[0].id }))
+          onClose()
         }
-
-        onClose()
       }
 
       toast.success('Successfully saved!')
@@ -128,34 +107,13 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     }
   }
 
-  // ---------- LOAD DROPDOWNS ----------
-  useEffect(() => {
-    const fetchData = async () => {
-      const [s] = await Promise.all([
-        supabase
-          .from('service_categories')
-          .select()
-          .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
-          .order('name', { ascending: true })
-      ])
-
-      if (s.data) setServiceCategories(s.data)
-    }
-    fetchData()
-  }, [])
-
   useEffect(() => {
     form.reset({
       name: editData?.name || '',
-      base_price: editData?.base_price || 0,
-      category_id: editData?.category_id.toString()
+      contact_number: editData?.contact_number || '',
+      address: editData?.address || ''
     })
   }, [form, editData, isOpen])
-
-  // ---------- DERIVED CATEGORY STRUCTURE ----------
-  const mainCategories = serviceCategories.filter((c) => !c.parent_id)
-  const subcategories = (parentId: number) =>
-    serviceCategories.filter((c) => c.parent_id === parentId)
 
   return (
     <Dialog
@@ -191,12 +149,12 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Procedure Name
+                            Supplier Name
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder=""
+                              placeholder="Supplier Name"
                               type="text"
                               {...field}
                             />
@@ -206,65 +164,42 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                       )}
                     />
                   </div>
-                  {/* CATEGORY DROPDOWN */}
-                  <FormField
-                    control={form.control}
-                    name="category_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="app__formlabel_standard">
-                          Category
-                        </FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value?.toString() ?? ''}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="app__input_standard">
-                              <SelectValue placeholder="Select category or subcategory" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {mainCategories.map((main) => (
-                              <div key={main.id}>
-                                <SelectItem value={main.id.toString()}>
-                                  {main.name}
-                                </SelectItem>
-
-                                {/* Subcategories (indented + prefixed) */}
-                                {subcategories(main.id).map((sub) => (
-                                  <SelectItem
-                                    key={sub.id}
-                                    value={sub.id.toString()}
-                                    className="pl-6 text-gray-600"
-                                  >
-                                    ↳ {sub.name}
-                                  </SelectItem>
-                                ))}
-                              </div>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <div>
                     <FormField
                       control={form.control}
-                      name="base_price"
+                      name="contact_number"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Per Session Price
+                            Contact Number
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder="Price"
-                              type="number"
-                              step="any"
+                              placeholder="Contact Number"
+                              type="text"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="app__formlabel_standard">
+                            Address
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              className="app__input_standard"
+                              placeholder="Address"
+                              type="text"
                               {...field}
                             />
                           </FormControl>

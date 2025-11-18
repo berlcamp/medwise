@@ -1,7 +1,6 @@
 'use client'
 
 import { ConfirmationModal } from '@/components/ConfirmationModal'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAppDispatch } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
@@ -46,78 +45,80 @@ export const List = () => {
       <table className="app__table">
         <thead className="app__thead">
           <tr>
-            <th className="app__th">Product Name</th>
-            <th className="app__th">Transaction Date</th>
-            <th className="app__th">Type</th>
-            <th className="app__th">Quantity</th>
-            <th className="app__th">Remarks</th>
+            <th className="app__th">Product / Details</th>
+            <th className="app__th">Category / Batch</th>
+            <th className="app__th">Remaining Stocks</th>
+            <th className="app__th">Purchase Price</th>
             <th className="app__th"></th>
           </tr>
         </thead>
         <tbody>
-          {list.map((item: ProductStock) => (
-            <tr key={item.id} className="app__tr">
-              <td className="app__td">
-                <div className="font-semibold">{item.product?.name}</div>
-                <div className="text-xs">({item.product?.category})</div>
+          {list.map((item: ProductStock) => {
+            const expDate = item.expiration_date
+              ? parseISO(item.expiration_date)
+              : null
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const isExpired = expDate ? isBefore(expDate, today) : false
+            const formattedExp = expDate ? format(expDate, 'MMM dd, yyyy') : '-'
+            const formattedMfg = item.date_manufactured
+              ? format(parseISO(item.date_manufactured), 'MMM dd, yyyy')
+              : '-'
 
-                {item.expiration_date &&
-                  (() => {
-                    const expDate = parseISO(item.expiration_date)
-                    const today = new Date()
-                    today.setHours(0, 0, 0, 0)
+            return (
+              <tr key={item.id} className="app__tr">
+                {/* Product column: name + manufacturer + manufacturing + expiration */}
+                <td className="app__td">
+                  <div className="font-semibold">{item.product?.name}</div>
+                  <div className="text-xs text-gray-600">
+                    {item.manufacturer && <>Mfg: {item.manufacturer}, </>}
+                    {item.date_manufactured && (
+                      <>Manufactured: {formattedMfg}, </>
+                    )}
+                    Exp: {formattedExp}
+                    {isExpired && (
+                      <span className="ml-1 text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded">
+                        Expired
+                      </span>
+                    )}
+                  </div>
+                </td>
 
-                    const isExpired = isBefore(expDate, today)
+                {/* Category column: category + batch # + supplier */}
+                <td className="app__td">
+                  <div className="text-xs font-semibold">
+                    {item.product?.category}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {item.batch_no && <>Batch: {item.batch_no}, </>}
+                    Supplier: {item.supplier?.name || '-'}
+                  </div>
+                </td>
 
-                    const formattedDate = format(expDate, 'MMM dd, yyyy')
-                    // Example: Jan 05, 2025
+                <td className="app__td">{item.remaining_quantity}</td>
 
-                    return (
-                      <div
-                        className={`text-xs ${
-                          isExpired
-                            ? 'text-red-600 font-semibold'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        Expiration: {formattedDate}
-                        {isExpired && (
-                          <span className="ml-1 text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded">
-                            Expired
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })()}
-              </td>
+                <td className="app__td">
+                  {item.purchase_price ? item.purchase_price.toFixed(2) : '-'}
+                </td>
 
-              <td className="app__td">{item.transaction_date}</td>
-              <td className="app__td uppercase">
-                {item.type === 'in' ? (
-                  <Badge variant="green">{item.type}</Badge>
-                ) : (
-                  <Badge variant="blue">{item.type}</Badge>
-                )}
-              </td>
-              <td className="app__td">{item.quantity}</td>
-              <td className="app__td">{item.remarks}</td>
-              <td className="app__td">
-                <div className="flex items-center justify-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    className="text-red-500"
-                    onClick={() => {
-                      setSelectedItem(item)
-                      setIsModalOpen(true)
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          ))}
+                <td className="app__td">
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="text-red-500"
+                      onClick={() => {
+                        setSelectedItem(item)
+                        setIsModalOpen(true)
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 

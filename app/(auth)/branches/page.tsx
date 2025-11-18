@@ -62,9 +62,10 @@ export default function Page() {
       <div className="app__title">
         <h1 className="text-3xl font-normal">Branches</h1>
         <Button
-          variant="blue"
+          variant="green"
           onClick={() => setModalAddOpen(true)}
           className="ml-auto"
+          size="xs"
         >
           Add Branch
         </Button>
@@ -72,7 +73,7 @@ export default function Page() {
 
       <Filter filter={filter} setFilter={setFilter} />
       <div className="app__content">
-        <div className="mt-4 py-2 text-xs border-t border-gray-200 text-gray-500">
+        <div className="py-2 text-xs text-gray-500">
           Showing {Math.min((page - 1) * PER_PAGE + 1, totalCount)} to{' '}
           {Math.min(page * PER_PAGE, totalCount)} of {totalCount} results
         </div>

@@ -204,6 +204,14 @@ export interface Branch {
   contact_number: string
   created_at: string
 }
+export interface Supplier {
+  id: number
+  name: string
+  org_id: number
+  address: string
+  contact_number: string
+  created_at: string
+}
 
 // ===============================
 // STAFF
@@ -226,6 +234,7 @@ export interface Product {
   id: number
   branch_id?: number | null
   name: string
+  sku: string
   description?: string
   category?: string
   selling_price: number
@@ -237,6 +246,12 @@ export interface Product {
   created_at: string
   branch?: Branch
   reorder_point: number
+  generic_name: string
+  brand_name: string
+  fda_reg_no: string
+  dosage: string
+  subcategory: string
+  prescription_log_book: boolean
 }
 
 // ===============================
@@ -245,13 +260,20 @@ export interface Product {
 export interface ProductStock {
   id: number
   product_id: number
+  supplier_id: number
   branch_id: number
   product?: Product
+  supplier?: Supplier
   type: string
   inventory_type: string
   quantity: number
+  remaining_quantity: number
   remarks: string
   created_at: string
+  purchase_price: number
+  batch_no: string
+  manufacturer: string
+  date_manufactured: string
   transaction_date: string
   expiration_date: string
 }

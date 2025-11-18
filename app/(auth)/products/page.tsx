@@ -44,7 +44,7 @@ export default function Page() {
   unit,
   category,
   selling_price,
-  product_stocks:product_stocks (branch_id,quantity, type,expiration_date)
+  product_stocks:product_stocks (branch_id,remaining_quantity, type,expiration_date)
 `,
           { count: 'exact' }
         )
@@ -83,13 +83,15 @@ export default function Page() {
           // Compute total quantity (excluding expired)
           const stock_qty = validStocks.reduce(
             (acc: number, s) =>
-              s.type === 'in' ? acc + s.quantity : acc - s.quantity,
+              s.type === 'in'
+                ? acc + s.remaining_quantity
+                : acc - s.remaining_quantity,
             0
           )
 
           // Compute total expired
           const total_expired = expiredStocks.reduce(
-            (acc: number, s) => acc + s.quantity,
+            (acc: number, s) => acc + s.remaining_quantity,
             0
           )
 
@@ -116,9 +118,10 @@ export default function Page() {
         <h1 className="text-3xl font-normal">Products</h1>
         {user?.type === 'super admin' && (
           <Button
-            variant="blue"
+            variant="green"
             onClick={() => setModalAddOpen(true)}
             className="ml-auto"
+            size="xs"
           >
             Add Product
           </Button>
@@ -126,7 +129,7 @@ export default function Page() {
       </div>
       <Filter filter={filter} setFilter={setFilter} />
       <div className="app__content">
-        <div className="mt-4 py-2 text-xs border-t border-gray-200 text-gray-500">
+        <div className="py-2 text-xs text-gray-500">
           Showing {Math.min((page - 1) * PER_PAGE + 1, totalCount)} to{' '}
           {Math.min(page * PER_PAGE, totalCount)} of {totalCount} results
         </div>

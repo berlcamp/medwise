@@ -11,13 +11,11 @@ import { useEffect, useState } from 'react'
 import { AddStockModal } from './AddStockModal'
 import { Filter } from './Filter'
 import { List } from './List'
-import { RemoveStockModal } from './RemoveStockModal'
 
 export default function Page() {
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
   const [modalAddOpen, setModalAddOpen] = useState(false)
-  const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({
     keyword: '',
@@ -74,7 +72,8 @@ export default function Page() {
           name,
           category,
           unit
-        )
+        ),
+        supplier:supplier_id(name)
       `,
           { count: 'exact' }
         )
@@ -115,16 +114,9 @@ export default function Page() {
           <Button
             variant="green"
             onClick={() => setModalAddOpen(true)}
-            size="sm"
+            size="xs"
           >
             Add Stock
-          </Button>
-          <Button
-            variant="blue"
-            onClick={() => setModalRemoveOpen(true)}
-            size="sm"
-          >
-            Remove Stock
           </Button>
         </div>
       </div>
@@ -172,10 +164,6 @@ export default function Page() {
         <AddStockModal
           isOpen={modalAddOpen}
           onClose={() => setModalAddOpen(false)}
-        />
-        <RemoveStockModal
-          isOpen={modalRemoveOpen}
-          onClose={() => setModalRemoveOpen(false)}
         />
       </div>
     </div>

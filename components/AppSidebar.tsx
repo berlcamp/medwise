@@ -1,4 +1,11 @@
-import { BarChart, Home, ListChecks, ShoppingCart, User } from 'lucide-react'
+import {
+  BarChart,
+  Home,
+  ListChecks,
+  ShoppingCart,
+  StoreIcon,
+  User
+} from 'lucide-react'
 
 import {
   Sidebar,
@@ -65,6 +72,11 @@ export function AppSidebar() {
       title: 'Branches',
       url: '/branches',
       icon: Home
+    },
+    {
+      title: 'Suppliers',
+      url: '/suppliers',
+      icon: StoreIcon
     }
   ]
 

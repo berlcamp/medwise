@@ -27,7 +27,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Product } from '@/types'
+import { Product, Supplier } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, ChevronsUpDown } from 'lucide-react'
@@ -40,8 +40,13 @@ const table = 'product_stocks'
 
 const FormSchema = z.object({
   product_id: z.coerce.number().min(1, 'Product required'),
+  supplier_id: z.coerce.number().min(1, 'Supplier required'),
   quantity: z.coerce.number().min(1, 'Quantity required'),
-  transaction_date: z.string().min(1, 'Date is required'),
+  purchase_price: z.coerce.number().min(0, 'Purchase price required'),
+  batch_no: z.string().optional(),
+  manufacturer: z.string().optional(),
+  date_manufactured: z.string().optional(),
+  transaction_date: z.string().min(1, 'Date received required'),
   expiration_date: z.string().optional()
 })
 
@@ -56,7 +61,9 @@ export const AddStockModal = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [products, setProducts] = useState<Product[]>([])
-  const [open, setOpen] = useState(false)
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [productOpen, setProductOpen] = useState(false)
+  const [supplierOpen, setSupplierOpen] = useState(false)
 
   const dispatch = useAppDispatch()
   const selectedBranchId = useAppSelector(
@@ -67,33 +74,53 @@ export const AddStockModal = ({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       product_id: 0,
+      supplier_id: 0,
       quantity: 1,
+      purchase_price: 0,
+      batch_no: '',
+      manufacturer: '',
+      date_manufactured: '',
       transaction_date: '',
       expiration_date: ''
     }
   })
 
-  // Load products from database
+  // Load products and suppliers
   useEffect(() => {
     if (!isOpen) return
 
-    const fetchProducts = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      const { data: prodData, error: prodError } = await supabase
         .from('products')
         .select()
         .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
         .order('name', { ascending: true })
 
-      if (error) {
-        console.error(error)
-        toast.error('Failed to load products.')
-      } else {
-        setProducts(data || [])
-      }
+      if (prodError) toast.error('Failed to load products.')
+      else setProducts(prodData || [])
+
+      const { data: supData, error: supError } = await supabase
+        .from('suppliers')
+        .select()
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+        .order('name', { ascending: true })
+
+      if (supError) toast.error('Failed to load suppliers.')
+      else setSuppliers(supData || [])
     }
 
-    fetchProducts()
-    form.reset({ product_id: 0, quantity: 1, expiration_date: '' })
+    fetchData()
+    form.reset({
+      product_id: 0,
+      supplier_id: 0,
+      quantity: 1,
+      purchase_price: 0,
+      batch_no: '',
+      manufacturer: '',
+      date_manufactured: '',
+      transaction_date: '',
+      expiration_date: ''
+    })
   }, [form, isOpen])
 
   const onSubmit = async (data: FormType) => {
@@ -103,12 +130,14 @@ export const AddStockModal = ({
     try {
       const newStock = {
         ...data,
+        remaining_quantity: data.quantity,
         type: 'in',
         inventory_type: 'stock',
+        branch_id: selectedBranchId,
+        org_id: process.env.NEXT_PUBLIC_ORG_ID,
         transaction_date: data.transaction_date || null,
         expiration_date: data.expiration_date || null,
-        branch_id: selectedBranchId,
-        org_id: process.env.NEXT_PUBLIC_ORG_ID
+        date_manufactured: data.date_manufactured || null
       }
 
       const { data: inserted, error } = await supabase
@@ -119,14 +148,15 @@ export const AddStockModal = ({
       if (error) throw new Error(error.message)
 
       const product = products.find((p) => p.id === newStock.product_id)
+      const supplier = suppliers.find((s) => s.id === newStock.supplier_id)
 
       dispatch(
         addItem({
           ...inserted[0],
-          product
+          product,
+          supplier
         })
       )
-      // dispatch(addItem(inserted[0]))
 
       toast.success('Stock added successfully!')
       onClose()
@@ -147,7 +177,7 @@ export const AddStockModal = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <DialogPanel className="app__modal_dialog_panel_sm">
           <div className="app__modal_dialog_title_container">
-            <DialogTitle className="text-base font-medium">
+            <DialogTitle as="h3" className="text-base font-medium">
               Add Stock
             </DialogTitle>
           </div>
@@ -155,34 +185,36 @@ export const AddStockModal = ({
           <div className="app__modal_dialog_content">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
-                <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* PRODUCT */}
                   <FormField
                     control={form.control}
                     name="product_id"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
+                      <FormItem>
                         <FormLabel>Product / Item</FormLabel>
-                        <Popover open={open} onOpenChange={setOpen}>
+                        <Popover
+                          open={productOpen}
+                          onOpenChange={setProductOpen}
+                        >
                           <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  'w-[250px] justify-between',
-                                  !field.value && 'text-muted-foreground'
-                                )}
-                                onClick={() => setOpen(true)} // ensure it opens
-                              >
-                                {field.value
-                                  ? products.find((p) => p.id === field.value)
-                                      ?.name
-                                  : 'Select product/item'}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                'w-full justify-between',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                              onClick={() => setProductOpen(true)}
+                            >
+                              {field.value
+                                ? products.find((p) => p.id === field.value)
+                                    ?.name
+                                : 'Select product/item'}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[250px] p-0">
+                          <PopoverContent className="w-full p-0">
                             <Command>
                               <CommandInput placeholder="Search product..." />
                               <CommandList>
@@ -194,7 +226,7 @@ export const AddStockModal = ({
                                       value={p.name}
                                       onSelect={() => {
                                         form.setValue('product_id', p.id)
-                                        setOpen(false) // <-- close dropdown after select
+                                        setProductOpen(false)
                                       }}
                                     >
                                       <Check
@@ -218,6 +250,71 @@ export const AddStockModal = ({
                     )}
                   />
 
+                  {/* SUPPLIER */}
+                  <FormField
+                    control={form.control}
+                    name="supplier_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier</FormLabel>
+                        <Popover
+                          open={supplierOpen}
+                          onOpenChange={setSupplierOpen}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                'w-full justify-between',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                              onClick={() => setSupplierOpen(true)}
+                            >
+                              {field.value
+                                ? suppliers.find((s) => s.id === field.value)
+                                    ?.name
+                                : 'Select supplier'}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-full p-0">
+                            <Command>
+                              <CommandInput placeholder="Search supplier..." />
+                              <CommandList>
+                                <CommandEmpty>No supplier found.</CommandEmpty>
+                                <CommandGroup>
+                                  {suppliers.map((s) => (
+                                    <CommandItem
+                                      key={s.id}
+                                      value={s.name}
+                                      onSelect={() => {
+                                        form.setValue('supplier_id', s.id)
+                                        setSupplierOpen(false)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          'mr-2 h-4 w-4',
+                                          s.id === field.value
+                                            ? 'opacity-100'
+                                            : 'opacity-0'
+                                        )}
+                                      />
+                                      {s.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* QUANTITY */}
                   <FormField
                     control={form.control}
                     name="quantity"
@@ -232,12 +329,58 @@ export const AddStockModal = ({
                     )}
                   />
 
+                  {/* PURCHASE PRICE */}
                   <FormField
                     control={form.control}
-                    name="expiration_date"
+                    name="purchase_price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Expiration Date (optional)</FormLabel>
+                        <FormLabel>Purchase Price</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} step="any" min={0} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* BATCH NO */}
+                  <FormField
+                    control={form.control}
+                    name="batch_no"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Batch No (optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Batch number" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* MANUFACTURER */}
+                  <FormField
+                    control={form.control}
+                    name="manufacturer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manufacturer (optional)</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Manufacturer name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* DATE MANUFACTURED */}
+                  <FormField
+                    control={form.control}
+                    name="date_manufactured"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Date Manufactured (optional)</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -246,7 +389,7 @@ export const AddStockModal = ({
                     )}
                   />
 
-                  {/*  DATE */}
+                  {/* DATE RECEIVED */}
                   <FormField
                     control={form.control}
                     name="transaction_date"
@@ -264,9 +407,24 @@ export const AddStockModal = ({
                       </FormItem>
                     )}
                   />
+
+                  {/* EXPIRATION DATE */}
+                  <FormField
+                    control={form.control}
+                    name="expiration_date"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Expiration Date (optional)</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
-                <div className="app__modal_dialog_footer">
+                <div className="app__modal_dialog_footer mt-4 flex justify-end gap-2">
                   <Button type="button" onClick={onClose} variant="outline">
                     Cancel
                   </Button>

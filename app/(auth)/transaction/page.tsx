@@ -113,37 +113,26 @@ export default function CreateTransactionPage() {
     }
 
     try {
-      // 1️⃣ Create transaction
+      // 1️⃣ Create transaction number
       const todayPrefix = new Date()
         .toISOString()
         .slice(0, 10)
-        .replace(/-/g, '') // e.g. "20251108"
-      const transactionPrefix = todayPrefix // "20251108"
-
-      // ✅ Fetch last transaction_number for today
+        .replace(/-/g, '')
       const { data: lastTransaction } = await supabase
         .from('transactions')
         .select('transaction_number')
-        .like('transaction_number', `${transactionPrefix}-%`)
+        .like('transaction_number', `${todayPrefix}-%`)
         .order('transaction_number', { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      let nextSequence = 1
+      const nextSequence = lastTransaction?.transaction_number
+        ? parseInt(lastTransaction.transaction_number.split('-')[1], 10) + 1
+        : 1
 
-      if (lastTransaction?.transaction_number) {
-        const lastNum = parseInt(
-          lastTransaction.transaction_number.split('-')[1],
-          10
-        )
-        if (!isNaN(lastNum)) {
-          nextSequence = lastNum + 1
-        }
-      }
+      const transactionNumber = `${todayPrefix}-${nextSequence}`
 
-      const newTransactionNumber = `${transactionPrefix}-${nextSequence}`
-
-      // ✅ Insert new transaction
+      // 2️⃣ Insert transaction
       const { data: transactionData, error: transactionError } = await supabase
         .from('transactions')
         .insert([
@@ -152,7 +141,7 @@ export default function CreateTransactionPage() {
             customer_name:
               customers.find((c) => c.id === data.customer_id)?.name || '',
             customer_id: data.customer_id,
-            transaction_number: newTransactionNumber,
+            transaction_number: transactionNumber,
             payment_type: data.payment_type,
             total_amount: totalAmount,
             gl_number: data.gl_number,
@@ -161,48 +150,70 @@ export default function CreateTransactionPage() {
         ])
         .select()
         .single()
-
       if (transactionError || !transactionData) throw transactionError
 
       const transactionId = transactionData.id
 
-      // 2️⃣ Insert transaction items
-      const transactionItems = cartItems.map((item) => ({
-        ...item,
-        transaction_id: transactionId
-      }))
+      // 3️⃣ Deduct stock FIFO and create transaction_items
+      for (const item of cartItems) {
+        let qtyToDeduct = item.quantity
 
-      const { error: itemsError } = await supabase
-        .from('transaction_items')
-        .insert(transactionItems)
-
-      if (itemsError) throw itemsError
-
-      // 3️⃣ Insert product stocks for products
-      const productStocks = cartItems.map((i) => ({
-        product_id: i.product_id,
-        quantity: i.quantity,
-        type: 'out',
-        inventory_type: 'transaction',
-        transaction_date: new Date(),
-        branch_id: selectedBranchId,
-        org_id: Number(process.env.NEXT_PUBLIC_ORG_ID),
-        transaction_id: transactionId
-      }))
-
-      if (productStocks.length > 0) {
-        const { error: stockError } = await supabase
+        // Fetch available stock for this product, oldest first
+        const { data: availableStocks } = await supabase
           .from('product_stocks')
-          .insert(productStocks)
-        if (stockError) throw stockError
+          .select('*')
+          .eq('product_id', item.product_id)
+          .eq('branch_id', selectedBranchId)
+          .gt('remaining_quantity', 0)
+          .order('date_manufactured', { ascending: true }) // FIFO
+
+        if (!availableStocks || availableStocks.length === 0) {
+          throw new Error(`No stock available for ${item.name}`)
+        }
+
+        for (const stock of availableStocks) {
+          if (qtyToDeduct <= 0) break
+
+          const remaining = stock.remaining_quantity
+          const deductQty = Math.min(remaining, qtyToDeduct)
+
+          // Insert transaction_items with batch info
+          const { error: itemError } = await supabase
+            .from('transaction_items')
+            .insert({
+              transaction_id: transactionId,
+              product_id: item.product_id,
+              batch_no: stock.batch_no,
+              product_stock_id: stock.id, // <-- optional, recommended
+              date_manufactured: stock.date_manufactured,
+              expiration_date: stock.expiration_date,
+              quantity: deductQty,
+              price: item.price,
+              total: deductQty * item.price
+            })
+          if (itemError) throw itemError
+
+          // Update remaining_quantity in product_stocks
+          const { error: stockError } = await supabase
+            .from('product_stocks')
+            .update({ remaining_quantity: remaining - deductQty })
+            .eq('id', stock.id)
+          if (stockError) throw stockError
+
+          qtyToDeduct -= deductQty
+        }
+
+        if (qtyToDeduct > 0) {
+          throw new Error(`Not enough stock for product ${item.name}`)
+        }
       }
 
       toast.success('Transaction completed successfully!')
       setCartItems([])
       form.reset()
     } catch (err) {
-      toast.error(`Transaction failed: ${err}`)
       console.error(err)
+      toast.error(`Transaction failed: ${err}`)
     }
   }
 
@@ -245,25 +256,30 @@ export default function CreateTransactionPage() {
         supabase
           .from('products')
           .select(
-            '*,product_stocks:product_stocks(quantity,type,expiration_date)'
+            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date)'
           )
           .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
       ])
 
       if (c.data) setCustomers(c.data)
       if (p.data) {
-        const formatted = p.data.map((p) => ({
-          ...p,
-          stock_qty:
+        const formatted = p.data.map((p) => {
+          const stock_qty =
             p.product_stocks?.reduce((acc: number, s: ProductStock) => {
               const isNotExpired =
                 !s.expiration_date ||
                 isAfter(parseISO(s.expiration_date), new Date())
               if (!isNotExpired) return acc
 
-              return s.type === 'in' ? acc + s.quantity : acc - s.quantity
+              if (s.type === 'in') return acc + s.remaining_quantity
+              return acc - s.remaining_quantity
             }, 0) || 0
-        }))
+
+          return {
+            ...p,
+            stock_qty
+          }
+        })
 
         setProducts(formatted.filter((p) => p.stock_qty > 0))
       }
@@ -330,7 +346,7 @@ export default function CreateTransactionPage() {
                               <span>No customer found.</span>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="xs"
                                 onClick={() => {
                                   setAddCustomerOpen(true)
                                   setIsAddCustomerOpen(false)
@@ -366,7 +382,7 @@ export default function CreateTransactionPage() {
                             <div className="border-t mt-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="xs"
                                 className="w-full justify-start mt-1"
                                 onClick={() => {
                                   setAddCustomerOpen(true)
