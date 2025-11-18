@@ -1,6 +1,7 @@
 import {
   BarChart,
   Home,
+  List,
   ListChecks,
   ShoppingCart,
   StoreIcon,
@@ -59,6 +60,11 @@ export function AppSidebar() {
       title: 'Stocks in/out',
       url: '/productstocks',
       icon: ListChecks
+    },
+    {
+      title: 'Reports',
+      url: '/reports',
+      icon: List
     }
   ]
 

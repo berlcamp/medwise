@@ -62,7 +62,7 @@ export const List = () => {
           quantity,
           price,
           total,
-          products:products ( name )
+          product:product_id( name )
         )
       `
       )
@@ -231,7 +231,7 @@ export const List = () => {
                       {tx.transaction_items?.map((it: TransactionItem) => (
                         <tr key={it.id} className="border-t">
                           <td className="text-center capitalize">
-                            {it.item_type}
+                            {it.product?.name}
                           </td>
                           <td className="text-right">{it.quantity}</td>
                           <td className="text-right">

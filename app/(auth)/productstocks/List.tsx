@@ -7,10 +7,11 @@ import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock, RootState } from '@/types'
 import { format, isBefore, parseISO } from 'date-fns'
-import { Trash2 } from 'lucide-react'
+import { MinusCircle, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
+import { RemoveStockModal } from './RemoveStockModal'
 
 // view table
 const table = 'product_stocks'
@@ -20,6 +21,7 @@ export const List = () => {
   const list = useSelector((state: RootState) => state.list.value)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
 
   const [selectedItem, setSelectedItem] = useState<ProductStock | null>(null)
 
@@ -114,6 +116,17 @@ export const List = () => {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="text-yellow-500"
+                      onClick={() => {
+                        setSelectedItem(item)
+                        setModalRemoveOpen(true)
+                      }}
+                    >
+                      <MinusCircle className="w-4 h-4" />
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -121,6 +134,12 @@ export const List = () => {
           })}
         </tbody>
       </table>
+
+      <RemoveStockModal
+        isOpen={modalRemoveOpen}
+        onClose={() => setModalRemoveOpen(false)}
+        selectedItem={selectedItem}
+      />
 
       <ConfirmationModal
         isOpen={isModalOpen}

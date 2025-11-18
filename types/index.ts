@@ -361,11 +361,11 @@ export interface Transaction {
   customer_name?: string | null
   total_amount: number
   status: 'completed' | 'pending' | 'returned' | string // extendable for future statuses
-  created_at?: string | null
   branch_id?: number | null
   customer_id?: number | null
   customer?: Customer
   transaction_items: TransactionItem[]
+  created_at: string
 }
 
 export interface TransactionItem {
@@ -373,11 +373,16 @@ export interface TransactionItem {
   transaction_id: number | null
   item_type: 'product' | 'service' | string
   product_id: number | null
+  product?: Product
   service_id: number | null
   unit: string | null
   quantity: number
   price: number
   total: number
+  batch_no: string
+  date_manufactured: string
+  expiration_date: string
+  created_at: string
 
   products?: {
     id: number

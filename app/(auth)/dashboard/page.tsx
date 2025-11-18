@@ -1,195 +1,271 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAppSelector } from '@/lib/redux/hook'
+import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
-import { format } from 'date-fns'
+import { format, startOfMonth, startOfWeek } from 'date-fns'
 import { useEffect, useState } from 'react'
+import { DateRangePicker } from 'react-date-range'
 import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis
 } from 'recharts'
 
-interface Transaction {
+type Range = { startDate: Date; endDate: Date; key: string }
+type TransactionItem = {
+  product: { name: string }
+  quantity: number
+  price: number
+  total: number
+}
+type Transaction = {
   id: number
-  total_amount: number
+  transaction_number: string
   created_at: string
-  customer_name: string | null
+  transaction_items: TransactionItem[]
 }
-
-interface LowStock {
-  category: string
-  name: string
-  product_id: number
+type ProductStock = {
+  id: number
+  product: { name: string; category: string }
+  remaining_quantity: number
   reorder_point: number
-  stock_qty: number
-  unit: string
 }
-export default function DashboardPage() {
-  const [totalSalesToday, setTotalSalesToday] = useState(0)
-  const [totalTransactions, setTotalTransactions] = useState(0)
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
-    []
+
+export default function Page() {
+  const [mode, setMode] = useState<'daily' | 'weekly' | 'monthly' | 'custom'>(
+    'daily'
   )
-  const [lowStockProducts, setLowStockProducts] = useState<LowStock[]>([])
-  const [salesData, setSalesData] = useState<any[]>([])
+  const [range, setRange] = useState<Range[]>([
+    { startDate: new Date(), endDate: new Date(), key: 'selection' }
+  ])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [chartData, setChartData] = useState<any[]>([])
+  const [topProducts, setTopProducts] = useState<any[]>([])
+  const [lowStock, setLowStock] = useState<ProductStock[]>([])
 
-  const selectedBranchId = useAppSelector(
-    (state) => state.branch.selectedBranchId
-  )
+  const loadDashboard = async () => {
+    const today = new Date()
+    let start: Date, end: Date
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const today = format(new Date(), 'yyyy-MM-dd')
-
-      // 1️⃣ Total sales today
-      const { data: salesToday } = await supabase
-        .from('transactions')
-        .select('total_amount')
-        .eq('branch_id', selectedBranchId)
-        .gte('created_at', today)
-      setTotalSalesToday(
-        salesToday?.reduce((acc, t: any) => acc + Number(t.total_amount), 0) ||
-          0
-      )
-
-      // 2️⃣ Total transactions
-      const { count } = await supabase
-        .from('transactions')
-        .select('*', { count: 'exact', head: true })
-        .eq('branch_id', selectedBranchId)
-      setTotalTransactions(count || 0)
-
-      // 3️⃣ Recent transactions
-      const { data: recent } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('branch_id', selectedBranchId)
-        .order('created_at', { ascending: false })
-        .limit(5)
-      setRecentTransactions(recent || [])
-
-      // Fetch all product stocks for this branch with product info
-      const { data: lowStock } = await supabase.rpc('get_low_stock', {
-        branch: selectedBranchId
-      })
-      setLowStockProducts(lowStock || [])
-
-      // 5️⃣ Sales over the last 7 days (chart)
-      const { data: last7days } = await supabase
-        .from('transactions')
-        .select('total_amount, created_at')
-        .eq('branch_id', selectedBranchId)
-        .gte(
-          'created_at',
-          format(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
-        ) // 7 days
-      const grouped: Record<string, number> = {}
-      last7days?.forEach((t: any) => {
-        const date = format(new Date(t.created_at), 'yyyy-MM-dd')
-        grouped[date] = (grouped[date] || 0) + Number(t.total_amount)
-      })
-      const chartData = Array.from({ length: 7 })
-        .map((_, i) => {
-          const date = format(
-            new Date(Date.now() - i * 24 * 60 * 60 * 1000),
-            'yyyy-MM-dd'
-          )
-          return { date, total: grouped[date] || 0 }
-        })
-        .reverse()
-      setSalesData(chartData)
+    switch (mode) {
+      case 'daily':
+        start = today
+        end = today
+        break
+      case 'weekly':
+        start = startOfWeek(today, { weekStartsOn: 1 })
+        end = today
+        break
+      case 'monthly':
+        start = startOfMonth(today)
+        end = today
+        break
+      case 'custom':
+        start = range[0].startDate
+        end = range[0].endDate
+        break
+      default:
+        start = today
+        end = today
     }
 
-    fetchData()
-  }, [selectedBranchId])
+    // Fetch transactions
+    const { data: txData } = await supabase
+      .from('transactions')
+      .select(
+        `id,transaction_number,created_at,transaction_items:transaction_items(*, product:product_id(name))`
+      )
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString())
+      .order('created_at', { ascending: true })
+
+    setTransactions(txData || [])
+
+    // Chart: sales per day
+    const chartMap: Record<string, number> = {}
+    txData?.forEach((t) => {
+      const day = format(new Date(t.created_at), 'yyyy-MM-dd')
+      const total = t.transaction_items.reduce((acc, i) => acc + i.total, 0)
+      chartMap[day] = (chartMap[day] || 0) + total
+    })
+    setChartData(
+      Object.entries(chartMap).map(([date, total]) => ({ date, total }))
+    )
+
+    // Top selling products
+    const productMap: Record<string, number> = {}
+    txData?.forEach((t) => {
+      t.transaction_items.forEach((i) => {
+        const name = i.product?.name || 'Unknown'
+        productMap[name] = (productMap[name] || 0) + i.quantity
+      })
+    })
+    setTopProducts(
+      Object.entries(productMap)
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5)
+    )
+
+    // Low stock products
+    const { data: products } = await supabase
+      .from('products')
+      .select(
+        '*, product_stocks:product_stocks(remaining_quantity,reorder_point)'
+      )
+      .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+
+    const formattedLowStock = (products || [])
+      .map((p: any) => ({
+        id: p.id,
+        product: { name: p.name, category: p.category },
+        remaining_quantity: p.product_stocks?.reduce(
+          (acc: number, s: any) => acc + (s.remaining_quantity || 0),
+          0
+        ),
+        reorder_point: p.product_stocks?.[0]?.reorder_point || 0
+      }))
+      .filter((p) => p.remaining_quantity <= p.reorder_point)
+    setLowStock(formattedLowStock)
+  }
+
+  useEffect(() => {
+    loadDashboard()
+  }, [mode, range])
+
+  // Summaries
+  const totalSales = transactions.reduce(
+    (acc, t) => acc + t.transaction_items.reduce((sum, i) => sum + i.total, 0),
+    0
+  )
+  const totalTransactions = transactions.length
+  const totalProductsSold = transactions.reduce(
+    (acc, t) =>
+      acc + t.transaction_items.reduce((sum, i) => sum + i.quantity, 0),
+    0
+  )
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <h2 className="text-2xl font-bold">POS Dashboard</h2>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Sales Today</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="text-xl font-semibold">
-              ₱{totalSalesToday.toFixed(2)}
-            </span>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Transactions</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <span className="text-xl font-semibold">{totalTransactions}</span>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Low Stock Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {lowStockProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                All stocks sufficient
-              </p>
-            ) : (
-              <ul className="space-y-1">
-                {lowStockProducts.map((p, idx) => (
-                  <li key={idx} className="text-sm">
-                    {p.name} ({p.stock_qty} {p.unit})
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      {/* FILTERS */}
+      <div className="flex gap-3 items-center mb-4">
+        <select
+          className="border border-gray-400 px-2 py-1 rounded text-xs"
+          value={mode}
+          onChange={(e) => setMode(e.target.value as any)}
+        >
+          <option value="daily">Today</option>
+          <option value="weekly">This Week</option>
+          <option value="monthly">This Month</option>
+          <option value="custom">Custom Range</option>
+        </select>
+        <Button onClick={loadDashboard} variant="blue" size="sm">
+          Generate Data
+        </Button>
       </div>
 
-      {/* Sales Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sales Last 7 Days</CardTitle>
-        </CardHeader>
-        <CardContent className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={salesData}>
-              <CartesianGrid strokeDasharray="3 3" />
+      {mode === 'custom' && (
+        <div className="border p-3 rounded inline-block mb-4">
+          <DateRangePicker
+            onChange={(item) =>
+              setRange([
+                {
+                  startDate: item.selection.startDate ?? new Date(),
+                  endDate: item.selection.endDate ?? new Date(),
+                  key: 'selection'
+                }
+              ])
+            }
+            moveRangeOnFirstSelection={false}
+            ranges={range}
+          />
+        </div>
+      )}
+
+      {/* SUMMARY CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white shadow rounded p-4">
+          <div className="text-xs text-gray-500">Total Sales</div>
+          <div className="text-xl font-bold">${totalSales.toFixed(2)}</div>
+        </div>
+        <div className="bg-white shadow rounded p-4">
+          <div className="text-xs text-gray-500">Total Transactions</div>
+          <div className="text-xl font-bold">{totalTransactions}</div>
+        </div>
+        <div className="bg-white shadow rounded p-4">
+          <div className="text-xs text-gray-500">Total Products Sold</div>
+          <div className="text-xl font-bold">{totalProductsSold}</div>
+        </div>
+        <div className="bg-white shadow rounded p-4">
+          <div className="text-xs text-gray-500">Low Stock Products</div>
+          <div className="text-xl font-bold">{lowStock.length}</div>
+        </div>
+      </div>
+
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white shadow rounded p-4">
+          <h3 className="font-semibold mb-2">Sales Performance</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={chartData}>
+              <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="total" fill="#3b82f6" />
+              <Line type="monotone" dataKey="total" stroke="#3b82f6" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white shadow rounded p-4">
+          <h3 className="font-semibold mb-2">Top Selling Products</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={topProducts}>
+              <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="qty" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Recent Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="divide-y divide-gray-200">
-            {recentTransactions.map((t) => (
-              <li key={t.id} className="py-2 flex justify-between">
-                <span>{t.customer_name || 'Guest'}</span>
-                <span>₱{t.total_amount.toFixed(2)}</span>
-              </li>
+      {/* LOW STOCK TABLE */}
+      <div className="bg-white shadow rounded p-4 overflow-x-auto">
+        <h3 className="font-semibold mb-2">Low Stock Products</h3>
+        <table className="w-full text-sm border">
+          <thead>
+            <tr className="border-b bg-gray-100">
+              <th className="p-2">Product</th>
+              <th className="p-2">Category</th>
+              <th className="p-2">Remaining Qty</th>
+              <th className="p-2">Reorder Point</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lowStock.map((p) => (
+              <tr key={p.id} className="border-b">
+                <td className="p-2">{p.product.name}</td>
+                <td className="p-2">{p.product.category}</td>
+                <td className="p-2">{p.remaining_quantity}</td>
+                <td className="p-2">{p.reorder_point}</td>
+              </tr>
             ))}
-          </ul>
-        </CardContent>
-      </Card>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
