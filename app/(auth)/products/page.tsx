@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock } from '@/types'
+import { isAfter, isBefore, isEqual, startOfToday } from 'date-fns'
 import { useEffect, useState } from 'react'
 import { AddModal } from './AddModal'
 import { Filter } from './Filter'
@@ -64,21 +65,26 @@ export default function Page() {
           const stocks = (p.product_stocks as ProductStock[]) || []
 
           // Define today's date (ignore time for safety)
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
+          const today = startOfToday()
 
-          // Separate valid (not expired) and expired stocks
-          const validStocks = stocks.filter(
-            (s) =>
-              s.branch_id === selectedBranchId &&
-              (!s.expiration_date || new Date(s.expiration_date) > today)
-          )
-          const expiredStocks = stocks.filter(
-            (s) =>
-              s.branch_id === selectedBranchId &&
-              s.expiration_date &&
-              new Date(s.expiration_date) <= today
-          )
+          const validStocks = stocks.filter((s) => {
+            if (s.branch_id !== selectedBranchId) return false
+
+            // If no expiration date → treat as valid
+            if (!s.expiration_date) return true
+
+            const exp = new Date(s.expiration_date)
+            return isAfter(exp, today) // exp > today
+          })
+
+          const expiredStocks = stocks.filter((s) => {
+            if (s.branch_id !== selectedBranchId) return false
+
+            if (!s.expiration_date) return false
+
+            const exp = new Date(s.expiration_date)
+            return isBefore(exp, today) || isEqual(exp, today) // exp <= today
+          })
 
           // Compute total quantity (excluding expired)
           const stock_qty = validStocks.reduce(
@@ -97,7 +103,7 @@ export default function Page() {
 
           return { ...p, stock_qty, total_expired }
         })
-
+        console.log('formatted', formatted)
         dispatch(addList(formatted || []))
         setTotalCount(count || 0)
       }

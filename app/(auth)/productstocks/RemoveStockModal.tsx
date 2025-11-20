@@ -34,7 +34,7 @@ type RemoveStockModalProps = {
 
 type RemoveStockFormType = {
   remove_quantity: number
-  reason: 'damage' | 'missing' | 'transfer'
+  reason: 'damage' | 'missing' | 'expired' | 'transfer'
   transfer_branch?: number
   remarks?: string
 }
@@ -186,6 +186,7 @@ export const RemoveStockModal = ({
                               <SelectValue placeholder="Select reason" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="expired">Expired</SelectItem>
                               <SelectItem value="damage">Damage</SelectItem>
                               <SelectItem value="missing">Missing</SelectItem>
                               <SelectItem value="transfer">

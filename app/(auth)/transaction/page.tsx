@@ -1,5 +1,4 @@
 'use client'
-
 import { AddModal as AddCustomerModal } from '@/app/(auth)/customers/AddModal'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { Button } from '@/components/ui/button'
@@ -45,8 +44,9 @@ import { supabase } from '@/lib/supabase/client'
 import { cn, formatMoney } from '@/lib/utils'
 import { Customer, Product, ProductStock } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { isAfter, parseISO } from 'date-fns'
+import { isAfter, parseISO, startOfToday } from 'date-fns'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -75,6 +75,9 @@ const FormSchema = z.object({
 type FormType = z.infer<typeof FormSchema>
 
 export default function CreateTransactionPage() {
+  //
+  const router = useRouter()
+
   const form = useForm<FormType>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
@@ -211,6 +214,10 @@ export default function CreateTransactionPage() {
       toast.success('Transaction completed successfully!')
       setCartItems([])
       form.reset()
+
+      setTimeout(() => {
+        router.push('/transactions')
+      }, 100) // 100ms delay ensures toast shows before redirect
     } catch (err) {
       console.error(err)
       toast.error(`Transaction failed: ${err}`)
@@ -262,26 +269,34 @@ export default function CreateTransactionPage() {
       ])
 
       if (c.data) setCustomers(c.data)
+
       if (p.data) {
-        const formatted = p.data.map((p) => {
+        const today = startOfToday()
+
+        const formatted = p.data.map((product) => {
           const stock_qty =
-            p.product_stocks?.reduce((acc: number, s: ProductStock) => {
-              const isNotExpired =
-                !s.expiration_date ||
-                isAfter(parseISO(s.expiration_date), new Date())
+            product.product_stocks?.reduce((acc: number, s: ProductStock) => {
+              // Parse expiration
+              const exp = s.expiration_date ? parseISO(s.expiration_date) : null
+
+              // Valid if no expiration OR expiration is after today
+              const isNotExpired = !exp || isAfter(exp, today)
               if (!isNotExpired) return acc
 
-              if (s.type === 'in') return acc + s.remaining_quantity
-              return acc - s.remaining_quantity
-            }, 0) || 0
+              // Add or subtract quantity depending on type
+              return s.type === 'in'
+                ? acc + s.remaining_quantity
+                : acc - s.remaining_quantity
+            }, 0) ?? 0
 
           return {
-            ...p,
+            ...product,
             stock_qty
           }
         })
 
-        setProducts(formatted.filter((p) => p.stock_qty > 0))
+        // Only include products with a positive stock quantity
+        setProducts(formatted.filter((item) => item.stock_qty > 0))
       }
     }
     fetchData()

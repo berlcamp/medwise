@@ -165,4 +165,25 @@
   .app__content {
     @apply bg-white p-2 pb-8 rounded-sm;
   }
+
+  /* HIDE EVERYTHING on print */
+  @media print {
+    body * {
+      visibility: hidden !important;
+    }
+
+    /* SHOW ONLY the invoice print area */
+    #invoice-print-area,
+    #invoice-print-area * {
+      visibility: visible !important;
+    }
+
+    /* Position the printed invoice at top-left */
+    #invoice-print-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+    }
+  }
 }
