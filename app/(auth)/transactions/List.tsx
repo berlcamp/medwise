@@ -103,16 +103,16 @@ export const List = () => {
                   }}
                 />
               </td>
-              <td className="app__td text-center">
+              <td className="app__td text-center space-x-2">
                 <Button
-                  variant="outline"
+                  variant="blue"
                   size="xs"
                   onClick={() => printInvoice(item)}
                 >
                   Print Invoice
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="blue"
                   size="xs"
                   className=""
                   onClick={() => handleView(item)}

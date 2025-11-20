@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
+import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 
 interface Props {
@@ -70,6 +71,7 @@ export const PaymentStatusDropdown = ({ transaction, onUpdated }: Props) => {
             {status === 'Partial'
               ? `Partial: ₱${Number(partialAmount).toLocaleString()}`
               : status}
+            <ChevronDown />
           </Button>
         </DropdownMenuTrigger>
 
