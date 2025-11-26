@@ -178,8 +178,19 @@
       visibility: visible !important;
     }
 
+    #delivery-print-area,
+    #delivery-print-area * {
+      visibility: visible !important;
+    }
+
     /* Position the printed invoice at top-left */
     #invoice-print-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+    }
+    #delivery-print-area {
       position: absolute;
       top: 0;
       left: 0;

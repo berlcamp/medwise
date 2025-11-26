@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
+import { DeliveryReceiptPrint } from '@/components/printables/DeliveryReceiptPrint'
 import { InvoicePrint } from '@/components/printables/InvoicePrint'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase/client'
@@ -19,6 +20,7 @@ export const List = () => {
 
   // ⭐ Print state
   const [printData, setPrintData] = useState<any>(null)
+  const [printDeliveryData, setPrintDeliveryData] = useState<any>(null)
 
   const handleView = (item: Transaction) => {
     setSelectedItem(item)
@@ -38,6 +40,26 @@ export const List = () => {
     }
 
     setPrintData({ transaction: item, items })
+
+    // Allow render & print
+    setTimeout(() => {
+      window.print()
+    }, 150)
+  }
+
+  // ⭐ Fetch transaction items + trigger print
+  const printDeliveryReceipt = async (item: Transaction) => {
+    const { data: items, error } = await supabase
+      .from('transaction_items')
+      .select(`*, product:product_id(name)`)
+      .eq('transaction_id', item.id)
+
+    if (error) {
+      console.error(error)
+      return
+    }
+
+    setPrintDeliveryData({ transaction: item, items })
 
     // Allow render & print
     setTimeout(() => {
@@ -117,7 +139,7 @@ export const List = () => {
                 <Button
                   variant="blue"
                   size="xs"
-                  onClick={() => printInvoice(item)}
+                  onClick={() => printDeliveryReceipt(item)}
                 >
                   Delivery Receipt
                 </Button>
@@ -152,6 +174,7 @@ export const List = () => {
 
       {/* ⭐ PRINT COMPONENT — invisible, but used by window.print() */}
       <InvoicePrint data={printData} />
+      <DeliveryReceiptPrint data={printDeliveryData} />
     </div>
   )
 }
