@@ -22,6 +22,8 @@ export default function SalesReport() {
     }
   ])
 
+  const [txnType, setTxnType] = useState('All') // All, Retail, Bulk
+
   const [mode, setMode] = useState('daily') // daily / weekly / monthly / custom
   const [loading, setLoading] = useState(false)
   const [reportData, setReportData] = useState<Transaction[]>([])
@@ -59,18 +61,22 @@ export default function SalesReport() {
     const start = range[0].startDate.toISOString().split('T')[0]
     const end = range[0].endDate.toISOString().split('T')[0]
 
-    // Fetch sales + items in range
-    const { data, error } = await supabase
+    let query = supabase
       .from('transactions')
       .select(
         `*,
-        transaction_items (*,product:product_id(name)
-        )
-      `
+      transaction_items (*, product:product_id(name))`
       )
       .gte('created_at', `${start} 00:00:00`)
       .lte('created_at', `${end} 23:59:59`)
       .order('created_at', { ascending: false })
+
+    // 🔥 Apply transaction type filter
+    if (txnType !== 'All') {
+      query = query.eq('transaction_type', txnType)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error(error)
@@ -119,7 +125,7 @@ export default function SalesReport() {
 
   useEffect(() => {
     loadSales()
-  }, [])
+  }, [txnType])
 
   return (
     <div className="mt-4 space-y-4">
@@ -136,6 +142,17 @@ export default function SalesReport() {
           <option value="custom">Custom Range</option>
         </select>
 
+        {/* Transaction Type Filter */}
+        <select
+          className="border px-2 py-1 rounded text-xs"
+          value={txnType}
+          onChange={(e) => setTxnType(e.target.value)}
+        >
+          <option value="All">All Transactions</option>
+          <option value="retail">Retail</option>
+          <option value="bulk">Bulk</option>
+        </select>
+
         {reportData.length > 0 && (
           <Button
             onClick={downloadExcel}
@@ -147,6 +164,7 @@ export default function SalesReport() {
           </Button>
         )}
       </div>
+
       <div>
         <Button onClick={loadSales} variant="blue" size="sm">
           Generate Report

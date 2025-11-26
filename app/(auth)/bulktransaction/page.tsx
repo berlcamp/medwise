@@ -145,6 +145,7 @@ export default function CreateTransactionPage() {
               customers.find((c) => c.id === data.customer_id)?.name || '',
             customer_id: data.customer_id,
             transaction_number: transactionNumber,
+            transaction_type: 'bulk',
             payment_type: data.payment_type,
             total_amount: totalAmount,
             gl_number: data.gl_number,
@@ -216,7 +217,7 @@ export default function CreateTransactionPage() {
       form.reset()
 
       setTimeout(() => {
-        router.push('/transactions')
+        router.push('/bulktransactions')
       }, 100) // 100ms delay ensures toast shows before redirect
     } catch (err) {
       console.error(err)
@@ -312,7 +313,7 @@ export default function CreateTransactionPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">New Transaction [Retail]</h1>
+      <h1 className="text-2xl font-bold mb-4">New Transaction [Bulk]</h1>
 
       <Form {...form}>
         <form

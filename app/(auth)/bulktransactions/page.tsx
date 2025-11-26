@@ -36,7 +36,7 @@ export default function Page() {
       let query = supabase
         .from('transactions')
         .select('*, customer:customer_id(name)', { count: 'exact' })
-        .eq('transaction_type', 'retail')
+        .eq('transaction_type', 'bulk')
         .eq('branch_id', selectedBranchId)
         .ilike('transaction_number', `%${filter.transaction_number}%`)
 
@@ -70,8 +70,9 @@ export default function Page() {
   return (
     <div>
       <div className="app__title">
-        <h1 className="text-3xl font-normal">Retail Transactions</h1>
-        <Link href="/transaction">
+        <h1 className="text-3xl font-normal">Bulk Transactions</h1>
+
+        <Link href="/bulktransaction">
           <Button variant="green" className="ml-auto" size="sm">
             + New Transaction
           </Button>

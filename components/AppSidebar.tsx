@@ -39,8 +39,13 @@ export function AppSidebar() {
       icon: BarChart
     },
     {
-      title: 'Transactions',
+      title: 'Retail Transactions',
       url: '/transactions',
+      icon: ShoppingCart
+    },
+    {
+      title: 'Bulk Transactions',
+      url: '/bulktransactions',
       icon: ShoppingCart
     },
     {

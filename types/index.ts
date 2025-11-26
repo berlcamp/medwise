@@ -354,6 +354,8 @@ export interface Transaction {
   org_id: number
   reference_number: string
   payment_status: string
+  delivery_status: string
+  transaction_type: string
   partial_amount: string
   transaction_number: string
   gl_number: string

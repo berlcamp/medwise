@@ -142,7 +142,7 @@ export const RemoveStockModal = ({
         <DialogPanel className="app__modal_dialog_panel_sm">
           <div className="app__modal_dialog_title_container">
             <DialogTitle as="h3" className="text-base font-medium">
-              Add Stock
+              Remove Stock
             </DialogTitle>
           </div>
 
