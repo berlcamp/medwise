@@ -5,7 +5,8 @@ import {
   ListChecks,
   ShoppingCart,
   StoreIcon,
-  User
+  User,
+  Users2
 } from 'lucide-react'
 
 import {
@@ -47,6 +48,11 @@ export function AppSidebar() {
       title: 'Bulk Transactions',
       url: '/bulktransactions',
       icon: ShoppingCart
+    },
+    {
+      title: 'Consignments',
+      url: '/consignments',
+      icon: Users2
     },
     {
       title: 'Customers',

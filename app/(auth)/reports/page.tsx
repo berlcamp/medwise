@@ -24,7 +24,7 @@ export default function ReportsPage() {
               <TabsTrigger value="sales">Sales</TabsTrigger>
               <TabsTrigger value="profit">Profit</TabsTrigger>
               <TabsTrigger value="expiry">Expiry</TabsTrigger>
-              <TabsTrigger value="stockcard">Stock Card</TabsTrigger>
+              <TabsTrigger value="stockcard">Stocks Out</TabsTrigger>
             </TabsList>
 
             <TabsContent value="inventory">

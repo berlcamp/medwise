@@ -2,7 +2,9 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { useAppSelector } from '@/lib/redux/hook'
 import { supabase } from '@/lib/supabase/client'
+import { formatMoney } from '@/lib/utils'
 import { format, startOfMonth, startOfWeek } from 'date-fns'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
@@ -51,6 +53,10 @@ export default function Page() {
   const [topProducts, setTopProducts] = useState<any[]>([])
   const [lowStock, setLowStock] = useState<ProductStock[]>([])
 
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId
+  )
+
   const loadDashboard = async () => {
     const today = new Date()
     let start: Date, end: Date
@@ -77,14 +83,20 @@ export default function Page() {
         end = today
     }
 
+    const startDateObj = new Date(start)
+    startDateObj.setHours(0, 0, 0, 0)
+
+    const endDateObj = new Date(end)
+    endDateObj.setHours(23, 59, 59, 999)
+
     // Fetch transactions
     const { data: txData } = await supabase
       .from('transactions')
       .select(
         `id,transaction_number,created_at,transaction_items:transaction_items(*, product:product_id(name))`
       )
-      .gte('created_at', start.toISOString())
-      .lte('created_at', end.toISOString())
+      .gte('created_at', startDateObj.toISOString())
+      .lte('created_at', endDateObj.toISOString())
       .order('created_at', { ascending: true })
 
     setTransactions(txData || [])
@@ -116,25 +128,41 @@ export default function Page() {
     )
 
     // Low stock products
-    const { data: products } = await supabase
-      .from('products')
-      .select(
-        '*, product_stocks:product_stocks(remaining_quantity,reorder_point)'
-      )
-      .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+    const { error, data: products } = await supabase.from('products').select(
+      `
+    *,
+    product_stocks:product_stocks(remaining_quantity, branch_id)
+  `
+    )
+    if (error) {
+      console.error('error x', error)
+    }
 
-    const formattedLowStock = (products || [])
-      .map((p: any) => ({
-        id: p.id,
-        product: { name: p.name, category: p.category },
-        remaining_quantity: p.product_stocks?.reduce(
+    const lowStock = (products || [])
+      .map((p: any) => {
+        // Filter only stocks for the selected branch
+        const branchStocks =
+          p.product_stocks?.filter(
+            (s: any) => s.branch_id === selectedBranchId
+          ) || []
+
+        // Sum remaining quantities
+        const totalRemaining = branchStocks.reduce(
           (acc: number, s: any) => acc + (s.remaining_quantity || 0),
           0
-        ),
-        reorder_point: p.product_stocks?.[0]?.reorder_point || 0
-      }))
+        )
+
+        return {
+          id: p.id,
+          product: { name: p.name, category: p.category },
+          remaining_quantity: totalRemaining,
+          reorder_point: p.reorder_point // global threshold
+        }
+      })
+      // Only include low-stock products
       .filter((p) => p.remaining_quantity <= p.reorder_point)
-    setLowStock(formattedLowStock)
+
+    setLowStock(lowStock)
   }
 
   useEffect(() => {
@@ -196,7 +224,7 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white shadow rounded p-4">
           <div className="text-xs text-gray-500">Total Sales</div>
-          <div className="text-xl font-bold">${totalSales.toFixed(2)}</div>
+          <div className="text-xl font-bold">{formatMoney(totalSales)}</div>
         </div>
         <div className="bg-white shadow rounded p-4">
           <div className="text-xs text-gray-500">Total Transactions</div>

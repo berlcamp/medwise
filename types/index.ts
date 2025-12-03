@@ -267,7 +267,9 @@ export interface ProductStock {
   type: string
   inventory_type: string
   quantity: number
+  reorder_point: number
   remaining_quantity: number
+  consigned_quantity: number
   remarks: string
   created_at: string
   purchase_price: number

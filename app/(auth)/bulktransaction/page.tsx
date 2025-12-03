@@ -539,6 +539,10 @@ export default function CreateTransactionPage() {
                         <Input
                           type="number"
                           min={1}
+                          max={
+                            products.find((p) => p.id === item.product_id)
+                              ?.stock_qty
+                          }
                           value={item.quantity}
                           onChange={(e) =>
                             updateCartItemQuantity(idx, Number(e.target.value))

@@ -20,6 +20,7 @@ import Avatar from 'react-avatar'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { AddModal } from './AddModal'
+import PrintSOAButton from './PrintSOAButton'
 
 type ItemType = Customer
 const table = 'customers'
@@ -150,6 +151,8 @@ export const List = () => {
                   >
                     View Transactions
                   </Button>
+                  {/* ⭐ ADD PRINT SOA BUTTON HERE */}
+                  <PrintSOAButton customer={item} />
                   <Button
                     variant="outline"
                     size="xs"

@@ -145,7 +145,9 @@ export default function CreateTransactionPage() {
               customers.find((c) => c.id === data.customer_id)?.name || '',
             customer_id: data.customer_id,
             transaction_number: transactionNumber,
+            transaction_type: 'consignment',
             payment_type: data.payment_type,
+            payment_status: 'Pending',
             total_amount: totalAmount,
             gl_number: data.gl_number,
             branch_id: selectedBranchId
@@ -199,7 +201,10 @@ export default function CreateTransactionPage() {
           // Update remaining_quantity in product_stocks
           const { error: stockError } = await supabase
             .from('product_stocks')
-            .update({ remaining_quantity: remaining - deductQty })
+            .update({
+              remaining_quantity: remaining - deductQty,
+              consigned_quantity: deductQty
+            })
             .eq('id', stock.id)
           if (stockError) throw stockError
 
@@ -216,7 +221,7 @@ export default function CreateTransactionPage() {
       form.reset()
 
       setTimeout(() => {
-        router.push('/transactions')
+        router.push('/consignments')
       }, 100) // 100ms delay ensures toast shows before redirect
     } catch (err) {
       console.error(err)
@@ -243,6 +248,14 @@ export default function CreateTransactionPage() {
     setCartItems((prev) =>
       prev.map((item, i) =>
         i === idx ? { ...item, quantity: qty, total: item.price * qty } : item
+      )
+    )
+  }
+
+  const updateCartItemPrice = (idx: number, price: number) => {
+    setCartItems((prev) =>
+      prev.map((item, i) =>
+        i === idx ? { ...item, price, total: price * item.quantity } : item
       )
     )
   }
@@ -312,7 +325,7 @@ export default function CreateTransactionPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">New Transaction [Retail]</h1>
+      <h1 className="text-2xl font-bold mb-4">New Consignment</h1>
 
       <Form {...form}>
         <form
@@ -538,11 +551,11 @@ export default function CreateTransactionPage() {
                         <Input
                           type="number"
                           min={1}
+                          value={item.quantity}
                           max={
                             products.find((p) => p.id === item.product_id)
                               ?.stock_qty
                           }
-                          value={item.quantity}
                           onChange={(e) =>
                             updateCartItemQuantity(idx, Number(e.target.value))
                           }
@@ -550,7 +563,19 @@ export default function CreateTransactionPage() {
                         />
                       </div>
                     </TableCell>
-                    <TableCell>{formatMoney(item.price)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={item.price}
+                          onChange={(e) =>
+                            updateCartItemPrice(idx, Number(e.target.value))
+                          }
+                          className="w-20"
+                        />
+                      </div>
+                    </TableCell>
                     <TableCell>{formatMoney(item.total)}</TableCell>
                     <TableCell>
                       <Button
