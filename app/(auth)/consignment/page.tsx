@@ -163,6 +163,9 @@ export default function CreateTransactionPage() {
       for (const item of cartItems) {
         let qtyToDeduct = item.quantity
 
+        // Today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split('T')[0]
+
         // Fetch available stock for this product, oldest first
         const { data: availableStocks } = await supabase
           .from('product_stocks')
@@ -170,6 +173,7 @@ export default function CreateTransactionPage() {
           .eq('product_id', item.product_id)
           .eq('branch_id', selectedBranchId)
           .gt('remaining_quantity', 0)
+          .gte('expiration_date', today) // ❗ Skip expired stocks
           .order('date_manufactured', { ascending: true }) // FIFO
 
         if (!availableStocks || availableStocks.length === 0) {

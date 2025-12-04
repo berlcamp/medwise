@@ -57,7 +57,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
               {format(new Date(transaction.created_at), 'MMM dd, yyyy')}
             </p>
             <p>
-              <b>Reference:</b> {transaction.reference_number || 'N/A'}
+              <b>Terms:</b>
             </p>
           </div>
         </div>
