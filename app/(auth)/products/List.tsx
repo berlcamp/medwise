@@ -81,7 +81,9 @@ export const List = () => {
               </td>
               <td className="app__td text-right">{item.total_expired}</td>
               <td className="app__td">
-                {user?.type === 'super admin' && (
+                {(user?.type === 'super admin' ||
+                  user?.type === 'bulk' ||
+                  user?.type === 'admin') && (
                   <div className="flex items-center justify-center gap-2">
                     <Button
                       variant="outline"

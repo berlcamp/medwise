@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import { TransactionItem } from '@/types'
 import { format } from 'date-fns'
 
 export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
@@ -71,28 +72,40 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
         >
           <thead style={{ display: 'table-header-group' }}>
             <tr className="border-b border-black bg-gray-100">
-              <th className="border-r border-black p-2 text-left">Qty</th>
-              <th className="border-r border-black p-2 text-left">Unit</th>
               <th className="border-r border-black p-2 text-left">
-                Description
+                Item Description/Nature of Service
               </th>
-              <th className="p-2 text-right">Remarks</th>
+              <th className="border-r border-black p-2 text-left">Quantity</th>
+              <th className="border-r border-black p-2 text-left">
+                Unit Cost/Price
+              </th>
+              <th className="border-r border-black p-2 text-left">
+                Lot/Batch No
+              </th>
+              <th className="border-r border-black p-2 text-left">
+                Expiry Date
+              </th>
+              <th className="p-2 text-right">AMOUNT</th>
             </tr>
           </thead>
 
           <tbody>
-            {items.map((it: any) => (
+            {items.map((it: TransactionItem) => (
               <tr
                 key={it.id}
                 className="border-b border-black"
                 style={{ pageBreakInside: 'avoid' }}
               >
-                <td className="border-r border-black p-2">{it.quantity}</td>
-                <td className="border-r border-black p-2">pcs</td>
                 <td className="border-r border-black p-2">
                   {it.product?.name}
                 </td>
-                <td className="p-2 text-right">-</td>
+                <td className="border-r border-black p-2">{it.quantity}</td>
+                <td className="border-r border-black p-2">{it.price}</td>
+                <td className="border-r border-black p-2">{it.batch_no}</td>
+                <td className="border-r border-black p-2">
+                  {it.expiration_date}
+                </td>
+                <td className="p-2 text-right">{it.total}</td>
               </tr>
             ))}
           </tbody>

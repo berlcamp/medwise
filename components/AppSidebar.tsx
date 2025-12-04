@@ -131,7 +131,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {(user?.type === 'admin' || user?.type === 'super admin') && (
+        {(user?.type === 'bulk' ||
+          user?.type === 'admin' ||
+          user?.type === 'super admin') && (
           <>
             <SidebarGroup>
               <SidebarGroupLabel className="border-t rounded-none border-gray-200 text-gray-500">

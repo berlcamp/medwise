@@ -2,7 +2,7 @@
 
 import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { Button } from '@/components/ui/button'
-import { useAppDispatch } from '@/lib/redux/hook'
+import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock, RootState } from '@/types'
@@ -19,6 +19,7 @@ const table = 'product_stocks'
 export const List = () => {
   const dispatch = useAppDispatch()
   const list = useSelector((state: RootState) => state.list.value)
+  const user = useAppSelector((state) => state.user.user)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
@@ -116,17 +117,20 @@ export const List = () => {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="text-yellow-500"
-                      onClick={() => {
-                        setSelectedItem(item)
-                        setModalRemoveOpen(true)
-                      }}
-                    >
-                      <MinusCircle className="w-4 h-4" />
-                    </Button>
+                    {(user?.type === 'super admin' ||
+                      user?.type === 'admin') && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        className="text-yellow-500"
+                        onClick={() => {
+                          setSelectedItem(item)
+                          setModalRemoveOpen(true)
+                        }}
+                      >
+                        <MinusCircle className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>

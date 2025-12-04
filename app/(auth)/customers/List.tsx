@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { useAppDispatch } from '@/lib/redux/hook'
+import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { formatMoney } from '@/lib/utils'
@@ -28,6 +28,7 @@ const table = 'customers'
 export const List = () => {
   const dispatch = useAppDispatch()
   const list = useSelector((state: RootState) => state.list.value)
+  const user = useAppSelector((state) => state.user.user)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalAddOpen, setModalAddOpen] = useState(false)
@@ -152,14 +153,20 @@ export const List = () => {
                     View Transactions
                   </Button>
                   {/* ⭐ ADD PRINT SOA BUTTON HERE */}
-                  <PrintSOAButton customer={item} />
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    onClick={() => handleEdit(item)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+                  {(user?.type === 'super admin' ||
+                    user?.type === 'bulk' ||
+                    user?.type === 'admin') && (
+                    <>
+                      <PrintSOAButton customer={item} />
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => handleEdit(item)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="outline"
                     size="xs"

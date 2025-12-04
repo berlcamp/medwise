@@ -387,7 +387,6 @@ export interface TransactionItem {
   date_manufactured: string
   expiration_date: string
   created_at: string
-
   products?: {
     id: number
     name: string
