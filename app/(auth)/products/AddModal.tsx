@@ -26,7 +26,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { generateSKU } from '@/lib/utils'
-import { Product } from '@/types'
+import { Product, ProductStock } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
@@ -55,7 +55,8 @@ const FormSchema = z.object({
   unit: z.string().min(1, 'Unit is required'),
   prescription_log_book: z.boolean().optional(),
   selling_price: z.coerce.number().min(0, 'Price is required'),
-  reorder_point: z.coerce.number().min(0, 'Reorder level required')
+  reorder_point: z.coerce.number().min(0, 'Reorder level required'),
+  gl_percent: z.coerce.number().min(0, 'GL Percent must be at least 0').max(100, 'GL Percent cannot exceed 100').optional()
 })
 
 type FormType = z.infer<typeof FormSchema>
@@ -82,7 +83,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       unit: '',
       prescription_log_book: false, // ✅ FIXED
       selling_price: 0,
-      reorder_point: 5
+      reorder_point: 5,
+      gl_percent: 0
     }
   })
 
@@ -103,13 +105,58 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       }
 
       if (editData?.id) {
-        const { error } = await supabase
+        const { data: updated, error } = await supabase
           .from(table)
           .update(newData)
           .eq('id', editData.id)
+          .select(
+            `
+            id,
+            name,
+            unit,
+            gl_percent,
+            category,
+            selling_price,
+            product_stocks:product_stocks (branch_id,remaining_quantity, type,expiration_date)
+          `
+          )
 
         if (error) throw new Error(error.message)
-        dispatch(updateList({ ...newData, id: editData.id }))
+
+        // Calculate stock quantities just like in page.tsx
+        const updatedProduct = updated[0]
+        const stocks = (updatedProduct.product_stocks as ProductStock[]) || []
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const validStocks = stocks.filter((s) => {
+          if (s.branch_id !== selectedBranchId) return false
+          if (!s.expiration_date) return true
+          const exp = new Date(s.expiration_date)
+          return exp > today
+        })
+
+        const expiredStocks = stocks.filter((s) => {
+          if (s.branch_id !== selectedBranchId) return false
+          if (!s.expiration_date) return false
+          const exp = new Date(s.expiration_date)
+          return exp <= today
+        })
+
+        const stock_qty = validStocks.reduce(
+          (acc: number, s) =>
+            s.type === 'in'
+              ? acc + s.remaining_quantity
+              : acc - s.remaining_quantity,
+          0
+        )
+
+        const total_expired = expiredStocks.reduce(
+          (acc: number, s) => acc + s.remaining_quantity,
+          0
+        )
+
+        dispatch(updateList({ ...updatedProduct, stock_qty, total_expired }))
         toast.success('Successfully updated!')
       } else {
         const { data: inserted, error } = await supabase
@@ -142,7 +189,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       generic_name: editData?.generic_name || '',
       brand_name: editData?.brand_name || '',
       fda_reg_no: editData?.fda_reg_no || '',
-      dosage: editData?.dosage || ''
+      dosage: editData?.dosage || '',
+      gl_percent: editData?.gl_percent ?? 0
     })
   }, [form, editData, isOpen])
 
@@ -419,6 +467,21 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                             <FormLabel>Reorder Level</FormLabel>
                             <FormControl>
                               <Input {...field} type="number" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* GL Percent */}
+                      <FormField
+                        control={form.control}
+                        name="gl_percent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Additional Price if GL (%)</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="number" step="0.01" max={100} min={0} placeholder="0" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

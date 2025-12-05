@@ -2,22 +2,30 @@
 'use client'
 import { DeliveryReceiptPrint } from '@/components/printables/DeliveryReceiptPrint'
 import { InvoicePrint } from '@/components/printables/InvoicePrint'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase/client'
 import { RootState, Transaction } from '@/types'
 import { format } from 'date-fns'
+import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
 import { useSelector } from 'react-redux'
 import { DeliveryStatusDropdown } from './DeliveryStatusDropdown'
-import { PaymentStatusDropdown } from './PaymentStatusDropdown'
+import { ReceivePaymentModal } from './PaymentStatusDropdown'
 import { TransactionDetailsModal } from './TransactionDetailsModal'
 
 export const List = () => {
   const list = useSelector((state: RootState) => state.list.value)
   const [selectedItem, setSelectedItem] = useState<Transaction | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   // ⭐ Print state
   const [printData, setPrintData] = useState<any>(null)
   const [printDeliveryData, setPrintDeliveryData] = useState<any>(null)
@@ -128,36 +136,52 @@ export const List = () => {
                 />
               </td>
               <td className="app__td text-right space-x-1">
-                <PaymentStatusDropdown
+                {item.payment_status === 'Paid' && (
+                  <Badge variant="green">Paid</Badge>
+                )}
+                {item.payment_status === 'Partial' && (
+                  <Badge variant="orange">Partial</Badge>
+                )}
+                {item.payment_status === 'Unpaid' && (
+                  <Badge variant="orange">Unpaid</Badge>
+                )}
+              </td>
+              <td className="app__td text-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="xs" variant="outline">
+                      Actions
+                      <ChevronDown />
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      onClick={() => printDeliveryReceipt(item)}
+                    >
+                      Print Delivery Receipt
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printInvoice(item)}>
+                      Print Invoice
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsPaymentOpen(true)}>
+                      Manage Payments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleView(item)}>
+                      View Details
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Modal */}
+                <ReceivePaymentModal
                   transaction={item}
+                  isOpen={isPaymentOpen}
+                  onClose={() => setIsPaymentOpen(false)}
                   onUpdated={() => {
-                    // optional: refresh list after update
+                    // Optional: refresh parent list or re-fetch transaction
                   }}
                 />
-              </td>
-              <td className="app__td text-center space-x-1 space-y-1">
-                <Button
-                  variant="blue"
-                  size="xs"
-                  onClick={() => printDeliveryReceipt(item)}
-                >
-                  Delivery Receipt
-                </Button>
-                <Button
-                  variant="blue"
-                  size="xs"
-                  onClick={() => printInvoice(item)}
-                >
-                  Invoice
-                </Button>
-                <Button
-                  variant="blue"
-                  size="xs"
-                  className=""
-                  onClick={() => handleView(item)}
-                >
-                  Details
-                </Button>
               </td>
             </tr>
           ))}

@@ -69,6 +69,13 @@ export const AddModal = ({
   // Submit handler
   const onSubmit = async (data: FormType) => {
     if (isSubmitting) return // 🚫 Prevent double-submit
+    
+    // Validate branch selection
+    if (!selectedBranchId) {
+      toast.error('Please select a branch first')
+      return
+    }
+    
     setIsSubmitting(true)
 
     try {
@@ -119,6 +126,8 @@ export const AddModal = ({
       toast.success('Successfully saved!')
     } catch (err) {
       console.error('Submission error:', err)
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      toast.error(`Failed to save: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }

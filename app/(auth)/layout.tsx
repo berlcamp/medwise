@@ -3,6 +3,7 @@
 import { AppSidebar } from '@/components/AppSidebar'
 import { AuthGuard } from '@/components/AuthGuard'
 import LoadingSkeleton from '@/components/LoadingSkeleton'
+import { NavigationProgress } from '@/components/NavigationProgress'
 import { OfflineDetector } from '@/components/OfflineDetector'
 import StickyHeader from '@/components/StickyHeader'
 import { SidebarProvider } from '@/components/ui/sidebar'
@@ -18,6 +19,9 @@ export default function AuthLayout({
   return (
     <>
       <Toaster />
+      <Suspense fallback={null}>
+        <NavigationProgress />
+      </Suspense>
       <OfflineDetector />
       <Providers>
         <Suspense fallback={<LoadingSkeleton />}>

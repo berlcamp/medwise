@@ -1,8 +1,11 @@
+'use client'
+
 import {
   BarChart,
   Home,
   List,
   ListChecks,
+  Loader2,
   ShoppingCart,
   StoreIcon,
   User,
@@ -22,10 +25,27 @@ import {
 import { useAppSelector } from '@/lib/redux/hook'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import NProgress from 'nprogress'
 
 export function AppSidebar() {
   const user = useAppSelector((state) => state.user.user)
   const pathname = usePathname()
+  const [loadingPath, setLoadingPath] = useState<string | null>(null)
+
+  // Reset loading state when pathname changes
+  useEffect(() => {
+    setLoadingPath(null)
+  }, [pathname])
+
+  const handleLinkClick = (url: string) => {
+    // Don't trigger if already on this page
+    if (pathname === url) return
+    
+    // Start progress bar and set loading state
+    NProgress.start()
+    setLoadingPath(url)
+  }
 
   // Menu items.
   const items = [
@@ -73,6 +93,11 @@ export function AppSidebar() {
       icon: ListChecks
     },
     {
+      title: 'Suppliers',
+      url: '/suppliers',
+      icon: StoreIcon
+    },
+    {
       title: 'Reports',
       url: '/reports',
       icon: List
@@ -90,11 +115,6 @@ export function AppSidebar() {
       url: '/branches',
       icon: Home
     },
-    {
-      title: 'Suppliers',
-      url: '/suppliers',
-      icon: StoreIcon
-    }
   ]
 
   return (
@@ -105,22 +125,28 @@ export function AppSidebar() {
             <SidebarMenu>
               {items.map((item) => {
                 const isActive = pathname === item.url
+                const isLoading = loadingPath === item.url
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <Link
                         href={item.url}
+                        onClick={() => handleLinkClick(item.url)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
                           isActive
                             ? 'bg-gray-100 text-gray-900 font-medium' // Active item
                             : 'hover:bg-gray-50 text-gray-700'
-                        }`}
+                        } ${isLoading ? 'opacity-60' : ''}`}
                       >
-                        <item.icon
-                          className={`text-base ${
-                            isActive ? 'text-blue-600' : 'text-gray-500'
-                          }`}
-                        />
+                        {isLoading ? (
+                          <Loader2 className="text-base text-blue-600 animate-spin" />
+                        ) : (
+                          <item.icon
+                            className={`text-base ${
+                              isActive ? 'text-blue-600' : 'text-gray-500'
+                            }`}
+                          />
+                        )}
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -143,22 +169,28 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {inventoryItems.map((item) => {
                     const isActive = pathname === item.url
+                    const isLoading = loadingPath === item.url
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton asChild>
                           <Link
                             href={item.url}
+                            onClick={() => handleLinkClick(item.url)}
                             className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
                               isActive
                                 ? 'bg-gray-100 text-gray-900 font-medium' // Active item
                                 : 'hover:bg-gray-50 text-gray-700'
-                            }`}
+                            } ${isLoading ? 'opacity-60' : ''}`}
                           >
-                            <item.icon
-                              className={`text-base ${
-                                isActive ? 'text-blue-600' : 'text-gray-500'
-                              }`}
-                            />
+                            {isLoading ? (
+                              <Loader2 className="text-base text-blue-600 animate-spin" />
+                            ) : (
+                              <item.icon
+                                className={`text-base ${
+                                  isActive ? 'text-blue-600' : 'text-gray-500'
+                                }`}
+                              />
+                            )}
                             <span>{item.title}</span>
                           </Link>
                         </SidebarMenuButton>
@@ -176,22 +208,28 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {settingItems.map((item) => {
                     const isActive = pathname === item.url
+                    const isLoading = loadingPath === item.url
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton asChild>
                           <Link
                             href={item.url}
+                            onClick={() => handleLinkClick(item.url)}
                             className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
                               isActive
                                 ? 'bg-gray-100 text-gray-900 font-medium' // Active item
                                 : 'hover:bg-gray-50 text-gray-700'
-                            }`}
+                            } ${isLoading ? 'opacity-60' : ''}`}
                           >
-                            <item.icon
-                              className={`text-base ${
-                                isActive ? 'text-blue-600' : 'text-gray-500'
-                              }`}
-                            />
+                            {isLoading ? (
+                              <Loader2 className="text-base text-blue-600 animate-spin" />
+                            ) : (
+                              <item.icon
+                                className={`text-base ${
+                                  isActive ? 'text-blue-600' : 'text-gray-500'
+                                }`}
+                              />
+                            )}
                             <span>{item.title}</span>
                           </Link>
                         </SidebarMenuButton>

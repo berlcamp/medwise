@@ -43,6 +43,7 @@ export default function Page() {
   id,
   name,
   unit,
+  gl_percent,
   category,
   selling_price,
   product_stocks:product_stocks (branch_id,remaining_quantity, type,expiration_date)

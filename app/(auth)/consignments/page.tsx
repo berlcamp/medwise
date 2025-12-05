@@ -34,12 +34,10 @@ export default function Page() {
     const fetchData = async () => {
       setLoading(true)
       let query = supabase
-        .from('transactions')
+        .from('consignments')
         .select('*, customer:customer_id(name)', { count: 'exact' })
-        .eq('transaction_type', 'consignment')
         .eq('branch_id', selectedBranchId)
-        .ilike('transaction_number', `%${filter.transaction_number}%`)
-
+        .ilike('consignment_number', `%${filter.transaction_number}%`)
         .order('id', { ascending: false })
 
       // Apply customer name filter only if provided

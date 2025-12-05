@@ -252,6 +252,7 @@ export interface Product {
   dosage: string
   subcategory: string
   prescription_log_book: boolean
+  gl_percent: number
 }
 
 // ===============================
@@ -399,4 +400,97 @@ export interface TransactionItem {
 
 export interface TransactionWithItems extends Transaction {
   transaction_items: TransactionItem[]
+}
+
+// ===============================
+// CONSIGNMENT SYSTEM
+// ===============================
+export interface Consignment {
+  id: number
+  org_id: number
+  branch_id: number
+  customer_id: number
+  customer_name: string
+  consignment_number: string
+  
+  // Monthly tracking
+  month: number // 1-12
+  year: number
+  
+  // Status
+  status: 'active' | 'settled' | 'closed'
+  
+  // Balances
+  previous_balance_qty: number // Items from last month
+  new_items_qty: number        // New items this month
+  sold_qty: number             // Items sold this month
+  returned_qty: number         // Items returned to inventory
+  current_balance_qty: number  // Items still with customer
+  
+  // Financial
+  total_consigned_value: number
+  total_sold_value: number
+  total_paid: number
+  balance_due: number
+  
+  // Metadata
+  notes?: string
+  created_at: string
+  updated_at: string
+  created_by?: string
+  
+  // Relations
+  customer?: Customer
+  branch?: Branch
+  consignment_items?: ConsignmentItem[]
+}
+
+export interface ConsignmentItem {
+  id: number
+  consignment_id: number
+  product_id: number
+  product_stock_id?: number
+  
+  // Batch info
+  batch_no?: string
+  date_manufactured?: string
+  expiration_date?: string
+  
+  // Quantities
+  previous_balance: number     // From last month
+  quantity_added: number       // New items this entry
+  quantity_sold: number        // Sold this month
+  quantity_returned: number    // Returned to inventory
+  current_balance: number      // Still with customer
+  
+  // Pricing
+  unit_price: number
+  total_value: number
+  
+  // Transaction tracking
+  transaction_id?: number
+  
+  created_at: string
+  updated_at: string
+  
+  // Relations
+  product?: Product
+  transaction?: Transaction
+}
+
+export interface ConsignmentHistory {
+  id: number
+  consignment_id: number
+  action_type: 'created' | 'items_added' | 'sale_recorded' | 'items_returned' | 'settled' | 'closed'
+  
+  product_id?: number
+  quantity?: number
+  amount?: number
+  
+  notes?: string
+  created_at: string
+  created_by?: string
+  
+  // Relations
+  product?: Product
 }

@@ -26,7 +26,7 @@ import {
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
-import { cn } from '@/lib/utils'
+import { cn, formatMoney } from '@/lib/utils'
 import { Product, Supplier } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -43,11 +43,11 @@ const FormSchema = z.object({
   supplier_id: z.coerce.number().min(1, 'Supplier required'),
   quantity: z.coerce.number().min(1, 'Quantity required'),
   purchase_price: z.coerce.number().min(0, 'Purchase price required'),
-  batch_no: z.string().optional(),
+  batch_no: z.string().min(1, 'Batch number required'),
   manufacturer: z.string().optional(),
-  date_manufactured: z.string().optional(),
+  date_manufactured: z.string().min(1, 'Date manufactured required'),
   transaction_date: z.string().min(1, 'Date received required'),
-  expiration_date: z.string().optional()
+  expiration_date: z.string().min(1, 'Expiration date required')
 })
 
 type FormType = z.infer<typeof FormSchema>
@@ -168,6 +168,7 @@ export const AddStockModal = ({
     }
   }
 
+
   return (
     <Dialog open={isOpen} as="div" className="relative z-50" onClose={() => {}}>
       <div
@@ -237,7 +238,7 @@ export const AddStockModal = ({
                                             : 'opacity-0'
                                         )}
                                       />
-                                      {p.name} ({p.unit})
+                                      {p.name} ({p.unit}) {formatMoney(p.selling_price)}  
                                     </CommandItem>
                                   ))}
                                 </CommandGroup>
@@ -350,7 +351,7 @@ export const AddStockModal = ({
                     name="batch_no"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Batch No (optional)</FormLabel>
+                        <FormLabel>Batch No</FormLabel>
                         <FormControl>
                           <Input {...field} placeholder="Batch number" />
                         </FormControl>
@@ -380,7 +381,7 @@ export const AddStockModal = ({
                     name="date_manufactured"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Date Manufactured (optional)</FormLabel>
+                        <FormLabel>Date Manufactured</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -414,7 +415,7 @@ export const AddStockModal = ({
                     name="expiration_date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Expiration Date (optional)</FormLabel>
+                        <FormLabel>Expiration Date</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>

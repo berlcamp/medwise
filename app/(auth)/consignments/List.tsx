@@ -1,29 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 import { Button } from '@/components/ui/button'
-import { RootState, Transaction } from '@/types'
+import { formatConsignmentPeriod } from '@/lib/utils/consignment'
+import { Consignment, RootState } from '@/types'
 import { format } from 'date-fns'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
 import { useSelector } from 'react-redux'
-import { PaymentStatusDropdown } from './PaymentStatusDropdown'
-import { ReturnsModal } from './ReturnsModal'
-import { TransactionDetailsModal } from './TransactionDetailsModal'
+import { ConsignmentDetailsModal } from './ConsignmentDetailsModal'
 
 export const List = () => {
   const list = useSelector((state: RootState) => state.list.value)
-  const [selectedItem, setSelectedItem] = useState<Transaction | null>(null)
+  const [selectedItem, setSelectedItem] = useState<Consignment | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [returnModalOpen, setReturnModalOpen] = useState(false)
-
-  const handleView = (item: Transaction) => {
+  
+  const handleView = (item: Consignment) => {
     setSelectedItem(item)
     setIsModalOpen(true)
-  }
-
-  const handleReturn = (item: Transaction) => {
-    setSelectedItem(item)
-    setReturnModalOpen(true)
   }
 
   return (
@@ -31,23 +23,27 @@ export const List = () => {
       <table className="app__table">
         <thead className="app__thead">
           <tr>
-            <th className="app__th">Transaction No.</th>
+            <th className="app__th">Consignment No.</th>
             <th className="app__th">Customer</th>
-            <th className="app__th">Payment Method</th>
-            <th className="app__th text-right">Amount</th>
-            <th className="app__th text-right">Payment Status</th>
+            <th className="app__th">Period</th>
+            <th className="app__th text-center">Previous Balance</th>
+            <th className="app__th text-center">New Items</th>
+            <th className="app__th text-center">Sold</th>
+            <th className="app__th text-center">Current Balance</th>
+            <th className="app__th text-right">Balance Due</th>
+            <th className="app__th text-center">Status</th>
             <th className="app__th text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {list.map((item: Transaction) => (
+          {list.map((item: Consignment) => (
             <tr key={item.id} className="app__tr">
               <td className="app__td">
                 <div>
-                  <div className="font-semibold">{item.transaction_number}</div>
+                  <div className="font-semibold">{item.consignment_number}</div>
                   <div className="text-xs text-gray-500">
                     {item.created_at &&
-                      format(new Date(item.created_at), 'MMMM dd, yyyy')}
+                      format(new Date(item.created_at), 'MMM dd, yyyy')}
                   </div>
                 </div>
               </td>
@@ -60,47 +56,81 @@ export const List = () => {
                       round={true}
                       textSizeRatio={3}
                       className="shrink-0"
-                      // color="#2a4f6e" // denim base color
                     />
                     <span className="text-gray-800 font-medium">
                       {item.customer.name}
                     </span>
                   </div>
                 ) : (
+                  <span>{item.customer_name}</span>
+                )}
+              </td>
+              <td className="app__td">
+                <span className="font-medium">
+                  {formatConsignmentPeriod(item.month, item.year)}
+                </span>
+              </td>
+              <td className="app__td text-center">
+                {item.previous_balance_qty > 0 ? (
+                  <span className="text-blue-600 font-medium">
+                    {item.previous_balance_qty}
+                  </span>
+                ) : (
                   '-'
                 )}
               </td>
-              <td className="app__td space-x-2">
-                <span>{item.payment_type}</span>
-                {item.payment_type === 'GL' && <span>({item.gl_number})</span>}
+              <td className="app__td text-center">
+                {item.new_items_qty > 0 ? (
+                  <span className="text-green-600 font-medium">
+                    +{item.new_items_qty}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </td>
+              <td className="app__td text-center">
+                {item.sold_qty > 0 ? (
+                  <span className="text-orange-600 font-medium">
+                    -{item.sold_qty}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </td>
+              <td className="app__td text-center">
+                <span className="font-semibold text-gray-900">
+                  {item.current_balance_qty}
+                </span>
               </td>
               <td className="app__td text-right">
-                ₱{Number(item.total_amount).toLocaleString()}
+                {item.balance_due > 0 ? (
+                  <span className="text-red-600 font-semibold">
+                    ₱{Number(item.balance_due).toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">₱0.00</span>
+                )}
               </td>
-              <td className="app__td text-right">
-                <PaymentStatusDropdown
-                  transaction={item}
-                  onUpdated={() => {
-                    // optional: refresh list after update
-                  }}
-                />
+              <td className="app__td text-center">
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    item.status === 'active'
+                      ? 'bg-green-100 text-green-800'
+                      : item.status === 'settled'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {item.status.toUpperCase()}
+                </span>
               </td>
               <td className="app__td text-center space-x-2">
                 <Button
                   variant="blue"
                   size="xs"
-                  className=""
-                  onClick={() => handleReturn(item)}
-                >
-                  Update Quantities
-                </Button>
-                <Button
-                  variant="blue"
-                  size="xs"
-                  className=""
                   onClick={() => handleView(item)}
                 >
-                  View Details
+                  Manage
                 </Button>
               </td>
             </tr>
@@ -109,18 +139,15 @@ export const List = () => {
       </table>
 
       {selectedItem && (
-        <>
-          <TransactionDetailsModal
-            isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            transaction={selectedItem}
-          />
-          <ReturnsModal
-            isOpen={returnModalOpen}
-            onClose={() => setReturnModalOpen(false)}
-            transaction={selectedItem}
-          />
-        </>
+        <ConsignmentDetailsModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false)
+            // Refresh list after closing modal
+            window.location.reload()
+          }}
+          consignment={selectedItem}
+        />
       )}
     </div>
   )

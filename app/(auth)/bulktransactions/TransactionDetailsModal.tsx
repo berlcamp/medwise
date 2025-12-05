@@ -2,16 +2,11 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input' // ✅ use your existing input component if available
+import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
 import { formatMoney } from '@/lib/utils'
 import { Transaction } from '@/types'
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -34,7 +29,7 @@ export function TransactionDetailsModal({
     transaction.reference_number || ''
   )
 
-  // ✅ Load items with joined product/service names
+  // Load transaction items
   useEffect(() => {
     if (!transaction?.id) return
 
@@ -58,7 +53,6 @@ export function TransactionDetailsModal({
         console.error(error)
         toast.error('Failed to load transaction items')
       } else {
-        // ✅ Normalize data for easier rendering
         const formatted = data.map((item: any) => ({
           id: item.id,
           quantity: Number(item.quantity),
@@ -75,7 +69,7 @@ export function TransactionDetailsModal({
     fetchItems()
   }, [transaction])
 
-  // ✅ Update reference number in Supabase
+  // Update reference number
   const handleUpdateReference = async () => {
     if (!transaction?.id) return
     if (!referenceNumber.trim()) {
@@ -95,100 +89,113 @@ export function TransactionDetailsModal({
     } else {
       toast.success('Reference number updated successfully')
     }
-
     setSaving(false)
   }
 
   useEffect(() => {
     setReferenceNumber(transaction.reference_number || '')
   }, [isOpen, transaction.reference_number])
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>Transaction Details</DialogTitle>
-        </DialogHeader>
+    <Dialog open={isOpen} onClose={onClose} className="relative z-50">
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
 
-        {loading ? (
-          <p>Loading...</p>
-        ) : (
-          <>
-            {/* Header Info */}
-            <div className="space-y-2 border-b pb-4 mb-4 text-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <strong>Reference:</strong>
-                <Input
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  placeholder="Enter reference number"
-                  className="w-48 h-7 text-sm"
-                />
-                <Button
-                  variant="blue"
-                  size="xs"
-                  onClick={handleUpdateReference}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </Button>
-              </div>
+      {/* Centered panel */}
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <DialogPanel className="app__modal_dialog_panel">
+          {/* Header */}
+          <div className="app__modal_dialog_title_container">
+            <DialogTitle className="text-base font-medium">
+              Transaction Details
+            </DialogTitle>
+          </div>
 
-              <p>
-                <strong>Transaction No:</strong>{' '}
-                {transaction.transaction_number}
-              </p>
-              <p>
-                <strong>Customer:</strong> {transaction.customer?.name || '-'}
-              </p>
-              <p>
-                <strong>Date:</strong>{' '}
-                {transaction.created_at &&
-                  format(new Date(transaction.created_at), 'MMMM dd, yyyy')}
-              </p>
-              <p>
-                <strong>Total Amount:</strong>{' '}
-                {formatMoney(transaction.total_amount)}
-              </p>
-              <p>
-                <strong>Payment Method:</strong> {transaction.payment_type}
-              </p>
-            </div>
+          {/* Scrollable content */}
+          <div className="app__modal_dialog_content space-y-4">
+            {loading ? (
+              <p>Loading...</p>
+            ) : (
+              <>
+                {/* Header Info */}
+                <div className="space-y-2 border-b pb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <strong>Reference:</strong>
+                    <Input
+                      className="app__input_standard w-48 h-7 text-sm"
+                      value={referenceNumber}
+                      onChange={(e) => setReferenceNumber(e.target.value)}
+                      placeholder="Enter reference number"
+                    />
+                    <Button
+                      variant="blue"
+                      size="xs"
+                      onClick={handleUpdateReference}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                  <p>
+                    <strong>Transaction No:</strong>{' '}
+                    {transaction.transaction_number}
+                  </p>
+                  <p>
+                    <strong>Customer:</strong>{' '}
+                    {transaction.customer?.name || '-'}
+                  </p>
+                  <p>
+                    <strong>Date:</strong>{' '}
+                    {transaction.created_at &&
+                      format(new Date(transaction.created_at), 'MMMM dd, yyyy')}
+                  </p>
+                  <p>
+                    <strong>Total Amount:</strong>{' '}
+                    {formatMoney(transaction.total_amount)}
+                  </p>
+                  <p>
+                    <strong>Payment Method:</strong> {transaction.payment_type}
+                  </p>
+                </div>
 
-            {/* Item List */}
-            <table className="w-full text-sm border">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="text-left p-2">Item</th>
-                  <th className="text-right p-2">Qty</th>
-                  <th className="text-right p-2">Price</th>
-                  <th className="text-right p-2">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cart.map((item, idx) => (
-                  <tr key={idx} className="border-t">
-                    <td className="p-2">{item.name}</td>
-                    <td className="p-2 text-right">{item.quantity}</td>
-                    <td className="p-2 text-right">
-                      ₱{item.price.toLocaleString()}
-                    </td>
-                    <td className="p-2 text-right">
-                      ₱{item.total.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
+                {/* Item List */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="text-left p-2">Item</th>
+                        <th className="text-right p-2">Qty</th>
+                        <th className="text-right p-2">Price</th>
+                        <th className="text-right p-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cart.map((item, idx) => (
+                        <tr key={idx} className="border-t">
+                          <td className="p-2">{item.name}</td>
+                          <td className="p-2 text-right">{item.quantity}</td>
+                          <td className="p-2 text-right">
+                            ₱{item.price.toLocaleString()}
+                          </td>
+                          <td className="p-2 text-right">
+                            ₱{item.total.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
             {/* Footer */}
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="app__modal_dialog_footer mt-4 flex justify-end gap-2">
               <Button variant="outline" onClick={onClose}>
                 Close
               </Button>
             </div>
-          </>
-        )}
-      </DialogContent>
+          </div>
+        </DialogPanel>
+      </div>
     </Dialog>
   )
 }

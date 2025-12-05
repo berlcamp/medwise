@@ -54,16 +54,16 @@ export const Filter = ({
           </div>
         </div>
 
-        {/* Tran No Search */}
+        {/* Consignment No Search */}
         <div className="flex flex-col">
           <label className="text-xs font-medium text-gray-600 mb-1">
-            Transaction No
+            Consignment No
           </label>
           <div className="flex items-center border rounded-md px-2">
             {/* <Search size={16} className="text-gray-400" /> */}
             <Input
               {...register('transaction_number')}
-              placeholder="Transaction No..."
+              placeholder="Consignment No..."
               className="border-0 focus-visible:ring-0 text-sm"
             />
           </div>
