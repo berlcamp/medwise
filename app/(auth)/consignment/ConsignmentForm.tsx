@@ -304,8 +304,11 @@ export default function ConsignmentForm() {
   const selectedYear = form.watch('year')
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">New Consignment</h1>
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">New Consignment</h1>
+        <p className="text-muted-foreground">Create a new consignment for a customer</p>
+      </div>
 
       <Form {...form}>
         <form
@@ -313,94 +316,281 @@ export default function ConsignmentForm() {
             setFormValues(values)
             setConfirmOpen(true)
           })}
+          className="space-y-8"
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {/* Customer */}
+          {/* Section 1: Basic Information */}
+          <div className="bg-card border rounded-lg p-6 shadow-sm space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-1">Consignment Details</h2>
+              <p className="text-sm text-muted-foreground">Select customer and consignment period</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Customer - Full Width */}
+              <FormField
+                control={form.control}
+                name="customer_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base">Customer *</FormLabel>
+                    <Popover
+                      open={isAddCustomerOpen}
+                      onOpenChange={setIsAddCustomerOpen}
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            'w-full justify-between h-11',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {selectedCustomer
+                            ? selectedCustomer.name
+                            : 'Select customer'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+
+                      <PopoverContent className="w-full p-0">
+                        <Command filter={() => 1}>
+                          <CommandInput
+                            placeholder="Search customer..."
+                            onValueChange={(value) => setSearchTerm(value)}
+                          />
+                          {filteredCustomers.length === 0 ? (
+                            <CommandEmpty>
+                              <div className="flex flex-col items-center justify-center gap-2 py-3">
+                                <span>No customer found.</span>
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => {
+                                    setAddCustomerOpen(true)
+                                    setIsAddCustomerOpen(false)
+                                  }}
+                                >
+                                  <Plus className="mr-2 h-4 w-4" /> Add new
+                                  customer
+                                </Button>
+                              </div>
+                            </CommandEmpty>
+                          ) : (
+                            <CommandGroup>
+                              {filteredCustomers.map((c: Customer) => (
+                                <CommandItem
+                                  key={c.id}
+                                  value={c.id.toString()}
+                                  onSelect={() => {
+                                    form.setValue('customer_id', Number(c.id))
+                                    setIsAddCustomerOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      c.id.toString() === field.value?.toString()
+                                        ? 'opacity-100'
+                                        : 'opacity-0'
+                                    )}
+                                  />
+                                  {c.name}
+                                </CommandItem>
+                              ))}
+                              <div className="border-t mt-1">
+                                <Button
+                                  variant="ghost"
+                                  size="xs"
+                                  className="w-full justify-start mt-1"
+                                  onClick={() => {
+                                    setAddCustomerOpen(true)
+                                    setIsAddCustomerOpen(false)
+                                  }}
+                                >
+                                  <Plus className="mr-2 h-4 w-4" /> Add new
+                                  customer
+                                </Button>
+                              </div>
+                            </CommandGroup>
+                          )}
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Period - Month and Year side by side */}
+              <div className="space-y-2">
+                <label className="text-base font-medium">Consignment Period *</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Month */}
+                  <FormField
+                    control={form.control}
+                    name="month"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Month</FormLabel>
+                        <Select
+                          onValueChange={(val) => field.onChange(Number(val))}
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-background h-11">
+                              <SelectValue placeholder="Select month" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                              <SelectItem key={m} value={m.toString()}>
+                                {getMonthName(m)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Year */}
+                  <FormField
+                    control={form.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year</FormLabel>
+                        <Select
+                          onValueChange={(val) => field.onChange(Number(val))}
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-background h-11">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Array.from({ length: 5 }, (_, i) => currentYear - 1 + i).map(
+                              (y) => (
+                                <SelectItem key={y} value={y.toString()}>
+                                  {y}
+                                </SelectItem>
+                              )
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Previous Balance Info */}
+            {previousBalance && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Previous Month Balance
+                </h3>
+                <p className="text-sm text-blue-800">
+                  {previousBalance.current_balance_qty} items remaining from{' '}
+                  {getMonthName(previousBalance.month)} {previousBalance.year}
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  These items will be automatically included in the new
+                  consignment.
+                </p>
+              </div>
+            )}
+
+            {loadingBalance && (
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Checking for previous balance...
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Section 2: Products */}
+          <div className="bg-card border rounded-lg p-6 shadow-sm space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold mb-1">Products</h2>
+              <p className="text-sm text-muted-foreground">Add products to this consignment</p>
+            </div>
+
+            {/* Product Selection */}
             <FormField
               control={form.control}
-              name="customer_id"
+              name="product_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer</FormLabel>
-                  <Popover
-                    open={isAddCustomerOpen}
-                    onOpenChange={setIsAddCustomerOpen}
-                  >
+                  <FormLabel className="text-base">Add Products</FormLabel>
+                  <Popover open={isProductOpen} onOpenChange={setIsProductOpen}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         role="combobox"
                         className={cn(
-                          'w-full justify-between',
+                          'w-full justify-between h-11',
                           !field.value && 'text-muted-foreground'
                         )}
+                        type="button"
                       >
-                        {selectedCustomer
-                          ? selectedCustomer.name
-                          : 'Select customer'}
+                        Select product to add
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
 
                     <PopoverContent className="w-full p-0">
-                      <Command filter={() => 1}>
+                      <Command>
                         <CommandInput
-                          placeholder="Search customer..."
-                          onValueChange={(value) => setSearchTerm(value)}
+                          placeholder="Search product..."
+                          onValueChange={(v) => setProductSearchTerm(v)}
                         />
-                        {filteredCustomers.length === 0 ? (
-                          <CommandEmpty>
-                            <div className="flex flex-col items-center justify-center gap-2 py-3">
-                              <span>No customer found.</span>
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={() => {
-                                  setAddCustomerOpen(true)
-                                  setIsAddCustomerOpen(false)
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" /> Add new
-                                customer
-                              </Button>
-                            </div>
-                          </CommandEmpty>
+                        {filteredProducts.length === 0 ? (
+                          <CommandEmpty>No products found.</CommandEmpty>
                         ) : (
                           <CommandGroup>
-                            {filteredCustomers.map((c: Customer) => (
-                              <CommandItem
-                                key={c.id}
-                                value={c.id.toString()}
-                                onSelect={() => {
-                                  form.setValue('customer_id', Number(c.id))
-                                  setIsAddCustomerOpen(false)
-                                }}
-                              >
-                                <Check
+                            {filteredProducts.map((p) => {
+                              const alreadyInCart = cartItems.some(
+                                (item) => item.product_id === p.id
+                              )
+                              return (
+                                <CommandItem
+                                  key={p.id}
+                                  value={p.id.toString()}
+                                  disabled={alreadyInCart}
+                                  onSelect={() => {
+                                    if (alreadyInCart) return
+                                    field.onChange(p.id)
+                                    addProductToCart(p.id, 1)
+                                    setIsProductOpen(false)
+                                  }}
                                   className={cn(
-                                    'mr-2 h-4 w-4',
-                                    c.id.toString() === field.value?.toString()
-                                      ? 'opacity-100'
-                                      : 'opacity-0'
+                                    alreadyInCart &&
+                                      'opacity-50 cursor-not-allowed'
                                   )}
-                                />
-                                {c.name}
-                              </CommandItem>
-                            ))}
-                            <div className="border-t mt-1">
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                className="w-full justify-start mt-1"
-                                onClick={() => {
-                                  setAddCustomerOpen(true)
-                                  setIsAddCustomerOpen(false)
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" /> Add new
-                                customer
-                              </Button>
-                            </div>
+                                >
+                                  <div className="flex flex-col">
+                                    <span
+                                      className={cn(
+                                        alreadyInCart && 'opacity-50 line-through'
+                                      )}
+                                    >
+                                      {p.name}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {p.category} • ₱{p.selling_price} • Stock:{' '}
+                                      {p.stock_qty}
+                                    </span>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
                           </CommandGroup>
                         )}
                       </Command>
@@ -411,262 +601,121 @@ export default function ConsignmentForm() {
               )}
             />
 
-            {/* Month */}
-            <FormField
-              control={form.control}
-              name="month"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Month</FormLabel>
-                  <Select
-                    onValueChange={(val) => field.onChange(Number(val))}
-                    defaultValue={field.value?.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select month" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                        <SelectItem key={m} value={m.toString()}>
-                          {getMonthName(m)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Year */}
-            <FormField
-              control={form.control}
-              name="year"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Year</FormLabel>
-                  <Select
-                    onValueChange={(val) => field.onChange(Number(val))}
-                    defaultValue={field.value?.toString()}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select year" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Array.from({ length: 5 }, (_, i) => currentYear - 1 + i).map(
-                        (y) => (
-                          <SelectItem key={y} value={y.toString()}>
-                            {y}
-                          </SelectItem>
-                        )
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Previous Balance Info */}
-          {previousBalance && (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-blue-900 mb-2">
-                Previous Month Balance
-              </h3>
-              <p className="text-sm text-blue-800">
-                {previousBalance.current_balance_qty} items remaining from{' '}
-                {getMonthName(previousBalance.month)} {previousBalance.year}
-              </p>
-              <p className="text-xs text-blue-600 mt-1">
-                These items will be automatically included in the new
-                consignment.
-              </p>
-            </div>
-          )}
-
-          {loadingBalance && (
-            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Checking for previous balance...
-              </p>
-            </div>
-          )}
-
-          {/* Product Selection */}
-          <FormField
-            control={form.control}
-            name="product_id"
-            render={({ field }) => (
-              <FormItem className="mb-4">
-                <FormLabel>Add Products to Consignment</FormLabel>
-                <Popover open={isProductOpen} onOpenChange={setIsProductOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        'w-full justify-between',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                      type="button"
-                    >
-                      Select product to add
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput
-                        placeholder="Search product..."
-                        onValueChange={(v) => setProductSearchTerm(v)}
-                      />
-                      {filteredProducts.length === 0 ? (
-                        <CommandEmpty>No products found.</CommandEmpty>
-                      ) : (
-                        <CommandGroup>
-                          {filteredProducts.map((p) => {
-                            const alreadyInCart = cartItems.some(
-                              (item) => item.product_id === p.id
-                            )
-                            return (
-                              <CommandItem
-                                key={p.id}
-                                value={p.id.toString()}
-                                disabled={alreadyInCart}
-                                onSelect={() => {
-                                  if (alreadyInCart) return
-                                  field.onChange(p.id)
-                                  addProductToCart(p.id, 1)
-                                  setIsProductOpen(false)
-                                }}
-                                className={cn(
-                                  alreadyInCart &&
-                                    'opacity-50 cursor-not-allowed'
-                                )}
-                              >
-                                <div className="flex flex-col">
-                                  <span
-                                    className={cn(
-                                      alreadyInCart && 'opacity-50 line-through'
-                                    )}
-                                  >
-                                    {p.name}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {p.category} • ₱{p.selling_price} • Stock:{' '}
-                                    {p.stock_qty}
-                                  </span>
-                                </div>
-                              </CommandItem>
-                            )
-                          })}
-                        </CommandGroup>
-                      )}
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Cart Table */}
-          <div className="my-8 border border-gray-300 rounded-lg p-4 bg-white">
-            <h3 className="font-semibold mb-3">
-              New Items for {getMonthName(selectedMonth)} {selectedYear}
-            </h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cartItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-gray-500">
-                      No items added yet
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  cartItems.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell>{item.product_name}</TableCell>
-                      <TableCell>{item.unit}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={
-                            products.find((p) => p.id === item.product_id)
-                              ?.stock_qty
-                          }
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateCartItemQuantity(idx, Number(e.target.value))
-                          }
-                          className="w-20"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={item.price}
-                          onChange={(e) =>
-                            updateCartItemPrice(idx, Number(e.target.value))
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-                      <TableCell>{formatMoney(item.total)}</TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="destructive"
-                          onClick={() => removeCartItem(idx)}
-                        >
-                          Remove
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-
-            <div className="text-right mt-4 space-y-1">
-              {previousBalance && (
-                <div className="text-sm text-gray-600">
-                  Previous Balance: {previousBalance.current_balance_qty} items
+            {/* Cart Table */}
+            {cartItems.length > 0 ? (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 px-4 py-3 border-b">
+                  <h3 className="font-semibold">
+                    Items for {getMonthName(selectedMonth)} {selectedYear}
+                  </h3>
                 </div>
-              )}
-              <div className="text-sm text-gray-600">
-                New Items: {cartItems.reduce((sum, item) => sum + item.quantity, 0)} items
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead className="w-[100px]">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cartItems.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="font-medium">{item.product_name}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={
+                              products.find((p) => p.id === item.product_id)
+                                ?.stock_qty
+                            }
+                            value={item.quantity}
+                            onChange={(e) =>
+                              updateCartItemQuantity(idx, Number(e.target.value))
+                            }
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={item.price}
+                            onChange={(e) =>
+                              updateCartItemPrice(idx, Number(e.target.value))
+                            }
+                            className="w-24"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{formatMoney(item.total)}</TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => removeCartItem(idx)}
+                          >
+                            Remove
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Summary */}
+                <div className="bg-muted/30 px-4 py-4 border-t space-y-2">
+                  {previousBalance && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Previous Balance:</span>
+                      <span className="font-medium">{previousBalance.current_balance_qty} items</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>New Items:</span>
+                    <span className="font-medium">
+                      {cartItems.reduce((sum, item) => sum + item.quantity, 0)} items
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                    <span>Total Value:</span>
+                    <span>{formatMoney(totalAmount)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="font-bold text-lg">
-                Total Value: {formatMoney(totalAmount)}
+            ) : (
+              <div className="border-2 border-dashed rounded-lg p-12 text-center">
+                <p className="text-muted-foreground">
+                  No items added yet. Select products above to add them to this consignment.
+                </p>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Submit */}
-          <Button type="submit" className="mt-4" size="lg">
-            Create Consignment
-          </Button>
+          <div className="flex justify-end gap-4">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="lg"
+              onClick={() => router.push('/consignments')}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              size="lg"
+              disabled={cartItems.length === 0}
+            >
+              Create Consignment
+            </Button>
+          </div>
         </form>
       </Form>
 

@@ -24,13 +24,35 @@ import {
   PopoverContent,
   PopoverTrigger
 } from '@/components/ui/popover'
+import { useAppSelector } from '@/lib/redux/hook'
+import { supabase } from '@/lib/supabase/client'
+import { cn } from '@/lib/utils'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+  createTransactionWithStockDeduction,
+  validateCartItems
+} from '@/lib/utils/transaction'
+import { Customer, Product, ProductStock } from '@/types'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { isAfter, parseISO, startOfToday } from 'date-fns'
+import { 
+  Check, 
+  ChevronsUpDown, 
+  Plus, 
+  Search, 
+  ShoppingCart, 
+  Trash2,
+  User,
+  CreditCard,
+  Banknote,
+  Smartphone,
+  Minus
+} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import toast from 'react-hot-toast'
+import { z } from 'zod'
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -39,22 +61,6 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { useAppSelector } from '@/lib/redux/hook'
-import { supabase } from '@/lib/supabase/client'
-import { cn, formatMoney } from '@/lib/utils'
-import {
-  createTransactionWithStockDeduction,
-  validateCartItems
-} from '@/lib/utils/transaction'
-import { Customer, Product, ProductStock } from '@/types'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { isAfter, parseISO, startOfToday } from 'date-fns'
-import { Check, ChevronsUpDown, Plus } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import toast from 'react-hot-toast'
-import { z } from 'zod'
 
 // ---------- ZOD SCHEMA ----------
 const FormSchema = z.object({
@@ -86,6 +92,7 @@ interface TransactionFormProps {
 
 export default function TransactionForm({ transactionType }: TransactionFormProps) {
   const router = useRouter()
+  const searchContainerRef = useRef<HTMLDivElement>(null)
 
   const form = useForm<FormType>({
     resolver: zodResolver(FormSchema),
@@ -100,16 +107,16 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-
-  const [isProductOpen, setIsProductOpen] = useState(false)
   const [productSearchTerm, setProductSearchTerm] = useState('')
-
+  const [showProductResults, setShowProductResults] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [formValues, setFormValues] = useState<any>(null)
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(productSearchTerm.toLowerCase())
-  )
+  const filteredProducts = productSearchTerm.trim() 
+    ? products.filter((p) =>
+        p.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+      )
+    : []
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -229,9 +236,20 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
 
   const updateCartItemQuantity = (idx: number, qty: number) => {
     setCartItems((prev) =>
-      prev.map((item, i) =>
-        i === idx ? { ...item, quantity: qty, total: item.price * qty } : item
-      )
+      prev.map((item, i) => {
+        if (i === idx) {
+          const product = products.find((p) => p.id === item.product_id)
+          const maxStock = product?.stock_qty || 0
+          const validQty = Math.min(Math.max(1, qty), maxStock)
+          
+          if (qty > maxStock) {
+            toast.error(`Only ${maxStock} units available in stock`)
+          }
+          
+          return { ...item, quantity: validQty, total: item.price * validQty }
+        }
+        return item
+      })
     )
   }
 
@@ -307,10 +325,10 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
   )
 
   // ✅ Recalculate cart prices when payment type changes (only if not consignment)
+  const paymentType = form.watch('payment_type')
+  
   useEffect(() => {
     if (config.allowPriceEdit) return // Skip for consignment as prices are manually set
-    
-    const paymentType = form.watch('payment_type')
     if (!paymentType) return
     
     setCartItems((prev) =>
@@ -329,357 +347,479 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
         }
       })
     )
-  }, [form.watch('payment_type'), products, config.allowPriceEdit])
+  }, [paymentType, products, config.allowPriceEdit])
+
+  // Close product results dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowProductResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">{config.title}</h1>
-
-      {/* Disabled Notice */}
-      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm text-yellow-700 font-semibold">
-              Transaction Form Currently Disabled
-            </p>
-            <p className="text-sm text-yellow-700 mt-1">
-              This form is temporarily unavailable while inventory adjustments are being processed. Please check back shortly.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit((values) => {
-            setFormValues(values)
-            setConfirmOpen(true)
-          })}
-        >
-          {/* ---------- Customer ---------- */}
+    <div className="h-screen flex flex-col bg-slate-50">
+      {/* Header Bar */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 shadow-lg">
+        <div className="flex items-center justify-between">
           <div>
+            <h1 className="text-2xl font-bold">{config.title}</h1>
+            <p className="text-blue-100 text-sm mt-1">
+              Point of Sale System
+            </p>
+          </div>
+          
+          {/* Customer Selection - Top Bar */}
+          <Form {...form}>
             <FormField
               control={form.control}
               name="customer_id"
               render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel>Customer</FormLabel>
-                  <Popover
-                    open={isAddCustomerOpen}
-                    onOpenChange={setIsAddCustomerOpen}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        disabled={true}
-                        className={cn(
-                          'w-full justify-between',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        {selectedCustomer
-                          ? selectedCustomer.name
-                          : 'Select customer'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-full p-0">
-                      <Command filter={() => 1}>
-                        <CommandInput
-                          placeholder="Search customer..."
-                          onValueChange={(value) => setSearchTerm(value)}
-                        />
-                        {filteredCustomers.length === 0 ? (
-                          <CommandEmpty>
-                            <div className="flex flex-col items-center justify-center gap-2 py-3">
-                              <span>No customer found.</span>
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                onClick={() => {
-                                  setAddCustomerOpen(true)
-                                  setIsAddCustomerOpen(false)
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" /> Add new
-                                customer
-                              </Button>
-                            </div>
-                          </CommandEmpty>
-                        ) : (
-                          <CommandGroup>
-                            {filteredCustomers.map((c: Customer) => (
-                              <CommandItem
-                                key={c.id}
-                                value={c.id.toString()}
-                                onSelect={() => {
-                                  form.setValue('customer_id', Number(c.id))
-                                  setIsAddCustomerOpen(false) // ✅ hide dropdown on select
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    'mr-2 h-4 w-4',
-                                    c.id.toString() === field.value?.toString()
-                                      ? 'opacity-100'
-                                      : 'opacity-0'
-                                  )}
-                                />
-                                {c.name}
-                              </CommandItem>
-                            ))}
-                            <div className="border-t mt-1">
-                              <Button
-                                variant="ghost"
-                                size="xs"
-                                className="w-full justify-start mt-1"
-                                onClick={() => {
-                                  setAddCustomerOpen(true)
-                                  setIsAddCustomerOpen(false)
-                                }}
-                              >
-                                <Plus className="mr-2 h-4 w-4" /> Add new
-                                customer
-                              </Button>
-                            </div>
-                          </CommandGroup>
-                        )}
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* ---------- Product Field ---------- */}
-            <FormField
-              control={form.control}
-              name="product_id"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel>Product Purchased</FormLabel>
-                  <Popover open={isProductOpen} onOpenChange={setIsProductOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          'w-full justify-between',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                        type="button"
-                      >
-                        Select product
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput
-                          placeholder="Search product..."
-                          onValueChange={(v) => setProductSearchTerm(v)}
-                        />
-                        {filteredProducts.length === 0 ? (
-                          <CommandEmpty>No products found.</CommandEmpty>
-                        ) : (
-                          <CommandGroup>
-                            {filteredProducts.map((p) => {
-                              const alreadyInCart = cartItems.some(
-                                (item) => item.product_id === p.id
-                              )
-                              return (
-                                <CommandItem
-                                  key={p.id}
-                                  value={p.id.toString()}
-                                  disabled={alreadyInCart} // ✅ disable if in cart
-                                  onSelect={() => {
-                                    if (alreadyInCart) return // prevent selection
-                                    field.onChange(p.id)
-                                    addProductToCart(p.id, 1)
-                                    setIsProductOpen(false)
-                                  }}
-                                  className={cn(
-                                    alreadyInCart &&
-                                      'opacity-50 cursor-not-allowed' // visual cue
-                                  )}
-                                >
-                                  <div className="flex flex-col">
-                                    <span
-                                      className={cn(
-                                        alreadyInCart &&
-                                          'opacity-50 line-through'
-                                      )}
-                                    >
-                                      {p.name}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {p.category} • ₱{p.selling_price} • Stock:{' '}
-                                      {p.stock_qty}
-                                    </span>
-                                  </div>
-                                </CommandItem>
-                              )
-                            })}
-                          </CommandGroup>
-                        )}
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          {/* ---------- Cart Table ---------- */}
-          <div className="my-8 border border-gray-600 p-2 bg-white">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Qty</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cartItems.map((item, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      <div className="space-x-2">
-                        <span>
-                          {products.find((p) => p.id === item.product_id)?.name}
-                        </span>
-                        <span>
-                          (
-                          {products.find((p) => p.id === item.product_id)?.unit}
-                        </span>
-                        )
-                      </div>
-                    </TableCell>
-                    <TableCell>
+                <Popover
+                  open={isAddCustomerOpen}
+                  onOpenChange={setIsAddCustomerOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="min-w-[280px] justify-between text-base font-medium"
+                    >
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          max={
-                            products.find((p) => p.id === item.product_id)
-                              ?.stock_qty
-                          }
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateCartItemQuantity(idx, Number(e.target.value))
-                          }
-                          className="w-20"
-                        />
+                        <User className="h-5 w-5" />
+                        {selectedCustomer ? (
+                          <span>{selectedCustomer.name}</span>
+                        ) : (
+                          <span className="text-muted-foreground">Select Customer</span>
+                        )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {config.allowPriceEdit ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            step="0.01"
-                            value={item.price}
-                            onChange={(e) =>
-                              updateCartItemPrice(idx, Number(e.target.value))
-                            }
-                            className="w-24"
-                          />
-                        </div>
-                      ) : (
-                        formatMoney(item.price)
-                      )}
-                    </TableCell>
-                    <TableCell>{formatMoney(item.total)}</TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="destructive"
-                        onClick={() => removeCartItem(idx)}
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
 
-            <div className="text-right mt-2 font-bold">
-              Total: {formatMoney(totalAmount)}
+                  <PopoverContent className="w-[320px] p-0" align="end">
+                    <Command filter={() => 1}>
+                      <CommandInput
+                        placeholder="Search customer..."
+                        onValueChange={(value) => setSearchTerm(value)}
+                      />
+                      {filteredCustomers.length === 0 ? (
+                        <CommandEmpty>
+                          <div className="flex flex-col items-center justify-center gap-3 py-6">
+                            <User className="h-12 w-12 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">No customer found</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setAddCustomerOpen(true)
+                                setIsAddCustomerOpen(false)
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add New Customer
+                            </Button>
+                          </div>
+                        </CommandEmpty>
+                      ) : (
+                        <CommandGroup>
+                          {filteredCustomers.map((c: Customer) => (
+                            <CommandItem
+                              key={c.id}
+                              value={c.id.toString()}
+                              onSelect={() => {
+                                form.setValue('customer_id', Number(c.id))
+                                setIsAddCustomerOpen(false)
+                              }}
+                              className="py-3"
+                            >
+                              <Check
+                                className={cn(
+                                  'mr-2 h-4 w-4',
+                                  c.id.toString() === field.value?.toString()
+                                    ? 'opacity-100'
+                                    : 'opacity-0'
+                                )}
+                              />
+                              {c.name}
+                            </CommandItem>
+                          ))}
+                          <div className="border-t p-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setAddCustomerOpen(true)
+                                setIsAddCustomerOpen(false)
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add New Customer
+                            </Button>
+                          </div>
+                        </CommandGroup>
+                      )}
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+            />
+          </Form>
+        </div>
+      </div>
+
+      {/* Main Content - Split Layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT SIDE - Cart Table */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+          {/* Search Bar */}
+          <div className="p-4 bg-white border-b">
+            <div className="relative" ref={searchContainerRef}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Input
+                placeholder="Search products to add to cart..."
+                value={productSearchTerm}
+                onChange={(e) => {
+                  setProductSearchTerm(e.target.value)
+                  setShowProductResults(e.target.value.trim().length > 0)
+                }}
+                onFocus={() => setShowProductResults(productSearchTerm.trim().length > 0)}
+                className="pl-10 h-12 text-base"
+              />
+              
+              {/* Product Search Results Dropdown */}
+              {showProductResults && filteredProducts.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                  <div className="p-2">
+                    {filteredProducts.map((product) => {
+                      const alreadyInCart = cartItems.some(
+                        (item) => item.product_id === product.id
+                      )
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => {
+                            if (!alreadyInCart) {
+                              addProductToCart(product.id, 1)
+                              toast.success(`${product.name} added to cart`)
+                              setProductSearchTerm('')
+                              setShowProductResults(false)
+                            }
+                          }}
+                          disabled={alreadyInCart}
+                          className={cn(
+                            'w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between',
+                            alreadyInCart
+                              ? 'bg-green-50 border border-green-200 cursor-not-allowed opacity-70'
+                              : 'hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer'
+                          )}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-sm">
+                                {product.name}
+                              </h3>
+                              {alreadyInCart && (
+                                <Badge variant="secondary" className="text-xs">
+                                  In Cart
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-gray-500">{product.category}</span>
+                              <span className="text-xs text-gray-500">•</span>
+                              <span className="text-xs text-gray-500">{product.unit}</span>
+                              <span className="text-xs text-gray-500">•</span>
+                              <Badge variant="outline" className="text-xs">
+                                Stock: {product.stock_qty}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-base font-bold text-blue-600">
+                              ₱{product.selling_price.toFixed(2)}
+                            </p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {showProductResults && filteredProducts.length === 0 && productSearchTerm.trim() && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                  <p className="text-gray-500">No products found for &quot;{productSearchTerm}&quot;</p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* PAYMENT TYPE DROPDOWN */}
-          <FormField
-            control={form.control}
-            name="payment_type"
-            render={({ field }) => (
-              <FormItem className="my-4 w-full">
-                <FormLabel className="app__formlabel_standard">
-                  Payment Method
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
-                  <FormControl className="bg-white">
-                    <SelectTrigger className="app__input_standard">
-                      <SelectValue placeholder="Select payment method" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Credit Card">Credit Card</SelectItem>
-                    <SelectItem value="GCash">GCash</SelectItem>
-                    <SelectItem value="Maya">Maya</SelectItem>
-                    <SelectItem value="GL">GL</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Conditional GL Number Input */}
-          {form.watch('payment_type') === 'GL' && (
-            <FormField
-              control={form.control}
-              name="gl_number"
-              render={({ field }) => (
-                <FormItem className="my-4 w-full">
-                  <FormLabel className="app__formlabel_standard">
-                    GL Number
-                  </FormLabel>
-                  <FormControl className="bg-white">
-                    <Input {...field} placeholder="Enter GL Number" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+          {/* Cart Table */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="bg-white rounded-lg border shadow-sm">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <ShoppingCart className="h-20 w-20 text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-600 mb-2">Cart is Empty</h3>
+                  <p className="text-sm text-gray-400">
+                    Search and add products using the search bar above
+                  </p>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50%]">Product</TableHead>
+                      <TableHead className="text-center">Quantity</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-center w-[100px]">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cartItems.map((item, idx) => {
+                      const product = products.find((p) => p.id === item.product_id)
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <div>
+                              <p className="font-semibold text-sm">{product?.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-500">{product?.category}</span>
+                                <span className="text-xs text-gray-400">•</span>
+                                <span className="text-xs text-gray-500">{product?.unit}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  updateCartItemQuantity(idx, item.quantity - 1)
+                                }
+                                className="h-8 w-8 p-0"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={product?.stock_qty}
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  updateCartItemQuantity(idx, Number(e.target.value))
+                                }
+                                className="w-20 h-8 text-center text-sm font-medium"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  updateCartItemQuantity(idx, item.quantity + 1)
+                                }
+                                className="h-8 w-8 p-0"
+                                disabled={item.quantity >= (product?.stock_qty || 0)}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {config.allowPriceEdit ? (
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={item.price}
+                                onChange={(e) =>
+                                  updateCartItemPrice(idx, Number(e.target.value))
+                                }
+                                className="w-28 h-8 text-right text-sm font-semibold ml-auto"
+                              />
+                            ) : (
+                              <span className="text-sm font-semibold">
+                                ₱{item.price.toFixed(2)}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-base font-bold text-blue-600">
+                              ₱{item.total.toFixed(2)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeCartItem(idx)}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               )}
-            />
-          )}
+            </div>
+          </div>
+        </div>
 
-          {/* ---------- Submit ---------- */}
-          <Button type="submit" className="mt-4" size="lg" disabled={true}>
-            Complete Transaction
-          </Button>
-        </form>
-      </Form>
+        {/* RIGHT SIDE - Checkout Panel */}
+        <div className="w-[400px] bg-white border-l shadow-xl flex flex-col">
+          {/* Checkout Header */}
+          <div className="p-4 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-blue-600" />
+                <h2 className="font-bold text-lg">Checkout</h2>
+              </div>
+              <Badge variant="secondary" className="text-sm">
+                {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+              </Badge>
+            </div>
+          </div>
 
-      {/* ---------- Add Customer Modal ---------- */}
+          {/* Order Summary */}
+          <div className="p-4 border-b bg-slate-50">
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">Order Summary</h3>
+            <div className="space-y-2">
+              {cartItems.map((item, idx) => {
+                const product = products.find((p) => p.id === item.product_id)
+                return (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      {product?.name} × {item.quantity}
+                    </span>
+                    <span className="font-semibold">₱{item.total.toFixed(2)}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Payment & Checkout Form */}
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit((values) => {
+                setFormValues(values)
+                setConfirmOpen(true)
+              })}
+              className="flex-1 flex flex-col"
+            >
+              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+                {/* Payment Method */}
+                <FormField
+                  control={form.control}
+                  name="payment_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-semibold text-gray-700">
+                        Payment Method
+                      </FormLabel>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {[
+                          { value: 'Cash', icon: Banknote, label: 'Cash' },
+                          { value: 'Credit Card', icon: CreditCard, label: 'Card' },
+                          { value: 'GCash', icon: Smartphone, label: 'GCash' },
+                          { value: 'Maya', icon: Smartphone, label: 'Maya' },
+                          { value: 'GL', icon: CreditCard, label: 'GL' }
+                        ].map((method) => {
+                          const Icon = method.icon
+                          return (
+                            <Button
+                              key={method.value}
+                              type="button"
+                              variant={field.value === method.value ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => field.onChange(method.value)}
+                              className={cn(
+                                'h-14 flex flex-col items-center justify-center gap-1',
+                                field.value === method.value &&
+                                  'bg-blue-600 hover:bg-blue-700'
+                              )}
+                            >
+                              <Icon className="h-5 w-5" />
+                              <span className="text-xs font-medium">{method.label}</span>
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* GL Number */}
+                {form.watch('payment_type') === 'GL' && (
+                  <FormField
+                    control={form.control}
+                    name="gl_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm font-semibold text-gray-700">
+                          GL Number
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter GL Number"
+                            className="h-11 mt-2"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+
+              {/* Total & Checkout Button - Fixed at Bottom */}
+              <div className="border-t bg-slate-50 p-4 space-y-4">
+                {/* Total Amount */}
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-5">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-xs text-blue-100 mb-1">Total Amount</p>
+                      <p className="text-3xl font-bold">
+                        ₱{totalAmount.toFixed(2)}
+                      </p>
+                    </div>
+                    <ShoppingCart className="h-10 w-10 opacity-20" />
+                  </div>
+                </div>
+
+                {/* Complete Transaction Button */}
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full h-14 text-lg font-bold bg-green-600 hover:bg-green-700 shadow-lg"
+                  disabled={cartItems.length === 0 || !form.watch('customer_id')}
+                >
+                  Complete Transaction
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
+      </div>
+
+      {/* Modals */}
       <AddCustomerModal
         isOpen={addCustomerOpen}
         onClose={() => setAddCustomerOpen(false)}

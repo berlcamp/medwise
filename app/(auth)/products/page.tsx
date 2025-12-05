@@ -133,7 +133,7 @@ export default function Page() {
     <div>
       <div className="app__title">
         <h1 className="text-3xl font-normal">Products</h1>
-        {user?.type === 'super admin' && (
+        {(user?.type === 'super admin' || user?.type === 'admin' || user?.type === 'admin') && (
           <Button
             variant="green"
             onClick={() => setModalAddOpen(true)}
