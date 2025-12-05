@@ -1,13 +1,20 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { supabase } from '@/lib/supabase/client'
+import { Branch } from '@/types'
 import { differenceInDays, format, isBefore, parseISO } from 'date-fns'
 import { saveAs } from 'file-saver'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
+import 'react-date-range/dist/styles.css'
+import 'react-date-range/dist/theme/default.css'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
+import { useAppSelector } from '@/lib/redux/hook'
+import { Loader2, Download, RefreshCw } from 'lucide-react'
 
 const today = new Date()
 
@@ -24,18 +31,39 @@ type ProductStockExpiry = {
 }
 
 export const ExpiryReport = () => {
+  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId)
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [selectedBranch, setSelectedBranch] = useState<number | null>(selectedBranchId)
+  
   const [list, setList] = useState<ProductStockExpiry[]>([])
 
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('daily') // daily / weekly / monthly / custom
+  const [mode, setMode] = useState('monthly') // daily / weekly / monthly / custom
 
   const [range, setRange] = useState([
     {
       startDate: today,
-      endDate: today,
+      endDate: new Date(today.getFullYear(), today.getMonth() + 3, today.getDate()),
       key: 'selection'
     }
   ])
+
+  // Fetch branches
+  useEffect(() => {
+    const fetchBranches = async () => {
+      const { data } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+      if (data) setBranches(data)
+    }
+    fetchBranches()
+  }, [])
+
+  // Update selected branch when Redux changes
+  useEffect(() => {
+    setSelectedBranch(selectedBranchId)
+  }, [selectedBranchId])
 
   // 🚀 Auto-update date range on mode change
   useEffect(() => {
@@ -65,6 +93,11 @@ export const ExpiryReport = () => {
   }, [mode])
 
   const fetchExpiringStocks = async () => {
+    if (!selectedBranch) {
+      toast.error('Please select a branch')
+      return
+    }
+
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -76,6 +109,7 @@ export const ExpiryReport = () => {
           supplier:supplier_id(name)
         `
         )
+        .eq('branch_id', selectedBranch)
         .gte('remaining_quantity', 1)
         .not('expiration_date', 'is', null)
         .gte('expiration_date', range[0].startDate.toISOString())
@@ -106,8 +140,11 @@ export const ExpiryReport = () => {
   }
 
   useEffect(() => {
-    fetchExpiringStocks()
-  }, [])
+    if (selectedBranch) {
+      fetchExpiringStocks()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranch])
 
   // ---------- EXPORT TO EXCEL ----------
   const exportToExcel = () => {
@@ -136,109 +173,165 @@ export const ExpiryReport = () => {
   }
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="space-y-6">
       {/* FILTERS */}
-      <div className="mt-10 flex gap-3 items-center">
-        <select
-          className="border px-2 py-1 rounded text-xs"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-        >
-          <option value="daily">Today</option>
-          <option value="weekly">This Week</option>
-          <option value="monthly">This Month</option>
-          <option value="custom">Custom Range</option>
-        </select>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Branch</label>
+              <Select
+                value={selectedBranch?.toString() || ''}
+                onValueChange={(value) => setSelectedBranch(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {list.length > 0 && (
-          <Button
-            onClick={exportToExcel}
-            variant="green"
-            size="xs"
-            className="ml-auto"
-          >
-            Download Excel
-          </Button>
-        )}
-      </div>
-      <div>
-        <Button onClick={fetchExpiringStocks} variant="blue" size="sm">
-          Generate Report
-        </Button>
-      </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date Range</label>
+              <Select value={mode} onValueChange={setMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Today</SelectItem>
+                  <SelectItem value="weekly">This Week</SelectItem>
+                  <SelectItem value="monthly">Next 3 Months</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-      {/* DATE PICKER FOR CUSTOM */}
-      {mode === 'custom' && (
-        <div className="border p-3 rounded inline-block">
-          <DateRangePicker
-            onChange={(item) =>
-              setRange([
-                {
-                  startDate: item.selection.startDate ?? new Date(),
-                  endDate: item.selection.endDate ?? new Date(),
-                  key: 'selection'
+            <div className="space-y-2 flex flex-col justify-end">
+              <div className="flex gap-2">
+                <Button onClick={fetchExpiringStocks} variant="blue" size="sm" disabled={loading || !selectedBranch}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Generate
+                </Button>
+                {list.length > 0 && (
+                  <Button onClick={exportToExcel} variant="green" size="sm">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* DATE PICKER FOR CUSTOM */}
+          {mode === 'custom' && (
+            <div className="mt-4 border p-4 rounded-lg inline-block">
+              <DateRangePicker
+                onChange={(item) =>
+                  setRange([
+                    {
+                      startDate: item.selection.startDate ?? new Date(),
+                      endDate: item.selection.endDate ?? new Date(),
+                      key: 'selection'
+                    }
+                  ])
                 }
-              ])
-            }
-            moveRangeOnFirstSelection={false}
-            ranges={range}
-          />
-        </div>
-      )}
+                moveRangeOnFirstSelection={false}
+                ranges={range}
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="overflow-x-auto">
-        {loading ? (
-          <p>Loading...</p>
-        ) : list.length === 0 ? (
-          <p className="text-gray-500">No data found.</p>
-        ) : (
-          <table className="app__table">
-            <thead className="app__thead">
-              <tr>
-                <th className="app__th">Product</th>
-                <th className="app__th">Batch / Supplier</th>
-                <th className="app__th">Remaining Qty</th>
-                <th className="app__th">Mfg Date / Exp</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((item) => {
-                const exp = item.expiration_date
-                  ? format(parseISO(item.expiration_date), 'MMM dd, yyyy')
-                  : '-'
-                const mfg = item.date_manufactured
-                  ? format(parseISO(item.date_manufactured), 'MMM dd, yyyy')
-                  : '-'
-                const today = new Date()
-                const isExpired = item.expiration_date
-                  ? isBefore(parseISO(item.expiration_date), today)
-                  : false
-
-                return (
-                  <tr key={item.id} className="app__tr">
-                    <td className="app__td">{item.product_name}</td>
-                    <td className="app__td">
-                      {item.batch_no && <>Batch: {item.batch_no}, </>}
-                      Supplier: {item.supplier_name}
-                    </td>
-                    <td className="app__td">{item.remaining_quantity}</td>
-                    <td className="app__td">
-                      {item.manufacturer && <>Mfg: {item.manufacturer}, </>}
-                      {item.date_manufactured && <>Date: {mfg}, </>}
-                      Exp: {exp}
-                      {isExpired && (
-                        <span className="ml-1 text-[10px] bg-red-100 text-red-600 px-1 py-0.5 rounded">
-                          Expired
-                        </span>
-                      )}
-                    </td>
+      {/* REPORT TABLE */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Expiry Report</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : list.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No expiring products found.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-left font-semibold">Product</th>
+                    <th className="p-3 text-left font-semibold">Batch / Supplier</th>
+                    <th className="p-3 text-right font-semibold">Remaining Qty</th>
+                    <th className="p-3 text-left font-semibold">Mfg Date / Exp</th>
+                    <th className="p-3 text-center font-semibold">Days to Expiry</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {list.map((item) => {
+                    const exp = item.expiration_date
+                      ? format(parseISO(item.expiration_date), 'MMM dd, yyyy')
+                      : '-'
+                    const mfg = item.date_manufactured
+                      ? format(parseISO(item.date_manufactured), 'MMM dd, yyyy')
+                      : '-'
+                    const today = new Date()
+                    const isExpired = item.expiration_date
+                      ? isBefore(parseISO(item.expiration_date), today)
+                      : false
+                    const daysToExpiry = item.expiration_date
+                      ? differenceInDays(parseISO(item.expiration_date), today)
+                      : null
+
+                    return (
+                      <tr key={item.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 font-medium">{item.product_name}</td>
+                        <td className="p-3">
+                          {item.batch_no && <>Batch: {item.batch_no}, </>}
+                          Supplier: {item.supplier_name}
+                        </td>
+                        <td className="p-3 text-right font-semibold">{item.remaining_quantity}</td>
+                        <td className="p-3">
+                          {item.manufacturer && <>Mfg: {item.manufacturer}, </>}
+                          {item.date_manufactured && <>Date: {mfg}, </>}
+                          Exp: {exp}
+                          {isExpired && (
+                            <span className="ml-1 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">
+                              Expired
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          {daysToExpiry !== null && (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              daysToExpiry < 0 ? 'bg-red-100 text-red-700' :
+                              daysToExpiry <= 30 ? 'bg-orange-100 text-orange-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {daysToExpiry < 0 ? `${Math.abs(daysToExpiry)} days ago` : `${daysToExpiry} days`}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

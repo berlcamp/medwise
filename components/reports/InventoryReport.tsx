@@ -5,10 +5,15 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
 import { differenceInDays, format, isBefore, parseISO } from 'date-fns'
 import { saveAs } from 'file-saver'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Download, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { Button } from '../ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { useAppSelector } from '@/lib/redux/hook'
+import { Branch } from '@/types'
+import toast from 'react-hot-toast'
 
 interface StockRow {
   product_id: number
@@ -19,14 +24,38 @@ interface StockRow {
 }
 
 export default function InventoryReport() {
+  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId)
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [selectedBranch, setSelectedBranch] = useState<number | null>(selectedBranchId)
+  
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<StockRow[]>([])
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
 
+  // Fetch branches
   useEffect(() => {
-    loadInventory()
+    const fetchBranches = async () => {
+      const { data } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+      if (data) setBranches(data)
+    }
+    fetchBranches()
   }, [])
+
+  // Update selected branch when Redux changes
+  useEffect(() => {
+    setSelectedBranch(selectedBranchId)
+  }, [selectedBranchId])
+
+  useEffect(() => {
+    if (selectedBranch) {
+      loadInventory()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranch])
 
   const downloadExcel = () => {
     // Convert your `data` array into sheet rows
@@ -51,19 +80,65 @@ export default function InventoryReport() {
   }
 
   const loadInventory = async () => {
+    if (!selectedBranch) {
+      toast.error('Please select a branch')
+      return
+    }
+
     setLoading(true)
 
-    const { data: rows, error } = await supabase.rpc('get_inventory_report', {
-      org_id_param: Number(process.env.NEXT_PUBLIC_ORG_ID)
-    })
+    // Fetch inventory data filtered by branch
+    const { data: stocks, error: stocksError } = await supabase
+      .from('product_stocks')
+      .select(`
+        product_id,
+        remaining_quantity,
+        expiration_date,
+        product:product_id(id, name, category)
+      `)
+      .eq('branch_id', selectedBranch)
+      .gt('remaining_quantity', 0)
 
-    if (error) {
-      console.error('Inventory report error:', error)
+    if (stocksError) {
+      console.error('Inventory report error:', stocksError)
+      toast.error('Failed to load inventory')
       setLoading(false)
       return
     }
 
-    setData(rows || [])
+    // Group by product and calculate totals
+    const productMap = new Map<number, StockRow>()
+    
+    stocks?.forEach((stock) => {
+      const productId = stock.product_id
+      const productArray = stock.product as { id: number; name: string; category: string | null }[] | null
+      const product = Array.isArray(productArray) ? productArray[0] : productArray
+      
+      if (!product) return
+
+      if (!productMap.has(productId)) {
+        productMap.set(productId, {
+          product_id: productId,
+          name: product.name,
+          category: product.category || 'Uncategorized',
+          stock_on_hand: 0,
+          nearest_expiration: null
+        })
+      }
+
+      const row = productMap.get(productId)!
+      row.stock_on_hand += stock.remaining_quantity || 0
+      
+      // Track nearest expiration
+      if (stock.expiration_date) {
+        if (!row.nearest_expiration || 
+            new Date(stock.expiration_date) < new Date(row.nearest_expiration)) {
+          row.nearest_expiration = stock.expiration_date
+        }
+      }
+    })
+
+    setData(Array.from(productMap.values()))
     setLoading(false)
   }
 
@@ -103,85 +178,123 @@ export default function InventoryReport() {
   }
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="space-y-6">
       {/* FILTERS */}
-      <div className="mt-10 flex gap-3 items-center">
-        <Input
-          placeholder="Search product or category..."
-          className="w-60"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Branch</label>
+              <Select
+                value={selectedBranch?.toString() || ''}
+                onValueChange={(value) => setSelectedBranch(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <select
-          className="border rounded px-2 py-1 text-sm"
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-        >
-          <option value="">All Categories</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search product or category..."
+                  className="pl-10"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
 
-      {/* LOADING */}
-      {loading && (
-        <div className="flex justify-center py-10">
-          <Loader2 className="animate-spin w-6 h-6 text-gray-500" />
-        </div>
-      )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Category</label>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* TABLE */}
-      {!loading && (
-        <div>
-          <div className="flex justify-end mb-3">
-            <Button onClick={downloadExcel} variant="green" size="xs">
-              Export to Excel
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg">Inventory Report</CardTitle>
+          {filtered.length > 0 && (
+            <Button onClick={downloadExcel} variant="green" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
             </Button>
-          </div>
-          <div className="overflow-auto border rounded-md">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 text-left">
-                <tr>
-                  <th className="p-2">Product</th>
-                  <th className="p-2">Category</th>
-                  <th className="p-2 text-right">Stock on Hand</th>
-                  <th className="p-2">Nearest Exp.</th>
-                  <th className="p-2">Status</th>
-                </tr>
-              </thead>
+          )}
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center items-center py-12">
+              <Loader2 className="animate-spin w-8 h-8 text-gray-400" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No inventory data found.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-3 text-left font-semibold">Product</th>
+                    <th className="p-3 text-left font-semibold">Category</th>
+                    <th className="p-3 text-right font-semibold">Stock on Hand</th>
+                    <th className="p-3 text-left font-semibold">Nearest Exp.</th>
+                    <th className="p-3 text-left font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((item) => {
+                    const exp = item.nearest_expiration
+                      ? format(parseISO(item.nearest_expiration), 'MMM dd, yyyy')
+                      : '—'
 
-              <tbody>
-                {filtered.map((item) => {
-                  const exp = item.nearest_expiration
-                    ? format(parseISO(item.nearest_expiration), 'MMM dd, yyyy')
-                    : '—'
-
-                  return (
-                    <tr key={item.product_id} className="border-t">
-                      <td className="p-2 font-medium">{item.name}</td>
-                      <td className="p-2">{item.category}</td>
-
-                      <td className="p-2 text-right font-semibold">
-                        {item.stock_on_hand}
-                      </td>
-
-                      <td className="p-2">{exp}</td>
-
-                      <td className="p-2">
-                        {getStatusBadge(item.nearest_expiration)}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>{' '}
-        </div>
-      )}
+                    return (
+                      <tr key={item.product_id} className="border-b hover:bg-gray-50">
+                        <td className="p-3 font-medium">{item.name}</td>
+                        <td className="p-3">{item.category}</td>
+                        <td className="p-3 text-right font-semibold">
+                          {item.stock_on_hand}
+                        </td>
+                        <td className="p-3">{exp}</td>
+                        <td className="p-3">
+                          {getStatusBadge(item.nearest_expiration)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
