@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { supabase } from '@/lib/supabase/client'
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
+import { useAppDispatch } from '@/lib/redux/hook'
+import { updateList } from '@/lib/redux/listSlice'
 
 interface Props {
   transaction: any
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export const PaymentStatusDropdown = ({ transaction, onUpdated }: Props) => {
+  const dispatch = useAppDispatch()
   const [status, setStatus] = useState(transaction.payment_status)
   const [partialAmount, setPartialAmount] = useState(
     transaction.partial_amount || 0
@@ -57,6 +60,14 @@ export const PaymentStatusDropdown = ({ transaction, onUpdated }: Props) => {
 
       setStatus(newStatus)
       setConfirmOpen(false)
+      
+      // Update Redux directly with partial update
+      const reduxUpdate: any = { payment_status: newStatus, id: transaction.id }
+      if (newStatus === 'Partial') {
+        reduxUpdate.partial_amount = partialAmount
+      }
+      dispatch(updateList(reduxUpdate))
+      
       if (onUpdated) onUpdated()
     } else {
       console.error(error)

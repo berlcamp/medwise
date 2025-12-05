@@ -28,6 +28,9 @@ export const List = () => {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [printData, setPrintData] = useState<any>(null)
   const [printDeliveryData, setPrintDeliveryData] = useState<any>(null)
+  const [printType, setPrintType] = useState<'invoice' | 'delivery' | null>(
+    null
+  )
 
   const handleView = (item: Transaction) => {
     setSelectedItem(item)
@@ -45,11 +48,19 @@ export const List = () => {
       return
     }
 
+    // Clear other print data and set invoice
+    setPrintDeliveryData(null)
+    setPrintType('invoice')
     setPrintData({ transaction: item, items })
 
     setTimeout(() => {
       window.print()
-    }, 150)
+      // Reset after print
+      setTimeout(() => {
+        setPrintData(null)
+        setPrintType(null)
+      }, 500)
+    }, 200)
   }
 
   const printDeliveryReceipt = async (item: Transaction) => {
@@ -63,11 +74,19 @@ export const List = () => {
       return
     }
 
+    // Clear other print data and set delivery receipt
+    setPrintData(null)
+    setPrintType('delivery')
     setPrintDeliveryData({ transaction: item, items })
 
     setTimeout(() => {
       window.print()
-    }, 150)
+      // Reset after print
+      setTimeout(() => {
+        setPrintDeliveryData(null)
+        setPrintType(null)
+      }, 500)
+    }, 200)
   }
 
   return (
@@ -207,15 +226,14 @@ export const List = () => {
             onClose={() => {
               setIsPaymentOpen(false)
             }}
-            onUpdated={() => {
-              // Optional: refresh parent list or re-fetch transaction
-            }}
           />
         </>
       )}
 
-      <InvoicePrint data={printData} />
-      <DeliveryReceiptPrint data={printDeliveryData} />
+      {printType === 'invoice' && <InvoicePrint data={printData} />}
+      {printType === 'delivery' && (
+        <DeliveryReceiptPrint data={printDeliveryData} />
+      )}
     </div>
   )
 }

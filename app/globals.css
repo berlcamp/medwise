@@ -168,33 +168,79 @@
 
   /* HIDE EVERYTHING on print */
   @media print {
+    @page {
+      size: letter;
+      margin: 0.2in 0.5in 0.5in 0.5in; /* top right bottom left - smaller top margin */
+      background: white !important;
+    }
+
+    body {
+      background: white !important;
+    }
+
+    * {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
     body * {
       visibility: hidden !important;
     }
 
-    /* SHOW ONLY the invoice print area */
+    /* SHOW ONLY the active print area */
     #invoice-print-area,
     #invoice-print-area * {
       visibility: visible !important;
+      background: white !important;
     }
 
     #delivery-print-area,
     #delivery-print-area * {
       visibility: visible !important;
+      background: white !important;
     }
 
-    /* Position the printed invoice at top-left */
+    /* Remove gray backgrounds from print areas */
+    #invoice-print-area table thead tr,
+    #delivery-print-area table thead tr {
+      background: white !important;
+      background-color: white !important;
+    }
+
+    /* Position the printed areas */
     #invoice-print-area {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
+      page-break-after: auto;
     }
+
     #delivery-print-area {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
+      page-break-after: auto;
+    }
+
+    /* Ensure tables don't break awkwardly */
+    table {
+      page-break-inside: auto;
+    }
+
+    tr {
+      page-break-inside: avoid;
+      page-break-after: auto;
+    }
+
+    thead {
+      display: table-header-group;
+    }
+
+    tfoot {
+      display: table-footer-group;
     }
   }
 }

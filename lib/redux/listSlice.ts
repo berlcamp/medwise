@@ -17,12 +17,13 @@ export const listSlice = createSlice({
       state.value = action.payload
     },
     // Update an item in the list by its `id`
+    // Supports partial updates - merges payload with existing item
     updateList: (state, action: PayloadAction<any>) => {
       const index = state.value.findIndex(
         (item) => item.id === action.payload.id
       )
       if (index !== -1) {
-        state.value[index] = action.payload
+        state.value[index] = { ...state.value[index], ...action.payload }
       }
     },
     // Add a new item to the list

@@ -130,7 +130,7 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
       case 'bulk':
         return {
           title: 'New Transaction [Bulk]',
-          paymentStatus: 'Paid',
+          paymentStatus: 'Unpaid',
           redirectUrl: '/bulktransactions',
           successMessage: 'Transaction completed successfully!',
           allowPriceEdit: false

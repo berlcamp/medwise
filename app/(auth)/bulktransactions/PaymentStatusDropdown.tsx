@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
+import { useAppDispatch } from '@/lib/redux/hook'
+import { updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { Trash2 } from 'lucide-react'
@@ -40,6 +42,8 @@ export const ReceivePaymentModal = ({
   const [totalPaid, setTotalPaid] = useState(0)
   const [balance, setBalance] = useState(0)
 
+  const dispatch = useAppDispatch()
+
   // Load payments
   const loadPayments = async () => {
     const { data } = await supabase
@@ -50,9 +54,34 @@ export const ReceivePaymentModal = ({
 
     setPayments(data || [])
 
-    const total = (data || []).reduce((sum, p) => sum + Number(p.amount), 0)
-    setTotalPaid(total)
-    setBalance(Number(transaction.total_amount) - total)
+    const totalPaid = (data || []).reduce((sum, p) => sum + Number(p.amount), 0)
+
+    const totalAmount = Number(transaction.total_amount || 0)
+              const balance = totalAmount - totalPaid
+
+              // Determine payment status based on totalPaid and balance
+              let paymentStatus: 'Paid' | 'Partial' | 'Unpaid'
+              
+              if (balance <= 0) {
+                paymentStatus = 'Paid'
+                
+              } else if (totalPaid > 0) {
+                paymentStatus = 'Partial'
+              } else {
+                paymentStatus = 'Unpaid'
+              }
+
+              // Update Redux with the determined payment status
+              dispatch(
+                updateList({
+                  ...transaction,
+                  payment_status: paymentStatus,
+                  id: transaction.id
+                })
+              )
+
+    setTotalPaid(totalPaid)
+    setBalance(Number(transaction.total_amount) - totalPaid)
   }
 
   useEffect(() => {
@@ -80,20 +109,25 @@ export const ReceivePaymentModal = ({
       remarks: remarks || null
     })
 
-    setLoading(false)
-
     if (error) {
+      setLoading(false)
       toast.error('Error saving payment.')
       return
     }
 
+    // Reload payments to get updated totalPaid
+    await loadPayments()
+
+    setLoading(false)
     toast.success('Payment recorded')
+    
+    // Pass totalPaid to onUpdated callback
     if (onUpdated) onUpdated()
+    
     setAmount('')
     setReference('')
     setRemarks('')
     setMethod('Cash')
-    loadPayments()
   }
 
   const removePayment = async (id: number) => {
@@ -109,9 +143,13 @@ export const ReceivePaymentModal = ({
       return
     }
 
+    // Reload payments to get updated totalPaid
+    await loadPayments()
+
     toast.success('Payment removed')
+    
+    // Pass totalPaid to onUpdated callback
     if (onUpdated) onUpdated()
-    loadPayments()
   }
 
   return (
