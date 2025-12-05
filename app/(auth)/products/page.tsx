@@ -32,6 +32,8 @@ export default function Page() {
   )
 
   useEffect(() => {
+    let isMounted = true
+
     const fetchData = async () => {
       setLoading(true)
       dispatch(addList([])) // reset list
@@ -56,6 +58,9 @@ export default function Page() {
         .ilike('category', `%${filter.category}%`)
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
         .order('id', { ascending: false })
+
+      // Only update state if component is still mounted
+      if (!isMounted) return
 
       if (error) {
         console.error('Error fetching products:', error)
@@ -113,6 +118,11 @@ export default function Page() {
     }
 
     fetchData()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+    }
   }, [page, filter, dispatch, selectedBranchId])
 
   if (user?.type === 'user') {

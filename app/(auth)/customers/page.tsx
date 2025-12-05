@@ -29,6 +29,7 @@ export default function Page() {
 
   // Fetch data on page load
   useEffect(() => {
+    let isMounted = true
     dispatch(addList([])) // Reset the list first on page load
 
     const fetchData = async () => {
@@ -42,6 +43,9 @@ export default function Page() {
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
         .order('id', { ascending: false })
 
+      // Only update state if component is still mounted
+      if (!isMounted) return
+
       if (error) {
         console.error(error)
       } else {
@@ -53,6 +57,11 @@ export default function Page() {
     }
 
     fetchData()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+    }
   }, [page, filter, dispatch, selectedBranchId]) // Add `dispatch` to dependency array
 
   return (

@@ -29,6 +29,7 @@ export default function Page() {
   )
 
   useEffect(() => {
+    let isMounted = true
     dispatch(addList([]))
 
     const fetchData = async () => {
@@ -51,6 +52,9 @@ export default function Page() {
 
       const { data, count, error } = await query
 
+      // Only update state if component is still mounted
+      if (!isMounted) return
+
       if (error) console.error(error)
       else {
         dispatch(addList(data))
@@ -61,6 +65,11 @@ export default function Page() {
     }
 
     fetchData()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+    }
   }, [page, filter, dispatch, selectedBranchId])
 
   if (user?.type === 'user') return <Notfoundpage />

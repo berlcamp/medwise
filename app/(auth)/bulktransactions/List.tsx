@@ -121,11 +121,11 @@ export const List = () => {
                 )}
               </td>
               <td className="app__td space-x-2">
-                <span>{item.payment_type}</span>
-                {item.payment_type === 'GL' && <span>({item.gl_number})</span>}
+                <span>{item.payment_type || '-'}</span>
+                {item.payment_type === 'GL' && <span>({item.gl_number || '-'})</span>}
               </td>
               <td className="app__td text-right">
-                ₱{Number(item.total_amount).toLocaleString()}
+                ₱{Number(item.total_amount || 0).toLocaleString()}
               </td>
               <td className="app__td text-right space-x-1">
                 <DeliveryStatusDropdown
@@ -144,6 +144,9 @@ export const List = () => {
                 )}
                 {item.payment_status === 'Unpaid' && (
                   <Badge variant="orange">Unpaid</Badge>
+                )}
+                {!item.payment_status && (
+                  <Badge variant="outline">-</Badge>
                 )}
               </td>
               <td className="app__td text-center">

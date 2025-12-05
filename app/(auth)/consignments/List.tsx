@@ -121,7 +121,7 @@ export const List = () => {
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {item.status.toUpperCase()}
+                  {item.status?.toUpperCase() || '-'}
                 </span>
               </td>
               <td className="app__td text-center space-x-2">

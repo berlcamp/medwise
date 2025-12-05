@@ -129,20 +129,20 @@ export const List = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <Avatar
-                      name={item.name}
+                      name={item.name || 'Unknown'}
                       size="30"
                       round={true}
                       textSizeRatio={3}
                       className="shrink-0"
                     />
                     <span className="text-gray-800 font-medium">
-                      {item.name}
+                      {item.name || '-'}
                     </span>
                   </div>
                 </div>
               </td>
-              <td className="app__td">{item.contact_number}</td>
-              <td className="app__td">{item.address}</td>
+              <td className="app__td">{item.contact_number || '-'}</td>
+              <td className="app__td">{item.address || '-'}</td>
               <td className="app__td text-center">
                 <div className="flex justify-center gap-2">
                   <Button

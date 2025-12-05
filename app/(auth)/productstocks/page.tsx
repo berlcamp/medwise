@@ -30,6 +30,7 @@ export default function Page() {
   )
 
   useEffect(() => {
+    let isMounted = true
     dispatch(addList([])) // reset list
 
     const fetchData = async () => {
@@ -47,16 +48,18 @@ export default function Page() {
 
         if (productError) {
           console.error('Error fetching products:', productError)
-          setLoading(false)
+          if (isMounted) setLoading(false)
           return
         }
 
         productIds = matchingProducts?.map((p) => p.id) || []
         // If no matching products, avoid querying stocks
         if (productIds.length === 0) {
-          dispatch(addList([]))
-          setTotalCount(0)
-          setLoading(false)
+          if (isMounted) {
+            dispatch(addList([]))
+            setTotalCount(0)
+            setLoading(false)
+          }
           return
         }
       }
@@ -91,6 +94,9 @@ export default function Page() {
         ascending: false
       })
 
+      // Only update state if component is still mounted
+      if (!isMounted) return
+
       if (error) {
         console.error('Error fetching stocks:', error)
       } else {
@@ -102,6 +108,11 @@ export default function Page() {
     }
 
     fetchData()
+
+    // Cleanup function
+    return () => {
+      isMounted = false
+    }
   }, [page, filter, dispatch, selectedBranchId])
 
   if (user?.type === 'user') return <Notfoundpage />

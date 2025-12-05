@@ -73,11 +73,11 @@ export const List = ({}) => {
           {list.map((item: ItemType) => (
             <tr key={item.id} className="app__tr">
               <td className="app__td">
-                <div>{item.name}</div>
-                <div className="text-xs">{item.email}</div>
+                <div>{item.name || '-'}</div>
+                <div className="text-xs">{item.email || '-'}</div>
               </td>
-              <td className="app__td">{item.branch?.name}</td>
-              <td className="app__td">{item.type}</td>
+              <td className="app__td">{item.branch?.name || '-'}</td>
+              <td className="app__td">{item.type || '-'}</td>
               <td className="app__td">
                 <div className="flex items-center justify-center gap-2">
                   {' '}

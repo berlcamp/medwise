@@ -59,7 +59,7 @@ export const List = () => {
           {list.map((item) => (
             <tr key={item.id} className="app__tr">
               <td className="app__td">
-                {item.name} ({item.unit})
+                {item.name || '-'} ({item.unit || '-'})
               </td>
               <td className="app__td">
                 {' '}
@@ -68,7 +68,7 @@ export const List = () => {
                   : item.category || '-'}
               </td>
               <td className="app__td text-right">
-                {formatMoney(item.selling_price)}
+                {formatMoney(item.selling_price || 0)}
               </td>
               <td
                 className={`app__td text-right ${
@@ -77,9 +77,9 @@ export const List = () => {
                     : ''
                 }`}
               >
-                {item.stock_qty}
+                {item.stock_qty ?? '-'}
               </td>
-              <td className="app__td text-right">{item.total_expired}</td>
+              <td className="app__td text-right">{item.total_expired ?? '-'}</td>
               <td className="app__td">
                 {(user?.type === 'super admin' ||
                   user?.type === 'bulk' ||

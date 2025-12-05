@@ -72,9 +72,9 @@ export const List = ({}) => {
         <tbody>
           {list.map((item: ItemType) => (
             <tr key={item.id} className="app__tr">
-              <td className="app__td">{item.name}</td>
-              <td className="app__td">{item.contact_number}</td>
-              <td className="app__td">{item.address}</td>
+              <td className="app__td">{item.name || '-'}</td>
+              <td className="app__td">{item.contact_number || '-'}</td>
+              <td className="app__td">{item.address || '-'}</td>
               <td className="app__td">
                 <div className="flex items-center justify-center gap-2">
                   {' '}
