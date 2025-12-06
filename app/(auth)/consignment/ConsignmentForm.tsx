@@ -50,12 +50,13 @@ import {
 import { Consignment, Customer, Product, ProductStock } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, parseISO, startOfToday } from 'date-fns'
-import { Check, ChevronsUpDown, Plus } from 'lucide-react'
+import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
+import { Badge } from '@/components/ui/badge'
 
 const FormSchema = z.object({
   customer_id: z.coerce
@@ -95,8 +96,11 @@ export default function ConsignmentForm() {
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
   const [addCustomerOpen, setAddCustomerOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [isProductOpen, setIsProductOpen] = useState(false)
   const [productSearchTerm, setProductSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [showProductResults, setShowProductResults] = useState(false)
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [formValues, setFormValues] = useState<FormType | null>(null)
   const [previousBalance, setPreviousBalance] = useState<Consignment | null>(null)
@@ -109,9 +113,14 @@ export default function ConsignmentForm() {
 
   const totalAmount = cartItems.reduce((acc, i) => acc + i.total, 0)
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(productSearchTerm.toLowerCase())
-  )
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(productSearchTerm)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [productSearchTerm])
 
   // Load previous month's balance when customer and period change
   useEffect(() => {
@@ -247,50 +256,102 @@ export default function ConsignmentForm() {
     setCartItems((prev) => prev.filter((_, i) => i !== idx))
   }
 
+  // Fetch customers on mount
   useEffect(() => {
-    const fetchData = async () => {
-      const [c, p] = await Promise.all([
-        supabase
-          .from('customers')
-          .select()
-          .eq('branch_id', selectedBranchId)
-          .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID),
-        supabase
+    const fetchCustomers = async () => {
+      const { data } = await supabase
+        .from('customers')
+        .select()
+        .eq('branch_id', selectedBranchId)
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+
+      if (data) setCustomers(data)
+    }
+    fetchCustomers()
+  }, [selectedBranchId])
+
+  // Fetch products with search and debouncing
+  useEffect(() => {
+    const fetchProducts = async () => {
+      // Don't fetch if there's no search term and results aren't showing
+      if (!debouncedSearchTerm.trim() && !showProductResults) {
+        setProducts([])
+        return
+      }
+
+      // Only fetch if there's a search term
+      if (!debouncedSearchTerm.trim()) {
+        setProducts([])
+        return
+      }
+
+      setLoadingProducts(true)
+
+      try {
+        const query = supabase
           .from('products')
           .select(
-            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date)'
+            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date,branch_id)'
           )
           .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
-      ])
+          .ilike('name', `%${debouncedSearchTerm.trim()}%`)
+          .limit(50)
+          .order('name', { ascending: true })
 
-      if (c.data) setCustomers(c.data)
+        const { data: p } = await query
 
-      if (p.data) {
-        const today = startOfToday()
+        if (p) {
+          const today = startOfToday()
 
-        const formatted = p.data.map((product) => {
-          const stock_qty =
-            product.product_stocks?.reduce((acc: number, s: ProductStock) => {
-              const exp = s.expiration_date ? parseISO(s.expiration_date) : null
-              const isNotExpired = !exp || isAfter(exp, today)
-              if (!isNotExpired) return acc
+          const formatted = p.map((product) => {
+            const stock_qty =
+              product.product_stocks
+                ?.filter((s: ProductStock) => s.branch_id === selectedBranchId)
+                .reduce((acc: number, s: ProductStock) => {
+                  const exp = s.expiration_date ? parseISO(s.expiration_date) : null
+                  const isNotExpired = !exp || isAfter(exp, today)
+                  if (!isNotExpired) return acc
 
-              return s.type === 'in'
-                ? acc + s.remaining_quantity
-                : acc - s.remaining_quantity
-            }, 0) ?? 0
+                  return s.type === 'in'
+                    ? acc + s.remaining_quantity
+                    : acc - s.remaining_quantity
+                }, 0) ?? 0
 
-          return {
-            ...product,
-            stock_qty
-          }
-        })
+            return {
+              ...product,
+              stock_qty
+            }
+          })
 
-        setProducts(formatted.filter((item) => item.stock_qty > 0))
+          // Only show products with stock > 0 for the selected branch
+          setProducts(formatted.filter((item) => item.stock_qty > 0))
+        } else {
+          setProducts([])
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+        setProducts([])
+      } finally {
+        setLoadingProducts(false)
       }
     }
-    fetchData()
-  }, [selectedBranchId])
+
+    fetchProducts()
+  }, [selectedBranchId, debouncedSearchTerm, showProductResults])
+
+  // Close product results dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowProductResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const selectedCustomer = customers.find(
     (c: Customer) => c.id === form.watch('customer_id')
@@ -523,83 +584,102 @@ export default function ConsignmentForm() {
             </div>
 
             {/* Product Selection */}
-            <FormField
-              control={form.control}
-              name="product_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-base">Add Products</FormLabel>
-                  <Popover open={isProductOpen} onOpenChange={setIsProductOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                          'w-full justify-between h-11',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                        type="button"
-                      >
-                        Select product to add
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput
-                          placeholder="Search product..."
-                          onValueChange={(v) => setProductSearchTerm(v)}
-                        />
-                        {filteredProducts.length === 0 ? (
-                          <CommandEmpty>No products found.</CommandEmpty>
-                        ) : (
-                          <CommandGroup>
-                            {filteredProducts.map((p) => {
-                              const alreadyInCart = cartItems.some(
-                                (item) => item.product_id === p.id
-                              )
-                              return (
-                                <CommandItem
-                                  key={p.id}
-                                  value={p.id.toString()}
-                                  disabled={alreadyInCart}
-                                  onSelect={() => {
-                                    if (alreadyInCart) return
-                                    field.onChange(p.id)
-                                    addProductToCart(p.id, 1)
-                                    setIsProductOpen(false)
-                                  }}
-                                  className={cn(
-                                    alreadyInCart &&
-                                      'opacity-50 cursor-not-allowed'
-                                  )}
-                                >
-                                  <div className="flex flex-col">
-                                    <span
-                                      className={cn(
-                                        alreadyInCart && 'opacity-50 line-through'
-                                      )}
-                                    >
-                                      {p.name}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {p.category} • ₱{p.selling_price} • Stock:{' '}
-                                      {p.stock_qty}
-                                    </span>
-                                  </div>
-                                </CommandItem>
-                              )
-                            })}
-                          </CommandGroup>
-                        )}
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div>
+              <FormLabel className="text-base mb-2 block">Add Products</FormLabel>
+              <div className="relative" ref={searchContainerRef}>
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  placeholder="Search products to add to consignment..."
+                  value={productSearchTerm}
+                  onChange={(e) => {
+                    setProductSearchTerm(e.target.value)
+                    setShowProductResults(e.target.value.trim().length > 0)
+                  }}
+                  onFocus={() => setShowProductResults(productSearchTerm.trim().length > 0)}
+                  className="pl-10 h-12 text-base"
+                />
+                
+                {/* Product Search Results Dropdown */}
+                {showProductResults && loadingProducts && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                    <p className="text-gray-500">Searching products...</p>
+                  </div>
+                )}
+                
+                {showProductResults && !loadingProducts && products.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                    <div className="p-2">
+                      {products.map((product) => {
+                        const alreadyInCart = cartItems.some(
+                          (item) => item.product_id === product.id
+                        )
+                        const isDisabled = alreadyInCart
+                        
+                        return (
+                          <button
+                            key={product.id}
+                            onClick={() => {
+                              if (!isDisabled) {
+                                addProductToCart(product.id, 1)
+                                toast.success(`${product.name} added to cart`)
+                                setProductSearchTerm('')
+                                setDebouncedSearchTerm('')
+                                setShowProductResults(false)
+                              }
+                            }}
+                            disabled={isDisabled}
+                            className={cn(
+                              'w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between',
+                              isDisabled
+                                ? 'bg-gray-50 border border-gray-200 cursor-not-allowed opacity-70'
+                                : 'hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer'
+                            )}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-sm">
+                                  {product.name}
+                                </h3>
+                                {alreadyInCart && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    In Cart
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-gray-500">{product.category}</span>
+                                <span className="text-xs text-gray-500">•</span>
+                                <span className="text-xs text-gray-500">{product.unit}</span>
+                                <span className="text-xs text-gray-500">•</span>
+                                <Badge variant="outline" className="text-xs">
+                                  Stock: {product.stock_qty || 0}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-base font-bold text-blue-600">
+                                ₱{product.selling_price.toFixed(2)}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {products.length === 50 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground text-center border-t">
+                        Showing first 50 results. Refine your search for more specific results.
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {showProductResults && !loadingProducts && products.length === 0 && productSearchTerm.trim() && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                    <p className="text-gray-500">No products found for &quot;{productSearchTerm}&quot;</p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Cart Table */}
             {cartItems.length > 0 ? (

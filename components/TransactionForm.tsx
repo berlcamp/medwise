@@ -652,22 +652,16 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {config.allowPriceEdit ? (
-                              <Input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={item.price}
-                                onChange={(e) =>
-                                  updateCartItemPrice(idx, Number(e.target.value))
-                                }
-                                className="w-28 h-8 text-right text-sm font-semibold ml-auto"
-                              />
-                            ) : (
-                              <span className="text-sm font-semibold">
-                                ₱{item.price.toFixed(2)}
-                              </span>
-                            )}
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={item.price}
+                              onChange={(e) =>
+                                updateCartItemPrice(idx, Number(e.target.value))
+                              }
+                              className="w-28 h-8 text-right text-sm font-semibold ml-auto"
+                            />
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-base font-bold text-blue-600">
