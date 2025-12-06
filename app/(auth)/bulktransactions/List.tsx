@@ -38,6 +38,11 @@ export const List = () => {
   }
 
   const printInvoice = async (item: Transaction) => {
+    // Clear all print state immediately before starting new print
+    setPrintData(null)
+    setPrintDeliveryData(null)
+    setPrintType(null)
+
     const { data: items, error } = await supabase
       .from('transaction_items')
       .select(`*, product:product_id(name)`)
@@ -48,22 +53,27 @@ export const List = () => {
       return
     }
 
-    // Clear other print data and set invoice
-    setPrintDeliveryData(null)
-    setPrintType('invoice')
+    // Set invoice data after clearing
     setPrintData({ transaction: item, items })
+    setPrintType('invoice')
 
     setTimeout(() => {
       window.print()
       // Reset after print
       setTimeout(() => {
         setPrintData(null)
+        setPrintDeliveryData(null)
         setPrintType(null)
       }, 500)
     }, 200)
   }
 
   const printDeliveryReceipt = async (item: Transaction) => {
+    // Clear all print state immediately before starting new print
+    setPrintData(null)
+    setPrintDeliveryData(null)
+    setPrintType(null)
+
     const { data: items, error } = await supabase
       .from('transaction_items')
       .select(`*, product:product_id(name)`)
@@ -74,15 +84,15 @@ export const List = () => {
       return
     }
 
-    // Clear other print data and set delivery receipt
-    setPrintData(null)
-    setPrintType('delivery')
+    // Set delivery receipt data after clearing
     setPrintDeliveryData({ transaction: item, items })
+    setPrintType('delivery')
 
     setTimeout(() => {
       window.print()
       // Reset after print
       setTimeout(() => {
+        setPrintData(null)
         setPrintDeliveryData(null)
         setPrintType(null)
       }, 500)
@@ -230,9 +240,11 @@ export const List = () => {
         </>
       )}
 
-      {printType === 'invoice' && <InvoicePrint data={printData} />}
-      {printType === 'delivery' && (
-        <DeliveryReceiptPrint data={printDeliveryData} />
+      {printType === 'invoice' && printData && (
+        <InvoicePrint key="invoice" data={printData} />
+      )}
+      {printType === 'delivery' && printDeliveryData && (
+        <DeliveryReceiptPrint key="delivery" data={printDeliveryData} />
       )}
     </div>
   )
