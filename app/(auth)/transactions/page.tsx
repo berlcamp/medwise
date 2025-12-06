@@ -36,7 +36,7 @@ export default function Page() {
       setLoading(true)
       let query = supabase
         .from('transactions')
-        .select('*, customer:customer_id(name)', { count: 'exact' })
+        .select('*, customer:customer_id(name,address)', { count: 'exact' })
         .eq('transaction_type', 'retail')
         .eq('branch_id', selectedBranchId)
         .ilike('transaction_number', `%${filter.transaction_number}%`)
