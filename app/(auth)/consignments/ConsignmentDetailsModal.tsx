@@ -24,14 +24,19 @@ import {
   formatConsignmentPeriod,
   generateTransactionNumber,
   recordConsignmentSale,
-  returnConsignmentItems
+  returnConsignmentItems,
+  addConsignmentItems
 } from '@/lib/utils/consignment'
-import { Consignment, ConsignmentItem } from '@/types'
+import { Consignment, ConsignmentItem, Product, ProductStock } from '@/types'
 import { format } from 'date-fns'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useAppSelector } from '@/lib/redux/hook'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { Search } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import { isAfter, parseISO, startOfToday } from 'date-fns'
 
 interface Props {
   isOpen: boolean
@@ -47,6 +52,8 @@ export function ConsignmentDetailsModal({
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  // Local state for consignment data that can be updated
+  const [consignmentData, setConsignmentData] = useState<Consignment>(consignment)
   const user = useAppSelector((state) => state.user.user)
 
   // Sale recording state
@@ -59,9 +66,37 @@ export function ConsignmentDetailsModal({
   const [returningItems, setReturningItems] = useState(false)
   const [confirmReturnOpen, setConfirmReturnOpen] = useState(false)
 
+  // Add items state
+  const [newItems, setNewItems] = useState<Array<{
+    product_id: number
+    product_name: string
+    unit: string
+    quantity: number
+    price: number
+    stock_qty: number
+    total: number
+  }>>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [productSearchTerm, setProductSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const [showProductResults, setShowProductResults] = useState(false)
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [addingItems, setAddingItems] = useState(false)
+  const [confirmAddOpen, setConfirmAddOpen] = useState(false)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
+
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId
+  )
+
+  // Update consignmentData when prop changes
+  useEffect(() => {
+    setConsignmentData(consignment)
+  }, [consignment])
+
   // Load consignment items
   useEffect(() => {
-    if (!consignment?.id) return
+    if (!consignmentData?.id) return
 
     const fetchItems = async () => {
       setLoading(true)
@@ -73,7 +108,7 @@ export function ConsignmentDetailsModal({
           product:products (id, name, unit, selling_price)
         `
         )
-        .eq('consignment_id', consignment.id)
+        .eq('consignment_id', consignmentData.id)
         .order('created_at', { ascending: true })
 
       if (error) {
@@ -87,7 +122,97 @@ export function ConsignmentDetailsModal({
     }
 
     fetchItems()
-  }, [consignment])
+  }, [consignmentData])
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(productSearchTerm)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [productSearchTerm])
+
+  // Fetch products with search and debouncing
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (!debouncedSearchTerm.trim() && !showProductResults) {
+        setProducts([])
+        return
+      }
+
+      if (!debouncedSearchTerm.trim()) {
+        setProducts([])
+        return
+      }
+
+      setLoadingProducts(true)
+
+      try {
+        const query = supabase
+          .from('products')
+          .select(
+            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date,branch_id)'
+          )
+          .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+          .ilike('name', `%${debouncedSearchTerm.trim()}%`)
+          .limit(50)
+          .order('name', { ascending: true })
+
+        const { data: p } = await query
+
+        if (p) {
+          const today = startOfToday()
+
+          const formatted = p.map((product) => {
+            const stock_qty =
+              product.product_stocks
+                ?.filter((s: ProductStock) => s.branch_id === selectedBranchId)
+                .reduce((acc: number, s: ProductStock) => {
+                  const exp = s.expiration_date ? parseISO(s.expiration_date) : null
+                  const isNotExpired = !exp || isAfter(exp, today)
+                  if (!isNotExpired) return acc
+
+                  return s.type === 'in'
+                    ? acc + s.remaining_quantity
+                    : acc - s.remaining_quantity
+                }, 0) ?? 0
+
+            return {
+              ...product,
+              stock_qty
+            }
+          })
+
+          // Only show products with stock > 0 for the selected branch
+          setProducts(formatted.filter((item) => item.stock_qty > 0))
+        } else {
+          setProducts([])
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+        setProducts([])
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+
+    fetchProducts()
+  }, [selectedBranchId, debouncedSearchTerm, showProductResults])
+
+  // Close product results dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowProductResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const handleRecordSale = async () => {
     const itemsToSell = Object.entries(saleItems)
@@ -112,7 +237,7 @@ export function ConsignmentDetailsModal({
       const transactionNumber = await generateTransactionNumber()
 
       const result = await recordConsignmentSale({
-        consignment_id: consignment.id,
+        consignment_id: consignmentData.id,
         items: itemsToSell,
         transaction_number: transactionNumber,
         payment_type: 'Consignment',
@@ -128,18 +253,26 @@ export function ConsignmentDetailsModal({
       setSaleItems({})
       setConfirmSaleOpen(false)
       
-      // Reload items
-      const { data } = await supabase
-        .from('consignment_items')
-        .select(
+      // Reload items and consignment data
+      const [itemsResult, consignmentResult] = await Promise.all([
+        supabase
+          .from('consignment_items')
+          .select(
+            `
+            *,
+            product:products (id, name, unit, selling_price)
           `
-          *,
-          product:products (id, name, unit, selling_price)
-        `
-        )
-        .eq('consignment_id', consignment.id)
+          )
+          .eq('consignment_id', consignmentData.id),
+        supabase
+          .from('consignments')
+          .select('*')
+          .eq('id', consignmentData.id)
+          .single()
+      ])
       
-      if (data) setItems(data)
+      if (itemsResult.data) setItems(itemsResult.data)
+      if (consignmentResult.data) setConsignmentData(consignmentResult.data)
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || 'Failed to record sale')
@@ -169,7 +302,7 @@ export function ConsignmentDetailsModal({
 
     try {
       const result = await returnConsignmentItems({
-        consignment_id: consignment.id,
+        consignment_id: consignmentData.id,
         items: itemsToReturn,
         created_by: user?.name || 'System'
       })
@@ -182,18 +315,26 @@ export function ConsignmentDetailsModal({
       setReturnItems({})
       setConfirmReturnOpen(false)
       
-      // Reload items
-      const { data } = await supabase
-        .from('consignment_items')
-        .select(
+      // Reload items and consignment data
+      const [itemsResult, consignmentResult] = await Promise.all([
+        supabase
+          .from('consignment_items')
+          .select(
+            `
+            *,
+            product:products (id, name, unit, selling_price)
           `
-          *,
-          product:products (id, name, unit, selling_price)
-        `
-        )
-        .eq('consignment_id', consignment.id)
+          )
+          .eq('consignment_id', consignmentData.id),
+        supabase
+          .from('consignments')
+          .select('*')
+          .eq('id', consignmentData.id)
+          .single()
+      ])
       
-      if (data) setItems(data)
+      if (itemsResult.data) setItems(itemsResult.data)
+      if (consignmentResult.data) setConsignmentData(consignmentResult.data)
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || 'Failed to return items')
@@ -206,6 +347,140 @@ export function ConsignmentDetailsModal({
     const item = items.find((i) => i.id === Number(itemId))
     return sum + (item?.unit_price || 0) * qty
   }, 0)
+
+  // Add items handlers
+  const addProductToNewItems = (productId: number, qty = 1) => {
+    const product = products.find((p) => p.id === productId)
+    if (!product) return
+
+    // Check if product already in newItems
+    const existingIndex = newItems.findIndex((item) => item.product_id === productId)
+    
+    if (existingIndex >= 0) {
+      // Update existing item quantity
+      setNewItems((prev) =>
+        prev.map((item, idx) =>
+          idx === existingIndex
+            ? {
+                ...item,
+                quantity: item.quantity + qty,
+                total: item.price * (item.quantity + qty)
+              }
+            : item
+        )
+      )
+    } else {
+      // Add new item
+      setNewItems((prev) => [
+        ...prev,
+        {
+          product_id: product.id,
+          product_name: product.name,
+          unit: product.unit ?? '',
+          quantity: qty,
+          price: product.selling_price,
+          stock_qty: product.stock_qty ?? 0,
+          total: product.selling_price * qty
+        }
+      ])
+    }
+
+    toast.success(`${product.name} added`)
+    setProductSearchTerm('')
+    setDebouncedSearchTerm('')
+    setShowProductResults(false)
+  }
+
+  const updateNewItemQuantity = (productId: number, qty: number) => {
+    setNewItems((prev) =>
+      prev.map((item) => {
+        if (item.product_id === productId) {
+          const maxQty = Math.min(qty, item.stock_qty)
+          return {
+            ...item,
+            quantity: maxQty,
+            total: item.price * maxQty
+          }
+        }
+        return item
+      })
+    )
+  }
+
+  const updateNewItemPrice = (productId: number, price: number) => {
+    setNewItems((prev) =>
+      prev.map((item) =>
+        item.product_id === productId
+          ? { ...item, price, total: price * item.quantity }
+          : item
+      )
+    )
+  }
+
+  const removeNewItem = (productId: number) => {
+    setNewItems((prev) => prev.filter((item) => item.product_id !== productId))
+  }
+
+  const handleAddItems = async () => {
+    if (newItems.length === 0) {
+      toast.error('Please add at least one product')
+      return
+    }
+
+    setAddingItems(true)
+
+    try {
+      const result = await addConsignmentItems({
+        consignment_id: consignment.id,
+        items: newItems.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price
+        })),
+        created_by: user?.name || 'System'
+      })
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to add items')
+      }
+
+      toast.success(result.message || 'Items added successfully!')
+      setNewItems([])
+      setConfirmAddOpen(false)
+      
+      // Reload items and consignment data
+      const [itemsResult, consignmentResult] = await Promise.all([
+        supabase
+          .from('consignment_items')
+          .select(
+            `
+            *,
+            product:products (id, name, unit, selling_price)
+          `
+          )
+          .eq('consignment_id', consignmentData.id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('consignments')
+          .select('*')
+          .eq('id', consignmentData.id)
+          .single()
+      ])
+      
+      if (itemsResult.data) setItems(itemsResult.data)
+      if (consignmentResult.data) {
+        // Update local consignment state to refresh summary display
+        setConsignmentData(consignmentResult.data)
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || 'Failed to add items')
+    }
+
+    setAddingItems(false)
+  }
+
+  const totalAddAmount = newItems.reduce((sum, item) => sum + item.total, 0)
 
   return (
     <>
@@ -244,22 +519,22 @@ export function ConsignmentDetailsModal({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-b pb-4 mb-4 text-sm">
                 <div>
                   <p className="text-gray-500 text-xs">Consignment No.</p>
-                  <p className="font-semibold">{consignment.consignment_number}</p>
+                  <p className="font-semibold">{consignmentData.consignment_number}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs">Customer</p>
-                  <p className="font-semibold">{consignment.customer_name}</p>
+                  <p className="font-semibold">{consignmentData.customer_name}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs">Period</p>
                   <p className="font-semibold">
-                    {formatConsignmentPeriod(consignment.month, consignment.year)}
+                    {formatConsignmentPeriod(consignmentData.month, consignmentData.year)}
                   </p>
                 </div>
                 <div>
                   <p className="text-gray-500 text-xs">Created</p>
                   <p className="font-semibold">
-                    {format(new Date(consignment.created_at), 'MMM dd, yyyy')}
+                    {format(new Date(consignmentData.created_at), 'MMM dd, yyyy')}
                   </p>
                 </div>
               </div>
@@ -269,31 +544,31 @@ export function ConsignmentDetailsModal({
                 <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                   <p className="text-xs text-blue-600">Previous Balance</p>
                   <p className="text-xl font-bold text-blue-900">
-                    {consignment.previous_balance_qty}
+                    {consignmentData.previous_balance_qty}
                   </p>
                 </div>
                 <div className="bg-green-50 p-3 rounded-lg border border-green-200">
                   <p className="text-xs text-green-600">New Items</p>
                   <p className="text-xl font-bold text-green-900">
-                    +{consignment.new_items_qty}
+                    +{consignmentData.new_items_qty}
                   </p>
                 </div>
                 <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                   <p className="text-xs text-orange-600">Sold</p>
                   <p className="text-xl font-bold text-orange-900">
-                    -{consignment.sold_qty}
+                    -{consignmentData.sold_qty}
                   </p>
                 </div>
                 <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
                   <p className="text-xs text-purple-600">Returned</p>
                   <p className="text-xl font-bold text-purple-900">
-                    -{consignment.returned_qty}
+                    -{consignmentData.returned_qty}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-300">
                   <p className="text-xs text-gray-600">Current Balance</p>
                   <p className="text-xl font-bold text-gray-900">
-                    {consignment.current_balance_qty}
+                    {consignmentData.current_balance_qty}
                   </p>
                 </div>
               </div>
@@ -303,27 +578,28 @@ export function ConsignmentDetailsModal({
                 <div>
                   <p className="text-xs text-gray-600">Total Consigned Value</p>
                   <p className="font-semibold">
-                    {formatMoney(consignment.total_consigned_value)}
+                    {formatMoney(consignmentData.total_consigned_value)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600">Total Sold Value</p>
                   <p className="font-semibold text-green-600">
-                    {formatMoney(consignment.total_sold_value)}
+                    {formatMoney(consignmentData.total_sold_value)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600">Balance Due</p>
                   <p className="font-semibold text-red-600">
-                    {formatMoney(consignment.balance_due)}
+                    {formatMoney(consignmentData.balance_due)}
                   </p>
                 </div>
               </div>
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="overview">Item Overview</TabsTrigger>
+                  <TabsTrigger value="add-items">Add Items</TabsTrigger>
                   <TabsTrigger value="record-sale">Record Sale</TabsTrigger>
                   <TabsTrigger value="return">Return Items</TabsTrigger>
                 </TabsList>
@@ -416,6 +692,209 @@ export function ConsignmentDetailsModal({
                         )}
                       </TableBody>
                     </Table>
+                  </div>
+                </TabsContent>
+
+                {/* Add Items Tab */}
+                <TabsContent value="add-items">
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Add new products or increase quantities of existing products in this consignment. 
+                      Items will be deducted from available inventory.
+                    </p>
+
+                    {/* Product Search */}
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Search Products</label>
+                      <div className="relative" ref={searchContainerRef}>
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Input
+                          placeholder="Search products to add..."
+                          value={productSearchTerm}
+                          onChange={(e) => {
+                            setProductSearchTerm(e.target.value)
+                            setShowProductResults(e.target.value.trim().length > 0)
+                          }}
+                          onFocus={() => setShowProductResults(productSearchTerm.trim().length > 0)}
+                          className="pl-10"
+                        />
+                        
+                        {/* Product Search Results Dropdown */}
+                        {showProductResults && loadingProducts && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                            <p className="text-gray-500">Searching products...</p>
+                          </div>
+                        )}
+                        
+                        {showProductResults && !loadingProducts && products.length > 0 && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                            <div className="p-2">
+                              {products.map((product) => {
+                                const alreadyInNewItems = newItems.some(
+                                  (item) => item.product_id === product.id
+                                )
+                                
+                                return (
+                                  <button
+                                    key={product.id}
+                                    onClick={() => {
+                                      addProductToNewItems(product.id, 1)
+                                    }}
+                                    className={cn(
+                                      'w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between',
+                                      alreadyInNewItems
+                                        ? 'bg-blue-50 border border-blue-200'
+                                        : 'hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer'
+                                    )}
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <h3 className="font-semibold text-sm">
+                                          {product.name}
+                                        </h3>
+                                        {alreadyInNewItems && (
+                                          <Badge variant="secondary" className="text-xs">
+                                            In List
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-xs text-gray-500">{product.category}</span>
+                                        <span className="text-xs text-gray-500">•</span>
+                                        <span className="text-xs text-gray-500">{product.unit}</span>
+                                        <span className="text-xs text-gray-500">•</span>
+                                        <Badge variant="outline" className="text-xs">
+                                          Stock: {product.stock_qty || 0}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <div className="text-right ml-4">
+                                      <p className="text-base font-bold text-blue-600">
+                                        ₱{product.selling_price.toFixed(2)}
+                                      </p>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {showProductResults && !loadingProducts && products.length === 0 && productSearchTerm.trim() && (
+                          <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                            <p className="text-gray-500">No products found for &quot;{productSearchTerm}&quot;</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* New Items Table */}
+                    {newItems.length > 0 && (
+                      <div className="border rounded-lg">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Product</TableHead>
+                              <TableHead>Unit</TableHead>
+                              <TableHead className="text-center">Stock Available</TableHead>
+                              <TableHead className="text-center">Quantity</TableHead>
+                              <TableHead className="text-right">Price</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
+                              <TableHead className="w-[100px]">Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {newItems.map((item) => {
+                              const existingItem = items.find((i: ConsignmentItem) => i.product_id === item.product_id)
+                              const currentConsignedQty = existingItem?.current_balance || 0
+                              
+                              return (
+                                <TableRow key={item.product_id}>
+                                  <TableCell className="font-medium">
+                                    {item.product_name}
+                                    {existingItem && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Currently consigned: {currentConsignedQty}
+                                      </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{item.unit}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="outline">{item.stock_qty}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={item.stock_qty}
+                                      value={item.quantity}
+                                      onChange={(e) =>
+                                        updateNewItemQuantity(item.product_id, Number(e.target.value))
+                                      }
+                                      className="w-20 mx-auto"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={item.price}
+                                      onChange={(e) =>
+                                        updateNewItemPrice(item.product_id, Number(e.target.value))
+                                      }
+                                      className="w-24 ml-auto"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {formatMoney(item.total)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => removeNewItem(item.product_id)}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+
+                        {/* Summary */}
+                        <div className="bg-muted/30 px-4 py-4 border-t">
+                          <div className="flex justify-between text-lg font-bold">
+                            <span>Total Value:</span>
+                            <span>{formatMoney(totalAddAmount)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {newItems.length === 0 && (
+                      <div className="border-2 border-dashed rounded-lg p-12 text-center">
+                        <p className="text-muted-foreground">
+                          No items added yet. Search and select products above to add them.
+                        </p>
+                      </div>
+                    )}
+
+                    {newItems.length > 0 && (
+                      <div className="flex justify-end pt-4 border-t">
+                        <Button
+                          variant="default"
+                          onClick={() => setConfirmAddOpen(true)}
+                          disabled={addingItems}
+                        >
+                          {addingItems ? 'Adding...' : 'Add Items to Consignment'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
@@ -608,6 +1087,13 @@ export function ConsignmentDetailsModal({
         onClose={() => setConfirmReturnOpen(false)}
         onConfirm={handleReturnItems}
         message="Are you sure you want to return these items to inventory?"
+      />
+
+      <ConfirmationModal
+        isOpen={confirmAddOpen}
+        onClose={() => setConfirmAddOpen(false)}
+        onConfirm={handleAddItems}
+        message={`Are you sure you want to add ${newItems.reduce((sum, item) => sum + item.quantity, 0)} items (${formatMoney(totalAddAmount)}) to this consignment?`}
       />
     </>
   )

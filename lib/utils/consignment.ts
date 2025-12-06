@@ -39,6 +39,16 @@ export interface ReturnItemsParams {
   created_by: string
 }
 
+export interface AddConsignmentItemsParams {
+  consignment_id: number
+  items: Array<{
+    product_id: number
+    quantity: number
+    price: number
+  }>
+  created_by: string
+}
+
 /**
  * Create a new consignment with monthly tracking
  */
@@ -156,6 +166,45 @@ export async function returnConsignmentItems(params: ReturnItemsParams): Promise
       success: false,
       error: err.message,
       message: 'Failed to return items'
+    }
+  }
+}
+
+/**
+ * Add items to an existing consignment
+ * This allows adding new products or increasing quantities of existing products
+ */
+export async function addConsignmentItems(params: AddConsignmentItemsParams): Promise<{
+  success: boolean
+  message?: string
+  items_added?: number
+  total_value?: number
+  error?: string
+}> {
+  try {
+    const { data, error } = await supabase.rpc('add_consignment_items', {
+      p_consignment_id: params.consignment_id,
+      p_items: params.items,
+      p_created_by: params.created_by
+    })
+
+    if (error) {
+      console.error('Add items error:', error)
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to add items'
+      }
+    }
+
+    const result = typeof data === 'string' ? JSON.parse(data) : data
+    return result
+  } catch (err: any) {
+    console.error('Add items exception:', err)
+    return {
+      success: false,
+      error: err.message,
+      message: 'Failed to add items'
     }
   }
 }
