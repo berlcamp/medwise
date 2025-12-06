@@ -578,7 +578,7 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
           </div>
 
           {/* Cart Table */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 overflow-x-hidden">
             <div className="bg-white rounded-lg border shadow-sm">
               {cartItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -604,10 +604,10 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
                       const product = products.find((p) => p.id === item.product_id)
                       return (
                         <TableRow key={idx}>
-                          <TableCell>
-                            <div>
-                              <p className="font-semibold text-sm">{product?.name}</p>
-                              <div className="flex items-center gap-2 mt-1">
+                          <TableCell className="max-w-0">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate" title={product?.name}>{product?.name}</p>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 <span className="text-xs text-gray-500">{product?.category}</span>
                                 <span className="text-xs text-gray-400">•</span>
                                 <span className="text-xs text-gray-500">{product?.unit}</span>
@@ -696,9 +696,9 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
         </div>
 
         {/* RIGHT SIDE - Checkout Panel */}
-        <div className="w-[400px] bg-white border-l shadow-xl flex flex-col">
+        <div className="w-[400px] bg-white border-l shadow-xl flex flex-col overflow-hidden">
           {/* Checkout Header */}
-          <div className="p-4 border-b bg-gradient-to-r from-slate-50 to-slate-100">
+          <div className="p-4 border-b bg-gradient-to-r from-slate-50 to-slate-100 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-blue-600" />
@@ -710,24 +710,6 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
             </div>
           </div>
 
-          {/* Order Summary */}
-          <div className="p-4 border-b bg-slate-50">
-            <h3 className="text-sm font-semibold text-gray-600 mb-3">Order Summary</h3>
-            <div className="space-y-2">
-              {cartItems.map((item, idx) => {
-                const product = products.find((p) => p.id === item.product_id)
-                return (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      {product?.name} × {item.quantity}
-                    </span>
-                    <span className="font-semibold">₱{item.total.toFixed(2)}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
           {/* Payment & Checkout Form */}
           <Form {...form}>
             <form
@@ -735,9 +717,9 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
                 setFormValues(values)
                 setConfirmOpen(true)
               })}
-              className="flex-1 flex flex-col"
+              className="flex-1 flex flex-col min-h-0 overflow-hidden"
             >
-              <div className="flex-1 p-4 space-y-4 overflow-y-auto">
+              <div className="p-4 space-y-4 flex-shrink-0">
                 {/* Payment Method */}
                 <FormField
                   control={form.control}
@@ -805,7 +787,7 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
               </div>
 
               {/* Total & Checkout Button - Fixed at Bottom */}
-              <div className="border-t bg-slate-50 p-4 space-y-4">
+              <div className="border-t bg-slate-50 p-4 space-y-3 flex-shrink-0">
                 {/* Total Amount */}
                 <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg p-5">
                   <div className="flex justify-between items-center">
