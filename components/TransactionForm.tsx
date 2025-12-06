@@ -277,7 +277,7 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
         supabase
           .from('products')
           .select(
-            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date)'
+            '*,product_stocks:product_stocks(remaining_quantity,type,expiration_date,branch_id)'
           )
           .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
       ])
@@ -289,19 +289,21 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
 
         const formatted = p.data.map((product) => {
           const stock_qty =
-            product.product_stocks?.reduce((acc: number, s: ProductStock) => {
-              // Parse expiration
-              const exp = s.expiration_date ? parseISO(s.expiration_date) : null
+            product.product_stocks
+              ?.filter((s: ProductStock) => s.branch_id === selectedBranchId)
+              .reduce((acc: number, s: ProductStock) => {
+                // Parse expiration
+                const exp = s.expiration_date ? parseISO(s.expiration_date) : null
 
-              // Valid if no expiration OR expiration is after today
-              const isNotExpired = !exp || isAfter(exp, today)
-              if (!isNotExpired) return acc
+                // Valid if no expiration OR expiration is after today
+                const isNotExpired = !exp || isAfter(exp, today)
+                if (!isNotExpired) return acc
 
-              // Add or subtract quantity depending on type
-              return s.type === 'in'
-                ? acc + s.remaining_quantity
-                : acc - s.remaining_quantity
-            }, 0) ?? 0
+                // Add or subtract quantity depending on type
+                return s.type === 'in'
+                  ? acc + s.remaining_quantity
+                  : acc - s.remaining_quantity
+              }, 0) ?? 0
 
           return {
             ...product,
@@ -309,8 +311,8 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
           }
         })
 
-        // Only include products with a positive stock quantity
-        setProducts(formatted.filter((item) => item.stock_qty > 0))
+        // Include all products (even with zero stock)
+        setProducts(formatted)
       }
     }
     fetchData()
@@ -502,22 +504,27 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
                       const alreadyInCart = cartItems.some(
                         (item) => item.product_id === product.id
                       )
+                      const isOutOfStock = (product.stock_qty || 0) <= 0
+                      const isDisabled = alreadyInCart || isOutOfStock
+                      
                       return (
                         <button
                           key={product.id}
                           onClick={() => {
-                            if (!alreadyInCart) {
+                            if (!isDisabled) {
                               addProductToCart(product.id, 1)
                               toast.success(`${product.name} added to cart`)
                               setProductSearchTerm('')
                               setShowProductResults(false)
+                            } else if (isOutOfStock) {
+                              toast.error(`${product.name} is out of stock`)
                             }
                           }}
-                          disabled={alreadyInCart}
+                          disabled={isDisabled}
                           className={cn(
                             'w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between',
-                            alreadyInCart
-                              ? 'bg-green-50 border border-green-200 cursor-not-allowed opacity-70'
+                            isDisabled
+                              ? 'bg-gray-50 border border-gray-200 cursor-not-allowed opacity-70'
                               : 'hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer'
                           )}
                         >
@@ -531,14 +538,22 @@ export default function TransactionForm({ transactionType }: TransactionFormProp
                                   In Cart
                                 </Badge>
                               )}
+                              {isOutOfStock && !alreadyInCart && (
+                                <Badge variant="destructive" className="text-xs">
+                                  Out of Stock
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-3 mt-1">
                               <span className="text-xs text-gray-500">{product.category}</span>
                               <span className="text-xs text-gray-500">•</span>
                               <span className="text-xs text-gray-500">{product.unit}</span>
                               <span className="text-xs text-gray-500">•</span>
-                              <Badge variant="outline" className="text-xs">
-                                Stock: {product.stock_qty}
+                              <Badge 
+                                variant={isOutOfStock ? "destructive" : "outline"} 
+                                className="text-xs"
+                              >
+                                Stock: {product.stock_qty || 0}
                               </Badge>
                             </div>
                           </div>
