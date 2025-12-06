@@ -8,6 +8,7 @@ import { formatMoney } from '@/lib/utils'
 import { format, startOfMonth, startOfWeek, subDays } from 'date-fns'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
+import Notfoundpage from '@/components/Notfoundpage'
 import {
   Bar,
   BarChart,
@@ -69,6 +70,8 @@ export default function Page() {
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   )
+  const user = useAppSelector((state) => state.user.user)
+  const isBulkUser = user?.type === 'bulk'
 
   const loadDashboard = async () => {
     if (!selectedBranchId) return
@@ -231,6 +234,9 @@ export default function Page() {
     ? ((totalSales - previousPeriodSales) / previousPeriodSales) * 100 
     : 0
 
+  // Restrict access for cashier users
+  if (user?.type === 'cashier') return <Notfoundpage />
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -303,35 +309,37 @@ export default function Page() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Sales */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg rounded-xl p-6 text-white">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total Sales</p>
-                <h3 className="text-3xl font-bold mt-2">{formatMoney(totalSales)}</h3>
-                {salesChange !== 0 && (
-                  <div className="flex items-center mt-2 text-sm">
-                    {salesChange > 0 ? (
-                      <>
-                        <TrendingUp className="w-4 h-4 mr-1" />
-                        <span>+{salesChange.toFixed(1)}%</span>
-                      </>
-                    ) : (
-                      <>
-                        <TrendingDown className="w-4 h-4 mr-1" />
-                        <span>{salesChange.toFixed(1)}%</span>
-                      </>
-                    )}
-                    <span className="ml-1 text-blue-100">vs previous period</span>
-                  </div>
-                )}
-              </div>
-              <div className="bg-blue-400/30 p-3 rounded-lg">
-                <DollarSign className="w-6 h-6" />
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isBulkUser ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-4`}>
+          {/* Total Sales - Hidden for bulk users */}
+          {!isBulkUser && (
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg rounded-xl p-6 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium">Total Sales</p>
+                  <h3 className="text-3xl font-bold mt-2">{formatMoney(totalSales)}</h3>
+                  {salesChange !== 0 && (
+                    <div className="flex items-center mt-2 text-sm">
+                      {salesChange > 0 ? (
+                        <>
+                          <TrendingUp className="w-4 h-4 mr-1" />
+                          <span>+{salesChange.toFixed(1)}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <TrendingDown className="w-4 h-4 mr-1" />
+                          <span>{salesChange.toFixed(1)}%</span>
+                        </>
+                      )}
+                      <span className="ml-1 text-blue-100">vs previous period</span>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-blue-400/30 p-3 rounded-lg">
+                  <DollarSign className="w-6 h-6" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Total Transactions */}
           <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
@@ -347,21 +355,23 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Average Transaction Value */}
-          <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-gray-500 text-sm font-medium">Avg. Transaction</p>
-                <h3 className="text-3xl font-bold mt-2 text-gray-900">
-                  {formatMoney(averageTransactionValue)}
-                </h3>
-                <p className="text-sm text-gray-400 mt-2">Per order</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
+          {/* Average Transaction Value - Hidden for bulk users */}
+          {!isBulkUser && (
+            <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-gray-500 text-sm font-medium">Avg. Transaction</p>
+                  <h3 className="text-3xl font-bold mt-2 text-gray-900">
+                    {formatMoney(averageTransactionValue)}
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-2">Per order</p>
+                </div>
+                <div className="bg-purple-100 p-3 rounded-lg">
+                  <TrendingUp className="w-6 h-6 text-purple-600" />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Low Stock Alert */}
           <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
@@ -387,19 +397,23 @@ export default function Page() {
         </div>
 
         {/* Additional Metrics Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
-            <div className="text-sm text-gray-500 mb-1">Products Sold</div>
-            <div className="text-2xl font-bold text-gray-900">{totalProductsSold}</div>
-            <div className="text-xs text-gray-400 mt-1">Total units</div>
-          </div>
-          <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
-            <div className="text-sm text-gray-500 mb-1">Products per Transaction</div>
-            <div className="text-2xl font-bold text-gray-900">
-              {totalTransactions > 0 ? (totalProductsSold / totalTransactions).toFixed(1) : '0'}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">Average items</div>
-          </div>
+        <div className={`grid grid-cols-1 ${isBulkUser ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-4`}>
+          {!isBulkUser && (
+            <>
+              <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
+                <div className="text-sm text-gray-500 mb-1">Products Sold</div>
+                <div className="text-2xl font-bold text-gray-900">{totalProductsSold}</div>
+                <div className="text-xs text-gray-400 mt-1">Total units</div>
+              </div>
+              <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
+                <div className="text-sm text-gray-500 mb-1">Products per Transaction</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {totalTransactions > 0 ? (totalProductsSold / totalTransactions).toFixed(1) : '0'}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">Average items</div>
+              </div>
+            </>
+          )}
           <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
             <div className="text-sm text-gray-500 mb-1">Stock Status</div>
             <div className="text-2xl font-bold text-gray-900">
@@ -409,94 +423,96 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Sales Performance Chart */}
-          <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-gray-900">Sales Performance</h3>
-              <div className="text-sm text-gray-500">Daily trend</div>
-            </div>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
-                  <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="total" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3}
-                    dot={{ fill: '#3b82f6', r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-gray-400">
-                No sales data for selected period
+        {/* Charts Section - Hidden for bulk users */}
+        {!isBulkUser && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sales Performance Chart */}
+            <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg text-gray-900">Sales Performance</h3>
+                <div className="text-sm text-gray-500">Daily trend</div>
               </div>
-            )}
-          </div>
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 12 }}
+                      stroke="#9ca3af"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      stroke="#9ca3af"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="total" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      dot={{ fill: '#3b82f6', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-400">
+                  No sales data for selected period
+                </div>
+              )}
+            </div>
 
-          {/* Top Selling Products Chart */}
-          <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg text-gray-900">Top Selling Products</h3>
-              <div className="text-sm text-gray-500">By quantity</div>
-            </div>
-            {topProducts.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topProducts}>
-                  <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="name" 
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }}
-                    stroke="#9ca3af"
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey="qty" 
-                    fill="#3b82f6"
-                    radius={[8, 8, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-gray-400">
-                No product sales data
+            {/* Top Selling Products Chart */}
+            <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-lg text-gray-900">Top Selling Products</h3>
+                <div className="text-sm text-gray-500">By quantity</div>
               </div>
-            )}
+              {topProducts.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={topProducts}>
+                    <CartesianGrid stroke="#f0f0f0" strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      tick={{ fontSize: 12 }}
+                      stroke="#9ca3af"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }}
+                      stroke="#9ca3af"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="qty" 
+                      fill="#3b82f6"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-400">
+                  No product sales data
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Low Stock Products Table */}
         {lowStock.length > 0 && (

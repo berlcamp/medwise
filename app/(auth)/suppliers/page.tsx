@@ -62,7 +62,7 @@ export default function Page() {
     }
   }, [page, filter, dispatch]) // Add `dispatch` to dependency array
 
-  if (user?.type === 'user') {
+  if (user?.type === 'user' || user?.type === 'cashier') {
     return <Notfoundpage />
   }
 

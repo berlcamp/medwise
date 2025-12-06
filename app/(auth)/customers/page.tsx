@@ -1,6 +1,7 @@
 'use client'
 
 import LoadingSkeleton from '@/components/LoadingSkeleton'
+import Notfoundpage from '@/components/Notfoundpage'
 import { Button } from '@/components/ui/button'
 
 import { PER_PAGE } from '@/lib/constants'
@@ -13,6 +14,7 @@ import { Filter } from './Filter'
 import { List } from './List'
 
 export default function Page() {
+  const user = useAppSelector((state) => state.user.user)
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
   const [modalAddOpen, setModalAddOpen] = useState(false)
@@ -63,6 +65,8 @@ export default function Page() {
       isMounted = false
     }
   }, [page, filter, dispatch, selectedBranchId]) // Add `dispatch` to dependency array
+
+  if (user?.type === 'cashier') return <Notfoundpage />
 
   return (
     <div>

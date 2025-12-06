@@ -7,16 +7,22 @@ import { StockCardReport } from '@/components/reports/StockCardReport'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { FileText, TrendingUp, Package, Calendar, DollarSign, Users, BarChart3, CreditCard } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DailySalesSummary } from '@/components/reports/DailySalesSummary'
 import { PaymentMethodReport } from '@/components/reports/PaymentMethodReport'
 import { CustomerSalesReport } from '@/components/reports/CustomerSalesReport'
 import { ProductPerformanceReport } from '@/components/reports/ProductPerformanceReport'
+import { useAppSelector } from '@/lib/redux/hook'
+import Notfoundpage from '@/components/Notfoundpage'
 
 export default function ReportsPage() {
-  const [tab, setTab] = useState('sales')
-
-  const reportTabs = [
+  const user = useAppSelector((state) => state.user.user)
+  const isBulkUser = user?.type === 'bulk'
+  
+  // Sales and profit related tabs that should be hidden for bulk users
+  const restrictedTabs = ['sales', 'daily', 'profit', 'payment', 'customer', 'product']
+  
+  const allReportTabs = [
     { value: 'sales', label: 'Sales Report', icon: DollarSign, description: 'Transaction and sales data' },
     { value: 'daily', label: 'Daily Summary', icon: Calendar, description: 'Daily sales overview' },
     { value: 'profit', label: 'Profit Report', icon: TrendingUp, description: 'Profit and margin analysis' },
@@ -27,6 +33,24 @@ export default function ReportsPage() {
     { value: 'expiry', label: 'Expiry Report', icon: Calendar, description: 'Expiring products' },
     { value: 'stockcard', label: 'Stock Movements', icon: FileText, description: 'Stock movement history' },
   ]
+  
+  // Filter out restricted tabs for bulk users
+  const reportTabs = isBulkUser 
+    ? allReportTabs.filter(tab => !restrictedTabs.includes(tab.value))
+    : allReportTabs
+  
+  const defaultTab = isBulkUser ? 'inventory' : 'sales'
+  const [tab, setTab] = useState(defaultTab)
+  
+  // Reset tab if current tab is restricted for bulk users
+  useEffect(() => {
+    if (isBulkUser && restrictedTabs.includes(tab)) {
+      setTab(defaultTab)
+    }
+  }, [isBulkUser, tab, defaultTab, restrictedTabs])
+  
+  // Restrict access for cashier users (after all hooks)
+  if (user?.type === 'cashier') return <Notfoundpage />
 
   return (
     <div className="space-y-6">
@@ -56,24 +80,28 @@ export default function ReportsPage() {
               </TabsList>
 
               <div className="mt-6">
-                <TabsContent value="sales" className="mt-0">
-                  <SalesReport />
-                </TabsContent>
-                <TabsContent value="daily" className="mt-0">
-                  <DailySalesSummary />
-                </TabsContent>
-                <TabsContent value="profit" className="mt-0">
-                  <ProfitReport />
-                </TabsContent>
-                <TabsContent value="payment" className="mt-0">
-                  <PaymentMethodReport />
-                </TabsContent>
-                <TabsContent value="customer" className="mt-0">
-                  <CustomerSalesReport />
-                </TabsContent>
-                <TabsContent value="product" className="mt-0">
-                  <ProductPerformanceReport />
-                </TabsContent>
+                {!isBulkUser && (
+                  <>
+                    <TabsContent value="sales" className="mt-0">
+                      <SalesReport />
+                    </TabsContent>
+                    <TabsContent value="daily" className="mt-0">
+                      <DailySalesSummary />
+                    </TabsContent>
+                    <TabsContent value="profit" className="mt-0">
+                      <ProfitReport />
+                    </TabsContent>
+                    <TabsContent value="payment" className="mt-0">
+                      <PaymentMethodReport />
+                    </TabsContent>
+                    <TabsContent value="customer" className="mt-0">
+                      <CustomerSalesReport />
+                    </TabsContent>
+                    <TabsContent value="product" className="mt-0">
+                      <ProductPerformanceReport />
+                    </TabsContent>
+                  </>
+                )}
                 <TabsContent value="inventory" className="mt-0">
                   <InventoryReport />
                 </TabsContent>

@@ -62,7 +62,8 @@ export default function Page() {
     }
   }, [page, filter, dispatch]) // Add `dispatch` to dependency array
 
-  if (user?.type === 'user') {
+  // Only super admin can access branches CRUD
+  if (user?.type !== 'super admin') {
     return <Notfoundpage />
   }
 

@@ -48,7 +48,7 @@ export function AppSidebar() {
   }
 
   // Menu items.
-  const items = [
+  const allItems = [
     {
       title: 'Home',
       url: '/home',
@@ -80,6 +80,13 @@ export function AppSidebar() {
       icon: User
     }
   ]
+
+  console.log('type', user?.type)
+
+  // Filter items for cashier users - only show Home and Retail Transactions
+  const items = user?.type === 'cashier'
+    ? allItems.filter(item => item.url === '/home' || item.url === '/transactions')
+    : allItems
 
   const inventoryItems = [
     {
@@ -206,36 +213,44 @@ export function AppSidebar() {
               </SidebarGroupLabel>
               <SidebarGroupContent className="pb-0">
                 <SidebarMenu>
-                  {settingItems.map((item) => {
-                    const isActive = pathname === item.url
-                    const isLoading = loadingPath === item.url
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild>
-                          <Link
-                            href={item.url}
-                            onClick={() => handleLinkClick(item.url)}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                              isActive
-                                ? 'bg-gray-100 text-gray-900 font-medium' // Active item
-                                : 'hover:bg-gray-50 text-gray-700'
-                            } ${isLoading ? 'opacity-60' : ''}`}
-                          >
-                            {isLoading ? (
-                              <Loader2 className="text-base text-blue-600 animate-spin" />
-                            ) : (
-                              <item.icon
-                                className={`text-base ${
-                                  isActive ? 'text-blue-600' : 'text-gray-500'
-                                }`}
-                              />
-                            )}
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
+                  {settingItems
+                    .filter((item) => {
+                      // Only show branches for super admin
+                      if (item.url === '/branches') {
+                        return user?.type === 'super admin'
+                      }
+                      return true
+                    })
+                    .map((item) => {
+                      const isActive = pathname === item.url
+                      const isLoading = loadingPath === item.url
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton asChild>
+                            <Link
+                              href={item.url}
+                              onClick={() => handleLinkClick(item.url)}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                                isActive
+                                  ? 'bg-gray-100 text-gray-900 font-medium' // Active item
+                                  : 'hover:bg-gray-50 text-gray-700'
+                              } ${isLoading ? 'opacity-60' : ''}`}
+                            >
+                              {isLoading ? (
+                                <Loader2 className="text-base text-blue-600 animate-spin" />
+                              ) : (
+                                <item.icon
+                                  className={`text-base ${
+                                    isActive ? 'text-blue-600' : 'text-gray-500'
+                                  }`}
+                                />
+                              )}
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

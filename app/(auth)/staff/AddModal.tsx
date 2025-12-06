@@ -258,7 +258,7 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="casher">
+                              <SelectItem value="cashier">
                                 Store Cashier
                               </SelectItem>
                               <SelectItem value="bulk">

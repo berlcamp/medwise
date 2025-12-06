@@ -115,7 +115,7 @@ export default function Page() {
     }
   }, [page, filter, dispatch, selectedBranchId])
 
-  if (user?.type === 'user') return <Notfoundpage />
+  if (user?.type === 'user' || user?.type === 'cashier') return <Notfoundpage />
 
   return (
     <div>

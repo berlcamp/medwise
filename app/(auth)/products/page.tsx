@@ -120,7 +120,7 @@ export default function Page() {
     }
   }, [page, filter, dispatch, selectedBranchId])
 
-  if (user?.type === 'user') {
+  if (user?.type === 'user' || user?.type === 'cashier') {
     return <Notfoundpage />
   }
 
