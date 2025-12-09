@@ -60,7 +60,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
             Barangay 1, 8501 San Francisco, Agusan del Sur, Philippines
           </p>
           <p style={{ fontSize: '12px', margin: '3px 0' }}>
-            Non-VAT Reg. TIN: 313-697-244-00000
+            VAT Reg. TIN: 313-697-244-00000
           </p>
 
           <p className="font-semibold" style={{ fontSize: '13px', marginTop: '6px' }}>

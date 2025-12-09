@@ -56,7 +56,7 @@ export const InvoicePrint = ({ data }: { data: any }) => {
             Barangay 1, 8501 San Francisco, Agusan del Sur, Philippines
           </p>
           <p style={{ fontSize: '11px', margin: '2px 0' }}>
-            Non-VAT Reg. TIN: 313-697-244-00000
+            VAT Reg. TIN: 313-697-244-00000
           </p>
           <p className="font-semibold" style={{ fontSize: '12px', marginTop: '4px' }}>
             MEDWISE PHARMACEUTICAL PRODUCTS TRADING
