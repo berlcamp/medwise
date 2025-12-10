@@ -245,7 +245,7 @@ export const ReceivePaymentModal = ({
                     placeholder="Enter amount"
                   />
                   <p className="text-xs text-gray-500">
-                    Balance: ₱{balance.toLocaleString()}
+                    Balance: ₱{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                 </div>
 
@@ -420,7 +420,7 @@ export const ReceivePaymentModal = ({
                               </td>
                               <td className="p-2 border">{p.payment_method}</td>
                               <td className="p-2 border">
-                                ₱{Number(p.amount).toLocaleString()}
+                                ₱{Number(p.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               {hasChequePayment && (
                                 <>
@@ -464,12 +464,12 @@ export const ReceivePaymentModal = ({
                   <p>
                     Total Paid:{' '}
                     <b className="text-green-700">
-                      ₱{totalPaid.toLocaleString()}
+                      ₱{totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </b>
                   </p>
                   <p>
                     Remaining Balance:{' '}
-                    <b className="text-red-600">₱{balance.toLocaleString()}</b>
+                    <b className="text-red-600">₱{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
                   </p>
                 </div>
               </div>

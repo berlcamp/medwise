@@ -80,7 +80,7 @@ export const PaymentStatusDropdown = ({ transaction, onUpdated }: Props) => {
         <DropdownMenuTrigger asChild>
           <Button size="xs" variant={status === 'Paid' ? 'green' : 'orange'}>
             {status === 'Partial'
-              ? `Partial: ₱${Number(partialAmount).toLocaleString()}`
+              ? `Partial: ₱${Number(partialAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : status}
             <ChevronDown />
           </Button>

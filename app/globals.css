@@ -201,9 +201,16 @@
       background: white !important;
     }
 
+    #quotation-print-area,
+    #quotation-print-area * {
+      visibility: visible !important;
+      background: white !important;
+    }
+
     /* Remove gray backgrounds from print areas */
     #invoice-print-area table thead tr,
-    #delivery-print-area table thead tr {
+    #delivery-print-area table thead tr,
+    #quotation-print-area table thead tr {
       background: white !important;
       background-color: white !important;
     }
@@ -218,6 +225,14 @@
     }
 
     #delivery-print-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      page-break-after: auto;
+    }
+
+    #quotation-print-area {
       position: absolute;
       top: 0;
       left: 0;

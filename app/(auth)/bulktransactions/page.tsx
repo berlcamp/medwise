@@ -18,7 +18,11 @@ export default function Page() {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({
     keyword: '',
-    transaction_number: ''
+    transaction_number: '',
+    payment_status: '',
+    delivery_status: '',
+    date_from: '',
+    date_to: ''
   })
 
   const dispatch = useAppDispatch()
@@ -40,7 +44,6 @@ export default function Page() {
         .eq('transaction_type', 'bulk')
         .eq('branch_id', selectedBranchId)
         .ilike('transaction_number', `%${filter.transaction_number}%`)
-
         .order('id', { ascending: false })
 
       // Apply customer name filter only if provided
@@ -48,7 +51,29 @@ export default function Page() {
         query = query.ilike('customer_name', `%${filter.keyword}%`)
       }
 
-      if (!filter.keyword && !filter.transaction_number) {
+      // Apply payment status filter
+      if (filter.payment_status && filter.payment_status.trim() !== '') {
+        query = query.eq('payment_status', filter.payment_status)
+      }
+
+      // Apply delivery status filter
+      if (filter.delivery_status && filter.delivery_status.trim() !== '') {
+        query = query.eq('delivery_status', filter.delivery_status)
+      }
+
+      // Apply date range filter
+      if (filter.date_from && filter.date_from.trim() !== '') {
+        const startDate = new Date(filter.date_from)
+        startDate.setHours(0, 0, 0, 0)
+        query = query.gte('created_at', startDate.toISOString())
+      }
+      if (filter.date_to && filter.date_to.trim() !== '') {
+        const endDate = new Date(filter.date_to)
+        endDate.setHours(23, 59, 59, 999)
+        query = query.lte('created_at', endDate.toISOString())
+      }
+
+      if (!filter.keyword && !filter.transaction_number && !filter.payment_status && !filter.delivery_status && !filter.date_from && !filter.date_to) {
         query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }
 

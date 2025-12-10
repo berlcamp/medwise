@@ -313,6 +313,7 @@ export interface Customer {
   contact_number?: string
   email?: string
   address?: string
+  tin?: string
   created_at: string
 }
 
@@ -482,6 +483,104 @@ export interface ConsignmentHistory {
   id: number
   consignment_id: number
   action_type: 'created' | 'items_added' | 'sale_recorded' | 'items_returned' | 'settled' | 'closed'
+  
+  product_id?: number
+  quantity?: number
+  amount?: number
+  
+  notes?: string
+  created_at: string
+  created_by?: string
+  
+  // Relations
+  product?: Product
+}
+
+// ===============================
+// QUOTATION SYSTEM
+// ===============================
+export interface Quotation {
+  id: number
+  org_id: number
+  branch_id: number
+  customer_id?: number
+  customer_name: string
+  quotation_number: string
+  quotation_date: string
+  valid_until?: string
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+  total_amount: number
+  notes?: string
+  created_at: string
+  updated_at: string
+  created_by?: string
+  
+  // Relations
+  customer?: Customer
+  branch?: Branch
+  quotation_items?: QuotationItem[]
+}
+
+export interface QuotationItem {
+  id: number
+  quotation_id: number
+  product_id: number
+  quantity: number
+  unit_price: number
+  total: number
+  notes?: string
+  created_at: string
+  
+  // Relations
+  product?: Product
+}
+
+// ===============================
+// AGENT SYSTEM
+// ===============================
+export interface Agent {
+  id: number
+  org_id: number
+  branch_id: number
+  name: string
+  area?: string
+  contact_number?: string
+  vehicle_plate_number?: string
+  status: 'active' | 'inactive'
+  created_at: string
+  updated_at: string
+  created_by?: string
+  
+  // Relations
+  branch?: Branch
+  agent_items?: AgentItem[]
+}
+
+export interface AgentItem {
+  id: number
+  agent_id: number
+  product_id: number
+  product_stock_id?: number
+  batch_no?: string
+  expiration_date?: string
+  quantity_added: number
+  quantity_sold: number
+  quantity_returned: number
+  current_balance: number
+  unit_price: number
+  total_value: number
+  transaction_id?: number
+  created_at: string
+  updated_at: string
+  
+  // Relations
+  product?: Product
+}
+
+export interface AgentHistory {
+  id: number
+  agent_id: number
+  action_type: 'created' | 'items_added' | 'sale_recorded' | 'items_returned'
   
   product_id?: number
   quantity?: number

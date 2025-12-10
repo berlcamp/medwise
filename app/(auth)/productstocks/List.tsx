@@ -7,11 +7,12 @@ import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock, RootState } from '@/types'
 import { format, isBefore, parseISO } from 'date-fns'
-import { MinusCircle, Trash2 } from 'lucide-react'
+import { MinusCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { RemoveStockModal } from './RemoveStockModal'
+import { EditStockModal } from './EditStockModal'
 
 // view table
 const table = 'product_stocks'
@@ -23,6 +24,7 @@ export const List = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
+  const [modalEditOpen, setModalEditOpen] = useState(false)
 
   const [selectedItem, setSelectedItem] = useState<ProductStock | null>(null)
 
@@ -101,7 +103,7 @@ export const List = () => {
                 <td className="app__td">{item.remaining_quantity}</td>
 
                 <td className="app__td">
-                  {item.purchase_price ? item.purchase_price.toFixed(2) : '-'}
+                  {item.purchase_price ? item.purchase_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                 </td>
 
                 <td className="app__td">
@@ -118,18 +120,32 @@ export const List = () => {
                       <Trash2 className="w-4 h-4" />
                     </Button>
                     {(user?.type === 'super admin' ||
+                    user?.type === 'bulk' ||
                       user?.type === 'admin') && (
-                      <Button
-                        variant="outline"
-                        size="xs"
-                        className="text-yellow-500"
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setModalRemoveOpen(true)
-                        }}
-                      >
-                        <MinusCircle className="w-4 h-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="text-blue-500"
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setModalEditOpen(true)
+                          }}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="text-yellow-500"
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setModalRemoveOpen(true)
+                          }}
+                        >
+                          <MinusCircle className="w-4 h-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </td>
@@ -142,6 +158,12 @@ export const List = () => {
       <RemoveStockModal
         isOpen={modalRemoveOpen}
         onClose={() => setModalRemoveOpen(false)}
+        selectedItem={selectedItem}
+      />
+
+      <EditStockModal
+        isOpen={modalEditOpen}
+        onClose={() => setModalEditOpen(false)}
         selectedItem={selectedItem}
       />
 

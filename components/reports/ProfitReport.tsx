@@ -15,9 +15,14 @@ import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { useAppSelector } from '@/lib/redux/hook'
 import { Loader2, Download, RefreshCw, TrendingUp, DollarSign } from 'lucide-react'
+import Notfoundpage from '@/components/Notfoundpage'
 
 export const ProfitReport = () => {
+  const user = useAppSelector((state) => state.user.user)
+  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
   const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId)
+  
+  // All hooks must be called before any conditional returns
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranch, setSelectedBranch] = useState<number | null>(selectedBranchId)
   
@@ -58,6 +63,7 @@ export const ProfitReport = () => {
   }, [selectedBranchId])
 
   const fetchData = async () => {
+    if (!isAdmin) return
     if (!selectedBranch) {
       toast.error('Please select a branch')
       return
@@ -180,11 +186,14 @@ export const ProfitReport = () => {
   }, [mode])
 
   useEffect(() => {
-    if (selectedBranch) {
+    if (selectedBranch && isAdmin) {
       fetchData()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranch])
+  }, [selectedBranch, isAdmin])
+
+  // Restrict access to admin only - must be after all hooks
+  if (!isAdmin) return <Notfoundpage />
 
   return (
     <div className="space-y-6">
@@ -366,11 +375,11 @@ export const ProfitReport = () => {
                           <td className="p-3 font-medium">{t.transaction_number}</td>
                           <td className="p-3">{item.product?.name || '-'}</td>
                           <td className="p-3 text-right">{item.quantity}</td>
-                          <td className="p-3 text-right">₱{Number(item.price).toFixed(2)}</td>
-                          <td className="p-3 text-right">₱{costPrice.toFixed(2)}</td>
-                          <td className="p-3 text-right font-semibold">₱{Number(item.total).toFixed(2)}</td>
+                          <td className="p-3 text-right">₱{Number(item.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="p-3 text-right">₱{costPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                          <td className="p-3 text-right font-semibold">₱{Number(item.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           <td className={`p-3 text-right font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            ₱{profit.toFixed(2)}
+                            ₱{profit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                           <td className={`p-3 text-right font-semibold ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {margin.toFixed(2)}%

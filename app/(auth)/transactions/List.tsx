@@ -30,17 +30,38 @@ export const List = () => {
   }
 
   const printInvoice = async (item: Transaction) => {
-    const { data: items, error } = await supabase
+    // Load transaction items with product data
+    const { data: items, error: itemsError } = await supabase
       .from('transaction_items')
       .select(`*, product:product_id(name)`)
       .eq('transaction_id', item.id)
 
-    if (error) {
-      console.error(error)
+    if (itemsError) {
+      console.error(itemsError)
       return
     }
 
-    setPrintData({ transaction: item, items })
+    // Load customer data if customer_id exists
+    let customerData = null
+    if (item.customer_id) {
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', item.customer_id)
+        .single()
+
+      if (!customerError && customer) {
+        customerData = customer
+      }
+    }
+
+    // Combine transaction data with customer
+    const transactionWithCustomer = {
+      ...item,
+      customer: customerData
+    }
+
+    setPrintData({ transaction: transactionWithCustomer, items })
 
     setTimeout(() => {
       window.print()
@@ -102,7 +123,7 @@ export const List = () => {
               </td>
               <td className="app__td text-right">
                 <span className="font-semibold text-gray-900">
-                  ₱{Number(item.total_amount || 0).toLocaleString()}
+                  ₱{Number(item.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </td>
               <td className="app__td text-center">

@@ -46,6 +46,7 @@ export const productUnits = [
   'bottle',
 
   // 🧴 Liquid Forms
+  'nebule',
   'ml',
   'l',
   'vial',

@@ -1,87 +1,98 @@
 'use client'
 
 import LoadingSkeleton from '@/components/LoadingSkeleton'
-import { Button } from '@/components/ui/button'
-
 import Notfoundpage from '@/components/Notfoundpage'
+import { Button } from '@/components/ui/button'
 import { PER_PAGE } from '@/lib/constants'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { AddModal } from './AddModal'
 import { Filter } from './Filter'
 import { List } from './List'
+import { AddModal } from './AddModal'
+
 
 export default function Page() {
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
-  const [modalAddOpen, setModalAddOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({
     keyword: ''
   })
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
   const dispatch = useAppDispatch()
-
   const user = useAppSelector((state) => state.user.user)
 
-  // Fetch data on page load
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId
+  )
+
   useEffect(() => {
     let isMounted = true
-    dispatch(addList([])) // Reset the list first on page load
+    dispatch(addList([]))
 
     const fetchData = async () => {
       setLoading(true)
-      const { data, count, error } = await supabase
-        .from('branches')
+      let query = supabase
+        .from('agents')
         .select('*', { count: 'exact' })
-        .neq('id', 2)
         .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
-        .ilike('name', `%${filter.keyword}%`)
-        .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+        .eq('branch_id', selectedBranchId)
         .order('id', { ascending: false })
 
-      // Only update state if component is still mounted
+      // Apply name filter if provided
+      if (filter.keyword && filter.keyword.trim() !== '') {
+        query = query.ilike('name', `%${filter.keyword}%`)
+      }
+
+      if (!filter.keyword) {
+        query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }
+
+      const { data, count, error } = await query
+
       if (!isMounted) return
 
-      if (error) {
-        console.error(error)
-      } else {
-        // Update the list of suppliers in Redux store
+      if (error) console.error(error)
+      else {
         dispatch(addList(data))
         setTotalCount(count || 0)
       }
+
       setLoading(false)
     }
 
     fetchData()
 
-    // Cleanup function
     return () => {
       isMounted = false
     }
-  }, [page, filter, dispatch]) // Add `dispatch` to dependency array
+  }, [page, filter, dispatch, selectedBranchId])
 
-  // Only super admin can access branches CRUD
-  if (user?.type !== 'super admin') {
-    return <Notfoundpage />
-  }
+  if (user?.type === 'user' || user?.type === 'cashier') return <Notfoundpage />
 
   return (
     <div>
       <div className="app__title">
-        <h1 className="text-3xl font-normal">Branches</h1>
-        <Button
-          variant="green"
-          onClick={() => setModalAddOpen(true)}
-          className="ml-auto"
-          size="xs"
-        >
-          Add Branch
-        </Button>
+        <h1 className="text-3xl font-normal">Agents</h1>
+        <div className="flex gap-2 ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsAddModalOpen(true)}
+          >
+            + Add Agent
+          </Button>
+          <Link href="/agent">
+            <Button variant="green" size="sm">
+              + New Agent Assignment
+            </Button>
+          </Link>
+        </div>
       </div>
-
       <Filter filter={filter} setFilter={setFilter} />
       <div className="app__content">
         <div className="py-2 text-xs text-gray-500">
@@ -89,10 +100,8 @@ export default function Page() {
           {Math.min(page * PER_PAGE, totalCount)} of {totalCount} results
         </div>
 
-        {/* Pass Redux data to List Table */}
         <List />
 
-        {/* Loading Skeleton */}
         {loading && <LoadingSkeleton />}
 
         {totalCount === 0 && !loading && (
@@ -100,6 +109,7 @@ export default function Page() {
             No records found.
           </div>
         )}
+
         {totalCount > 0 && totalCount > PER_PAGE && (
           <div className="mt-4 text-xs flex justify-center items-center space-x-2">
             <Button
@@ -123,11 +133,12 @@ export default function Page() {
             </Button>
           </div>
         )}
-        <AddModal
-          isOpen={modalAddOpen}
-          onClose={() => setModalAddOpen(false)}
-        />
       </div>
+
+      <AddModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+      />
     </div>
   )
 }

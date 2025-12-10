@@ -105,7 +105,7 @@ export const List = () => {
               <td className="app__td text-right">
                 {item.balance_due > 0 ? (
                   <span className="text-red-600 font-semibold">
-                    ₱{Number(item.balance_due).toLocaleString()}
+                    ₱{Number(item.balance_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 ) : (
                   <span className="text-gray-400">₱0.00</span>

@@ -76,14 +76,19 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
           <div style={{ flex: '1' }}>
             <p style={{ margin: '4px 0' }}>
               <strong>Delivered To:</strong>{' '}
-              {transaction.customer?.name || 'Walk-in Customer'}
+              {transaction.customer?.name || transaction.customer_name || 'Walk-in Customer'}
             </p>
             <p style={{ margin: '4px 0' }}>
               <strong>Address:</strong>{' '}
               {transaction.customer?.address || '-'}
             </p>
             <p style={{ margin: '4px 0' }}>
-              <strong>TIN:</strong> _______________________________
+              <strong>Contact:</strong>{' '}
+              {transaction.customer?.contact_number || '-'}
+            </p>
+            <p style={{ margin: '4px 0' }}>
+              <strong>TIN:</strong>{' '}
+              {transaction.customer?.tin || '_______________________________'}
             </p>
           </div>
 

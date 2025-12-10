@@ -66,12 +66,14 @@ export default function Page() {
   const [lowStock, setLowStock] = useState<ProductStock[]>([])
   const [loading, setLoading] = useState(false)
   const [previousPeriodSales, setPreviousPeriodSales] = useState(0)
+  const [inventoryTotalValue, setInventoryTotalValue] = useState(0)
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   )
   const user = useAppSelector((state) => state.user.user)
   const isBulkUser = user?.type === 'bulk'
+  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
 
   const loadDashboard = async () => {
     if (!selectedBranchId) return
@@ -205,6 +207,23 @@ export default function Page() {
         .filter((p) => p.remaining_quantity <= p.reorder_point)
 
       setLowStock(lowStock)
+
+      // Calculate inventory total value (admin only)
+      if (isAdmin) {
+        const { data: stocks, error: stocksError } = await supabase
+          .from('product_stocks')
+          .select('remaining_quantity, purchase_price')
+          .eq('branch_id', selectedBranchId)
+          .gt('remaining_quantity', 0)
+
+        if (!stocksError && stocks) {
+          const totalValue = stocks.reduce(
+            (sum, stock) => sum + (Number(stock.remaining_quantity) * Number(stock.purchase_price || 0)),
+            0
+          )
+          setInventoryTotalValue(totalValue)
+        }
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
@@ -309,7 +328,23 @@ export default function Page() {
         </div>
 
         {/* Summary Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${isBulkUser ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-4`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${isBulkUser ? 'lg:grid-cols-2' : isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+          {/* Inventory Total Value - Admin only */}
+          {isAdmin && (
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg rounded-xl p-6 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-indigo-100 text-sm font-medium">Inventory Value</p>
+                  <h3 className="text-3xl font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
+                  <p className="text-sm text-indigo-100 mt-2">On-hand total</p>
+                </div>
+                <div className="bg-indigo-400/30 p-3 rounded-lg">
+                  <Package className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Total Sales - Hidden for bulk users */}
           {!isBulkUser && (
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg rounded-xl p-6 text-white">

@@ -18,6 +18,7 @@ import Notfoundpage from '@/components/Notfoundpage'
 export default function ReportsPage() {
   const user = useAppSelector((state) => state.user.user)
   const isBulkUser = user?.type === 'bulk'
+  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
   
   // Sales and profit related tabs that should be hidden for bulk users
   const restrictedTabs = ['sales', 'daily', 'profit', 'payment', 'customer', 'product']
@@ -34,20 +35,25 @@ export default function ReportsPage() {
     { value: 'stockcard', label: 'Stock Movements', icon: FileText, description: 'Stock movement history' },
   ]
   
-  // Filter out restricted tabs for bulk users
-  const reportTabs = isBulkUser 
-    ? allReportTabs.filter(tab => !restrictedTabs.includes(tab.value))
-    : allReportTabs
+  // Filter out restricted tabs for bulk users, and profit tab for non-admin users
+  const reportTabs = allReportTabs.filter(tab => {
+    if (isBulkUser && restrictedTabs.includes(tab.value)) return false
+    if (tab.value === 'profit' && !isAdmin) return false
+    return true
+  })
   
   const defaultTab = isBulkUser ? 'inventory' : 'sales'
   const [tab, setTab] = useState(defaultTab)
   
-  // Reset tab if current tab is restricted for bulk users
+  // Reset tab if current tab is restricted
   useEffect(() => {
     if (isBulkUser && restrictedTabs.includes(tab)) {
       setTab(defaultTab)
     }
-  }, [isBulkUser, tab, defaultTab, restrictedTabs])
+    if (tab === 'profit' && !isAdmin) {
+      setTab(defaultTab)
+    }
+  }, [isBulkUser, isAdmin, tab, defaultTab, restrictedTabs])
   
   // Restrict access for cashier users (after all hooks)
   if (user?.type === 'cashier') return <Notfoundpage />
@@ -88,9 +94,11 @@ export default function ReportsPage() {
                     <TabsContent value="daily" className="mt-0">
                       <DailySalesSummary />
                     </TabsContent>
-                    <TabsContent value="profit" className="mt-0">
-                      <ProfitReport />
-                    </TabsContent>
+                    {isAdmin && (
+                      <TabsContent value="profit" className="mt-0">
+                        <ProfitReport />
+                      </TabsContent>
+                    )}
                     <TabsContent value="payment" className="mt-0">
                       <PaymentMethodReport />
                     </TabsContent>

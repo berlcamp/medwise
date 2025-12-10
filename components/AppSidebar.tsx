@@ -2,6 +2,7 @@
 
 import {
   BarChart,
+  FileText,
   Home,
   List,
   ListChecks,
@@ -73,6 +74,16 @@ export function AppSidebar() {
       title: 'Consignments',
       url: '/consignments',
       icon: Users2
+    },
+    {
+      title: 'Agents',
+      url: '/agents',
+      icon: Users2
+    },
+    {
+      title: 'Quotations',
+      url: '/quotations',
+      icon: FileText
     },
     {
       title: 'Customers',

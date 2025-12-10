@@ -1,4 +1,3 @@
-// components/AddItemTypeModal.tsx
 'use client'
 
 import { Button } from '@/components/ui/button'
@@ -11,11 +10,10 @@ import {
   FormMessage
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
-import { addItem, updateList } from '@/lib/redux/listSlice'
+import { useAppDispatch } from '@/lib/redux/hook'
+import { updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
-
-import { Customer } from '@/types'
+import { ProductStock } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
@@ -23,129 +21,105 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
 
-// Always update this on other pages
-type ItemType = Customer
-
-const table = 'customers'
-const title = 'Customer'
-
-interface ModalProps {
-  isOpen: boolean
-  onClose: () => void
-  editData?: ItemType | null // Optional prop for editing existing item
-  onAdded?: (newCustomer: Customer) => void // ✅ new
-}
+const table = 'product_stocks'
 
 const FormSchema = z.object({
-  name: z.string().min(1, 'Customer Name is required'),
-  contact_number: z.string().min(1, 'Contact # is required'),
-  address: z.string().optional(),
-  tin: z.string().optional()
+  purchase_price: z.coerce.number().min(0, 'Purchase price required'),
+  batch_no: z.string().optional(),
+  manufacturer: z.string().optional(),
+  date_manufactured: z.string().optional(),
+  expiration_date: z.string().optional(),
+  remarks: z.string().optional()
 })
+
 type FormType = z.infer<typeof FormSchema>
 
-export const AddModal = ({
+export const EditStockModal = ({
   isOpen,
   onClose,
-  editData,
-  onAdded
-}: ModalProps) => {
-  //
+  selectedItem
+}: {
+  isOpen: boolean
+  onClose: () => void
+  selectedItem: ProductStock | null
+}) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
-
-  const selectedBranchId = useAppSelector(
-    (state) => state.branch.selectedBranchId
-  )
 
   const form = useForm<FormType>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      name: editData ? editData.name : '',
-      contact_number: editData ? editData.contact_number : '',
-      address: editData ? editData.address : '',
-      tin: editData ? editData.tin : ''
+      purchase_price: 0,
+      batch_no: '',
+      manufacturer: '',
+      date_manufactured: '',
+      expiration_date: '',
+      remarks: ''
     }
   })
 
-  // Submit handler
-  const onSubmit = async (data: FormType) => {
-    if (isSubmitting) return // 🚫 Prevent double-submit
-    
-    // Validate branch selection
-    if (!selectedBranchId) {
-      toast.error('Please select a branch first')
-      return
+  useEffect(() => {
+    if (selectedItem && isOpen) {
+      form.reset({
+        purchase_price: selectedItem.purchase_price || 0,
+        batch_no: selectedItem.batch_no || '',
+        manufacturer: selectedItem.manufacturer || '',
+        date_manufactured: selectedItem.date_manufactured || '',
+        expiration_date: selectedItem.expiration_date || '',
+        remarks: selectedItem.remarks || ''
+      })
     }
-    
+  }, [selectedItem, isOpen, form])
+
+  const onSubmit = async (data: FormType) => {
+    if (!selectedItem) return
+    if (isSubmitting) return
+
     setIsSubmitting(true)
 
     try {
-      const newData = {
-        name: data.name.trim(),
-        contact_number: data.contact_number,
-        address: data.address,
-        tin: data.tin || null,
-        branch_id: selectedBranchId,
-        org_id: process.env.NEXT_PUBLIC_ORG_ID
+      const updateData: {
+        purchase_price: number
+        batch_no: string | null
+        manufacturer: string | null
+        remarks: string | null
+        date_manufactured?: string
+        expiration_date?: string
+      } = {
+        purchase_price: data.purchase_price,
+        batch_no: data.batch_no || null,
+        manufacturer: data.manufacturer || null,
+        remarks: data.remarks || null
       }
 
-      // If exists (editing), update it
-      if (editData?.id) {
-        const { error } = await supabase
-          .from(table)
-          .update(newData)
-          .eq('id', editData.id)
-
-        if (error) {
-          throw new Error(error.message)
-        } else {
-          //Update list on redux
-          dispatch(updateList({ ...newData, id: editData.id })) // ✅ Update Redux with new data
-          onClose()
-        }
-      } else {
-        // Add new one
-        const { data, error } = await supabase
-          .from(table)
-          .insert([newData])
-          .select()
-          .single()
-
-        if (error) {
-          throw new Error(error.message)
-        } else {
-          // ✅ trigger callback, but exclude dispatch because this is called outsize /customers page
-          if (onAdded) {
-            onAdded(data)
-          } else {
-            // Insert new item to Redux
-            dispatch(addItem({ ...newData, id: data.id }))
-          }
-          onClose()
-        }
+      // Only update dates if provided
+      if (data.date_manufactured) {
+        updateData.date_manufactured = data.date_manufactured
+      }
+      if (data.expiration_date) {
+        updateData.expiration_date = data.expiration_date
       }
 
-      toast.success('Successfully saved!')
+      const { data: updated, error } = await supabase
+        .from(table)
+        .update(updateData)
+        .eq('id', selectedItem.id)
+        .select()
+        .single()
+
+      if (error) throw new Error(error.message)
+
+      dispatch(updateList({ ...updated, id: selectedItem.id }))
+      toast.success('Stock updated successfully!')
+      onClose()
     } catch (err) {
-      console.error('Submission error:', err)
+      console.error(err)
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
-      toast.error(`Failed to save: ${errorMessage}`)
+      toast.error(`Failed to update: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }
   }
-
-  useEffect(() => {
-    if (editData) {
-      form.reset({
-        name: editData.name,
-        contact_number: editData.contact_number,
-        address: editData.address,
-        tin: editData.tin || ''
-      })
-    }
-  }, [form, editData, isOpen])
 
   return (
     <Dialog
@@ -154,22 +128,14 @@ export const AddModal = ({
       className="relative z-50 focus:outline-none"
       onClose={() => {}}
     >
-      {/* Background overlay */}
-      <div
-        className="fixed inset-0 bg-gray-600 opacity-80"
-        aria-hidden="true"
-      />
-
-      {/* Centered panel container */}
+      <div className="fixed inset-0 bg-gray-600 opacity-80" aria-hidden="true" />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <DialogPanel transition className="app__modal_dialog_panel_sm">
-          {/* Sticky Header */}
           <div className="app__modal_dialog_title_container">
             <DialogTitle as="h3" className="text-base font-medium">
-              {editData ? 'Edit' : 'Add'} {title}
+              Edit Stock
             </DialogTitle>
           </div>
-          {/* Scrollable Form Content */}
           <div className="app__modal_dialog_content">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -177,17 +143,18 @@ export const AddModal = ({
                   <div>
                     <FormField
                       control={form.control}
-                      name="name"
+                      name="purchase_price"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Customer Name
+                            Purchase Price
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder="Customer Name"
-                              type="text"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
                               {...field}
                             />
                           </FormControl>
@@ -199,17 +166,16 @@ export const AddModal = ({
                   <div>
                     <FormField
                       control={form.control}
-                      name="contact_number"
+                      name="batch_no"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Contact Number
+                            Batch Number
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder="Contact Number"
-                              type="text"
+                              placeholder="Batch Number"
                               {...field}
                             />
                           </FormControl>
@@ -221,17 +187,16 @@ export const AddModal = ({
                   <div>
                     <FormField
                       control={form.control}
-                      name="address"
+                      name="manufacturer"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Address
+                            Manufacturer
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder="Address"
-                              type="text"
+                              placeholder="Manufacturer"
                               {...field}
                             />
                           </FormControl>
@@ -243,17 +208,58 @@ export const AddModal = ({
                   <div>
                     <FormField
                       control={form.control}
-                      name="tin"
+                      name="date_manufactured"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            TIN
+                            Date Manufactured
                           </FormLabel>
                           <FormControl>
                             <Input
                               className="app__input_standard"
-                              placeholder="Tax Identification Number"
-                              type="text"
+                              type="date"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <FormField
+                      control={form.control}
+                      name="expiration_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="app__formlabel_standard">
+                            Expiration Date
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              className="app__input_standard"
+                              type="date"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <FormField
+                      control={form.control}
+                      name="remarks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="app__formlabel_standard">
+                            Remarks
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              className="app__input_standard"
+                              placeholder="Remarks"
                               {...field}
                             />
                           </FormControl>
@@ -268,11 +274,7 @@ export const AddModal = ({
                     Cancel
                   </Button>
                   <Button type="submit">
-                    {editData ? (
-                      'Update'
-                    ) : (
-                      <span>{isSubmitting ? 'Saving..' : 'Save'}</span>
-                    )}
+                    {isSubmitting ? 'Updating...' : 'Update'}
                   </Button>
                 </div>
               </form>

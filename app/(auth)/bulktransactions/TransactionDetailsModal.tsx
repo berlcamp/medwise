@@ -19,6 +19,8 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
+import { PaymentHistoryPrint } from '@/components/printables/PaymentHistoryPrint'
+import { Printer } from 'lucide-react'
 
 interface Props {
   isOpen: boolean
@@ -37,6 +39,7 @@ export function TransactionDetailsModal({
   const [referenceNumber, setReferenceNumber] = useState(
     transaction.reference_number || ''
   )
+  const [printData, setPrintData] = useState<any>(null)
 
   useEffect(() => {
     if (!transaction?.id) return
@@ -107,6 +110,7 @@ export function TransactionDetailsModal({
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
+    <>
     <Dialog
       open={isOpen}
       as="div"
@@ -275,7 +279,34 @@ export function TransactionDetailsModal({
                 </div>
 
                 {/* Footer */}
-                <div className="mt-4 flex justify-end gap-2 border-t pt-4">
+                <div className="mt-4 flex justify-between items-center border-t pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const { data: payments, error } = await supabase
+                        .from('transaction_payments')
+                        .select('*')
+                        .eq('transaction_id', transaction.id)
+                        .order('payment_date', { ascending: false })
+
+                      if (error) {
+                        toast.error('Failed to load payments')
+                        return
+                      }
+
+                      setPrintData({ transaction, payments: payments || [] })
+                      setTimeout(() => {
+                        window.print()
+                        setTimeout(() => {
+                          setPrintData(null)
+                        }, 500)
+                      }, 200)
+                    }}
+                  >
+                    <Printer className="w-4 h-4 mr-2" />
+                    Print Payment History
+                  </Button>
                   <Button variant="outline" onClick={onClose}>
                     Close
                   </Button>
@@ -286,5 +317,9 @@ export function TransactionDetailsModal({
         </DialogPanel>
       </div>
     </Dialog>
+
+    {/* Print Component */}
+    {printData && <PaymentHistoryPrint data={printData} />}
+  </>
   )
 }

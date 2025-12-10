@@ -27,16 +27,18 @@ import {
   returnConsignmentItems,
   addConsignmentItems
 } from '@/lib/utils/consignment'
-import { Consignment, ConsignmentItem, Product, ProductStock } from '@/types'
+import { Consignment, ConsignmentItem, Product, ProductStock, Transaction } from '@/types'
 import { format } from 'date-fns'
 import { useEffect, useState, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useAppSelector } from '@/lib/redux/hook'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
-import { Search } from 'lucide-react'
+import { Search, Printer } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { isAfter, parseISO, startOfToday } from 'date-fns'
+import { DeliveryReceiptPrint } from '@/components/printables/DeliveryReceiptPrint'
+import { InvoicePrint } from '@/components/printables/InvoicePrint'
 
 interface Props {
   isOpen: boolean
@@ -84,6 +86,11 @@ export function ConsignmentDetailsModal({
   const [addingItems, setAddingItems] = useState(false)
   const [confirmAddOpen, setConfirmAddOpen] = useState(false)
   const searchContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Print state
+  const [consignmentTransactions, setConsignmentTransactions] = useState<Transaction[]>([])
+  const [printData, setPrintData] = useState<any>(null)
+  const [printType, setPrintType] = useState<'invoice' | 'delivery' | null>(null)
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -93,6 +100,26 @@ export function ConsignmentDetailsModal({
   useEffect(() => {
     setConsignmentData(consignment)
   }, [consignment])
+
+  // Load consignment transactions
+  useEffect(() => {
+    if (!consignmentData?.id || !isOpen) return
+    
+    const fetchTransactions = async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('customer_id', consignmentData.customer_id)
+        .eq('transaction_type', 'consignment_sale')
+        .order('created_at', { ascending: false })
+      
+      if (!error && data) {
+        setConsignmentTransactions(data as Transaction[])
+      }
+    }
+    
+    fetchTransactions()
+  }, [consignmentData?.id, consignmentData?.customer_id, isOpen])
 
   // Load consignment items
   useEffect(() => {
@@ -279,6 +306,60 @@ export function ConsignmentDetailsModal({
     }
 
     setRecordingSale(false)
+  }
+
+  const printInvoice = async (transaction: Transaction) => {
+    setPrintData(null)
+    setPrintType(null)
+
+    const { data: items, error } = await supabase
+      .from('transaction_items')
+      .select(`*, product:product_id(name)`)
+      .eq('transaction_id', transaction.id)
+
+    if (error) {
+      console.error(error)
+      toast.error('Failed to load transaction items')
+      return
+    }
+
+    setPrintData({ transaction, items })
+    setPrintType('invoice')
+
+    setTimeout(() => {
+      window.print()
+      setTimeout(() => {
+        setPrintData(null)
+        setPrintType(null)
+      }, 500)
+    }, 200)
+  }
+
+  const printDeliveryReceipt = async (transaction: Transaction) => {
+    setPrintData(null)
+    setPrintType(null)
+
+    const { data: items, error } = await supabase
+      .from('transaction_items')
+      .select(`*, product:product_id(name)`)
+      .eq('transaction_id', transaction.id)
+
+    if (error) {
+      console.error(error)
+      toast.error('Failed to load transaction items')
+      return
+    }
+
+    setPrintData({ transaction, items })
+    setPrintType('delivery')
+
+    setTimeout(() => {
+      window.print()
+      setTimeout(() => {
+        setPrintData(null)
+        setPrintType(null)
+      }, 500)
+    }, 200)
   }
 
   const handleReturnItems = async () => {
@@ -606,6 +687,43 @@ export function ConsignmentDetailsModal({
 
                 {/* Overview Tab */}
                 <TabsContent value="overview">
+                  {/* Print Section */}
+                  {consignmentTransactions.length > 0 && (
+                    <div className="mb-4 p-4 border rounded-lg bg-gray-50">
+                      <h3 className="text-sm font-semibold mb-3">Print Documents</h3>
+                      <div className="space-y-2">
+                        {consignmentTransactions.map((tx) => (
+                          <div key={tx.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                            <div>
+                              <span className="text-sm font-medium">{tx.transaction_number}</span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {format(new Date(tx.created_at), 'MMM dd, yyyy')}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => printDeliveryReceipt(tx)}
+                              >
+                                <Printer className="w-3 h-3 mr-1" />
+                                Delivery Receipt
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => printInvoice(tx)}
+                              >
+                                <Printer className="w-3 h-3 mr-1" />
+                                Sales Invoice
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="border rounded-lg">
                     <Table>
                       <TableHeader>
@@ -770,7 +888,7 @@ export function ConsignmentDetailsModal({
                                     </div>
                                     <div className="text-right ml-4">
                                       <p className="text-base font-bold text-blue-600">
-                                        ₱{product.selling_price.toFixed(2)}
+                                        ₱{product.selling_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </p>
                                     </div>
                                   </button>
@@ -1073,6 +1191,14 @@ export function ConsignmentDetailsModal({
           </DialogPanel>
         </div>
       </Dialog>
+
+      {/* Print Components */}
+      {printType === 'invoice' && printData && (
+        <InvoicePrint data={printData} />
+      )}
+      {printType === 'delivery' && printData && (
+        <DeliveryReceiptPrint data={printData} />
+      )}
 
       {/* Confirmation Modals */}
       <ConfirmationModal

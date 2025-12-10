@@ -3,10 +3,10 @@
 
 import { format } from 'date-fns'
 
-export const InvoicePrint = ({ data }: { data: any }) => {
-  if (!data) return null
+export const QuotationPrint = ({ data }: { data: any }) => {
+  if (!data || !data.quotation || !data.items) return null
 
-  const { transaction, items } = data
+  const { quotation, items } = data
 
   const formatCurrency = (amount: number | string) => {
     return `₱${Number(amount).toLocaleString('en-US', {
@@ -15,15 +15,19 @@ export const InvoicePrint = ({ data }: { data: any }) => {
     })}`
   }
 
-  const subtotal = items.reduce(
-    (sum: number, item: any) => sum + Number(item.total || 0),
-    0
-  )
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return '-'
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy')
+    } catch {
+      return dateString
+    }
+  }
 
   return (
     <div
       className="hidden print:block"
-      id="invoice-print-area"
+      id="quotation-print-area"
       style={{
         width: '8.5in',
         maxWidth: '8.5in',
@@ -45,7 +49,7 @@ export const InvoicePrint = ({ data }: { data: any }) => {
             className="font-bold uppercase"
             style={{ fontSize: '18px', marginBottom: '8px' }}
           >
-            SALES INVOICE
+            QUOTATION
           </h1>
 
           {/* Business Info */}
@@ -63,41 +67,42 @@ export const InvoicePrint = ({ data }: { data: any }) => {
           </p>
         </div>
 
-        {/* CUSTOMER + INVOICE INFO */}
+        {/* CUSTOMER + QUOTATION INFO */}
         <div
           className="flex justify-between"
           style={{ marginBottom: '15px', fontSize: '11px' }}
         >
           <div style={{ flex: '1' }}>
             <p style={{ margin: '3px 0' }}>
-              <strong>Sold To:</strong>{' '}
-              {transaction.customer?.name || transaction.customer_name || 'Walk-in Customer'}
+              <strong>Quoted To:</strong>{' '}
+              {quotation.customer?.name || quotation.customer_name || 'Customer'}
             </p>
             <p style={{ margin: '3px 0' }}>
               <strong>Address:</strong>{' '}
-              {transaction.customer?.address || '______________________'}
+              {quotation.customer?.address || '______________________'}
             </p>
             <p style={{ margin: '3px 0' }}>
               <strong>Contact:</strong>{' '}
-              {transaction.customer?.contact_number || '-'}
+              {quotation.customer?.contact_number || '-'}
             </p>
             <p style={{ margin: '3px 0' }}>
               <strong>TIN:</strong>{' '}
-              {transaction.customer?.tin || '______________________'}
+              {quotation.customer?.tin || '______________________'}
             </p>
           </div>
 
           <div className="text-right" style={{ flex: '1' }}>
             <p style={{ margin: '3px 0' }}>
-              <strong>SI No.:</strong> {transaction.transaction_number}
+              <strong>Quotation No.:</strong> {quotation.quotation_number || '-'}
             </p>
             <p style={{ margin: '3px 0' }}>
               <strong>Date:</strong>{' '}
-              {format(new Date(transaction.created_at), 'MMM dd, yyyy')}
+              {formatDate(quotation.quotation_date)}
             </p>
-            {transaction.reference_number && (
+            {quotation.valid_until && (
               <p style={{ margin: '3px 0' }}>
-                <strong>Reference:</strong> {transaction.reference_number}
+                <strong>Valid Until:</strong>{' '}
+                {formatDate(quotation.valid_until)}
               </p>
             )}
           </div>
@@ -150,19 +155,19 @@ export const InvoicePrint = ({ data }: { data: any }) => {
           </thead>
 
           <tbody>
-            {items.map((it: any) => (
-              <tr key={it.id} className="border-b border-black">
+            {items.map((it: any, index: number) => (
+              <tr key={it.id || index} className="border-b border-black">
                 <td className="border border-black p-2 text-left">
                   {it.quantity}
                 </td>
                 <td className="border border-black p-2 text-left">
-                  {it.unit || 'pcs'}
+                  {it.product?.unit || it.unit || 'pcs'}
                 </td>
                 <td className="border border-black p-2 text-left">
-                  {it.product?.name || it.products?.name || '-'}
+                  {it.product?.name || it.product_name || '-'}
                 </td>
                 <td className="border border-black p-2 text-right">
-                  {formatCurrency(it.price)}
+                  {formatCurrency(it.unit_price || it.price)}
                 </td>
                 <td className="border border-black p-2 text-right">
                   {formatCurrency(it.total)}
@@ -183,16 +188,6 @@ export const InvoicePrint = ({ data }: { data: any }) => {
             }}
           >
             <div
-              className="flex justify-between"
-              style={{ marginBottom: '5px' }}
-            >
-              <span>Subtotal:</span>
-              <span className="font-semibold">
-                {formatCurrency(subtotal)}
-              </span>
-            </div>
-
-            <div
               className="flex justify-between border-t border-black pt-2 mt-2 font-bold"
               style={{
                 borderTop: '1px solid #000',
@@ -201,29 +196,8 @@ export const InvoicePrint = ({ data }: { data: any }) => {
               }}
             >
               <span>Total Amount Due:</span>
-              <span>{formatCurrency(transaction.total_amount)}</span>
+              <span>{formatCurrency(quotation.total_amount)}</span>
             </div>
-          </div>
-        </div>
-
-        {/* SIGNATURE */}
-        <div
-          className="flex justify-between"
-          style={{
-            marginTop: '30px',
-            marginBottom: '15px',
-            fontSize: '11px',
-            pageBreakInside: 'avoid'
-          }}
-        >
-          <div>
-            <p style={{ marginBottom: '5px', marginTop: 0 }}>_____________________________</p>
-            <p style={{ marginTop: 0 }}>Authorized Representative</p>
-          </div>
-
-          <div>
-            <p style={{ marginBottom: '5px', marginTop: 0 }}>_____________________________</p>
-            <p style={{ marginTop: 0 }}>Customer{"'"}s Signature</p>
           </div>
         </div>
 
@@ -239,9 +213,9 @@ export const InvoicePrint = ({ data }: { data: any }) => {
           }}
         >
           <p style={{ margin: '3px 0', fontWeight: 'bold' }}>
-            THIS DOCUMENT IS NOT VALID FOR CLAIM OF INPUT TAX
+            THIS IS A QUOTATION ONLY - NOT AN INVOICE
           </p>
-          <p style={{ margin: '3px 0' }}>Thank you for your business!</p>
+          <p style={{ margin: '3px 0' }}>Thank you for your interest!</p>
         </div>
       </div>
     </div>
