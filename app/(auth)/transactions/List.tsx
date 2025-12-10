@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 import { InvoicePrint } from '@/components/printables/InvoicePrint'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase/client'
 import { RootState, Transaction } from '@/types'
@@ -77,7 +76,6 @@ export const List = () => {
             <th className="app__th">Customer</th>
             <th className="app__th">Payment Method</th>
             <th className="app__th text-right">Amount</th>
-            <th className="app__th text-center">Payment Status</th>
             <th className="app__th text-center">Actions</th>
           </tr>
         </thead>
@@ -125,23 +123,6 @@ export const List = () => {
                 <span className="font-semibold text-gray-900">
                   ₱{Number(item.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
-              </td>
-              <td className="app__td text-center">
-                {item.payment_status === 'Paid' && (
-                  <Badge variant="green">Paid</Badge>
-                )}
-                {item.payment_status === 'Partial' && (
-                  <Badge variant="orange">Partial</Badge>
-                )}
-                {item.payment_status === 'Unpaid' && (
-                  <Badge variant="red">Unpaid</Badge>
-                )}
-                {item.payment_status === 'Pending' && (
-                  <Badge variant="orange">Pending</Badge>
-                )}
-                {!item.payment_status && (
-                  <Badge variant="outline">-</Badge>
-                )}
               </td>
               <td className="app__td text-center">
                 <DropdownMenu>

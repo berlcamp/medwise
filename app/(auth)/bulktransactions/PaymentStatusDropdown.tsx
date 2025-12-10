@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import { PaymentHistoryPrint } from '@/components/printables/PaymentHistoryPrint'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,7 +16,7 @@ import { useAppDispatch } from '@/lib/redux/hook'
 import { updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
-import { Trash2 } from 'lucide-react'
+import { Printer, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 
@@ -46,6 +47,7 @@ export const ReceivePaymentModal = ({
   const [payments, setPayments] = useState<any[]>([])
   const [totalPaid, setTotalPaid] = useState(0)
   const [balance, setBalance] = useState(0)
+  const [printData, setPrintData] = useState<any>(null)
 
   const dispatch = useAppDispatch()
 
@@ -212,6 +214,34 @@ export const ReceivePaymentModal = ({
     if (onUpdated) onUpdated()
   }
 
+  const printPaymentHistory = async () => {
+    // Load customer data if customer_id exists
+    let customerData = null
+    if (transaction.customer_id) {
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', transaction.customer_id)
+        .single()
+
+      if (!customerError && customer) {
+        customerData = customer
+      }
+    }
+
+    // Combine transaction data with customer
+    const transactionWithCustomer = {
+      ...transaction,
+      customer: customerData
+    }
+
+    setPrintData({ transaction: transactionWithCustomer, payments })
+
+    setTimeout(() => {
+      window.print()
+    }, 150)
+  }
+
   return (
     <Dialog open={isOpen} onClose={onClose} as="div" className="relative z-50">
       {/* Background overlay */}
@@ -357,7 +387,18 @@ export const ReceivePaymentModal = ({
 
               {/* Right payment history table */}
               <div className="w-2/3">
-                <h3 className="font-semibold mb-2">Payment History</h3>
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold">Payment History</h3>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={printPaymentHistory}
+                    className="flex items-center gap-1"
+                  >
+                    <Printer className="w-3 h-3" />
+                    Print
+                  </Button>
+                </div>
                 <div className="border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-100 text-gray-700 sticky top-0">
@@ -483,6 +524,8 @@ export const ReceivePaymentModal = ({
           </div>
         </DialogPanel>
       </div>
+
+      {printData && <PaymentHistoryPrint data={printData} />}
     </Dialog>
   )
 }

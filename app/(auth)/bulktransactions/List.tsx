@@ -2,7 +2,6 @@
 'use client'
 import { DeliveryReceiptPrint } from '@/components/printables/DeliveryReceiptPrint'
 import { InvoicePrint } from '@/components/printables/InvoicePrint'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -209,21 +208,21 @@ export const List = () => {
                 />
               </td>
               <td className="app__td text-center">
-                {item.payment_status === 'Paid' && (
-                  <Badge variant="green">Paid</Badge>
-                )}
-                {item.payment_status === 'Partial' && (
-                  <Badge variant="orange">Partial</Badge>
-                )}
-                {item.payment_status === 'Unpaid' && (
-                  <Badge variant="red">Unpaid</Badge>
-                )}
-                {item.payment_status === 'Pending' && (
-                  <Badge variant="orange">Pending</Badge>
-                )}
-                {!item.payment_status && (
-                  <Badge variant="outline">-</Badge>
-                )}
+                <span
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    item.payment_status === 'Paid'
+                      ? 'bg-green-100 text-green-800'
+                      : item.payment_status === 'Partial'
+                      ? 'bg-orange-100 text-orange-800'
+                      : item.payment_status === 'Unpaid'
+                      ? 'bg-red-100 text-red-800'
+                      : item.payment_status === 'Pending'
+                      ? 'bg-orange-100 text-orange-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {item.payment_status?.toUpperCase() || '-'}
+                </span>
               </td>
               <td className="app__td text-center">
                 <DropdownMenu>
