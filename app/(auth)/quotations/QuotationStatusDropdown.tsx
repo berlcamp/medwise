@@ -67,7 +67,7 @@ export const QuotationStatusDropdown = ({ quotation, onUpdated }: Props) => {
       case 'accepted':
         return 'green'
       case 'rejected':
-        return 'red'
+        return 'destructive'
       case 'expired':
         return 'orange'
       default:

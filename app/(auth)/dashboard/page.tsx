@@ -1,14 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import Notfoundpage from '@/components/Notfoundpage'
 import { Button } from '@/components/ui/button'
 import { useAppSelector } from '@/lib/redux/hook'
 import { supabase } from '@/lib/supabase/client'
 import { formatMoney } from '@/lib/utils'
 import { format, startOfMonth, startOfWeek, subDays } from 'date-fns'
+import {
+  AlertTriangle,
+  Calendar,
+  DollarSign,
+  Package,
+  RefreshCw,
+  ShoppingCart,
+  TrendingDown,
+  TrendingUp
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
-import Notfoundpage from '@/components/Notfoundpage'
 import {
   Bar,
   BarChart,
@@ -21,16 +31,6 @@ import {
   XAxis,
   YAxis
 } from 'recharts'
-import {
-  DollarSign,
-  ShoppingCart,
-  Package,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  RefreshCw,
-  Calendar
-} from 'lucide-react'
 
 type Range = { startDate: Date; endDate: Date; key: string }
 type TransactionItem = {
@@ -335,7 +335,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-indigo-100 text-sm font-medium">Inventory Value</p>
-                  <h3 className="text-3xl font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
+                  <h3 className="text-xl font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
                   <p className="text-sm text-indigo-100 mt-2">On-hand total</p>
                 </div>
                 <div className="bg-indigo-400/30 p-3 rounded-lg">
@@ -351,7 +351,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-blue-100 text-sm font-medium">Total Sales</p>
-                  <h3 className="text-3xl font-bold mt-2">{formatMoney(totalSales)}</h3>
+                  <h3 className="text-xl font-bold mt-2">{formatMoney(totalSales)}</h3>
                   {salesChange !== 0 && (
                     <div className="flex items-center mt-2 text-sm">
                       {salesChange > 0 ? (
@@ -381,7 +381,7 @@ export default function Page() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Total Transactions</p>
-                <h3 className="text-3xl font-bold mt-2 text-gray-900">{totalTransactions}</h3>
+                <h3 className="text-xl font-bold mt-2 text-gray-900">{totalTransactions}</h3>
                 <p className="text-sm text-gray-400 mt-2">Orders processed</p>
               </div>
               <div className="bg-green-100 p-3 rounded-lg">
@@ -396,7 +396,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-gray-500 text-sm font-medium">Avg. Transaction</p>
-                  <h3 className="text-3xl font-bold mt-2 text-gray-900">
+                  <h3 className="text-xl font-bold mt-2 text-gray-900">
                     {formatMoney(averageTransactionValue)}
                   </h3>
                   <p className="text-sm text-gray-400 mt-2">Per order</p>
@@ -413,7 +413,7 @@ export default function Page() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
-                <h3 className="text-3xl font-bold mt-2 text-gray-900">{lowStock.length}</h3>
+                <h3 className="text-xl font-bold mt-2 text-gray-900">{lowStock.length}</h3>
                 <p className="text-sm text-orange-500 mt-2 flex items-center">
                   {lowStock.length > 0 && (
                     <>
@@ -437,12 +437,12 @@ export default function Page() {
             <>
               <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
                 <div className="text-sm text-gray-500 mb-1">Products Sold</div>
-                <div className="text-2xl font-bold text-gray-900">{totalProductsSold}</div>
+                <div className="text-lg font-bold text-gray-900">{totalProductsSold}</div>
                 <div className="text-xs text-gray-400 mt-1">Total units</div>
               </div>
               <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
                 <div className="text-sm text-gray-500 mb-1">Products per Transaction</div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-lg font-bold text-gray-900">
                   {totalTransactions > 0 ? (totalProductsSold / totalTransactions).toFixed(1) : '0'}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">Average items</div>
@@ -451,7 +451,7 @@ export default function Page() {
           )}
           <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
             <div className="text-sm text-gray-500 mb-1">Stock Status</div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-lg font-bold text-gray-900">
               {lowStock.length === 0 ? 'Healthy' : 'Action Needed'}
             </div>
             <div className="text-xs text-gray-400 mt-1">Inventory health</div>
