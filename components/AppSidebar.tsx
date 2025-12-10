@@ -26,8 +26,8 @@ import {
 import { useAppSelector } from '@/lib/redux/hook'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
 import NProgress from 'nprogress'
+import { useEffect, useState } from 'react'
 
 export function AppSidebar() {
   const user = useAppSelector((state) => state.user.user)
@@ -122,7 +122,7 @@ export function AppSidebar() {
     }
   ]
 
-  const settingItems = [
+  const allSettingItems = [
     {
       title: 'Staff',
       url: '/staff',
@@ -134,6 +134,11 @@ export function AppSidebar() {
       icon: Home
     },
   ]
+
+  // Filter items for cashier users - only show Home and Retail Transactions
+  const settingItems = user?.type !== 'super admin'
+    ? allSettingItems.filter(item => item.url !== '/branches')
+    : allSettingItems
 
   return (
     <Sidebar className="pt-13">
