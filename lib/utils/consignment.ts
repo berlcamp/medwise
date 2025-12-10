@@ -212,9 +212,11 @@ export async function addConsignmentItems(params: AddConsignmentItemsParams): Pr
 /**
  * Generate next transaction number for consignment sale
  */
-export async function generateTransactionNumber(): Promise<string> {
+export async function generateTransactionNumber(branch_id: number): Promise<string> {
   try {
-    const { data, error } = await supabase.rpc('generate_transaction_number')
+    const { data, error } = await supabase.rpc('generate_transaction_number', {
+      p_branch_id: branch_id
+    })
     
     if (error) {
       console.error('Generate transaction number error:', error)

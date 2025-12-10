@@ -259,7 +259,7 @@ export function ConsignmentDetailsModal({
     setRecordingSale(true)
 
     try {
-      const transactionNumber = await generateTransactionNumber()
+      const transactionNumber = await generateTransactionNumber(consignmentData.branch_id)
 
       const result = await recordConsignmentSale({
         consignment_id: consignmentData.id,

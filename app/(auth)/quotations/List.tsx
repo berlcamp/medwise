@@ -3,13 +3,12 @@
 
 import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { QuotationPrint } from '@/components/printables/QuotationPrint'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { useAppDispatch } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
@@ -22,6 +21,7 @@ import { useState } from 'react'
 import Avatar from 'react-avatar'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
+import { QuotationStatusDropdown } from './QuotationStatusDropdown'
 
 export const List = () => {
   const dispatch = useAppDispatch()
@@ -106,22 +106,6 @@ export const List = () => {
     setSelectedQuotation(null)
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return <Badge variant="outline">Draft</Badge>
-      case 'sent':
-        return <Badge variant="blue">Sent</Badge>
-      case 'accepted':
-        return <Badge variant="green">Accepted</Badge>
-      case 'rejected':
-        return <Badge variant="red">Rejected</Badge>
-      case 'expired':
-        return <Badge variant="orange">Expired</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
 
   return (
     <div className="overflow-x-auto">
@@ -178,7 +162,7 @@ export const List = () => {
                 </span>
               </td>
               <td className="app__td text-center">
-                {getStatusBadge(item.status)}
+                <QuotationStatusDropdown quotation={item} />
               </td>
               <td className="app__td text-center">
                 <DropdownMenu>

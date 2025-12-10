@@ -37,9 +37,10 @@ export async function createTransactionWithStockDeduction(
   params: CreateTransactionParams
 ): Promise<TransactionResult> {
   try {
-    // 1️⃣ Generate transaction number
+    // 1️⃣ Generate transaction number with branch_id
     const { data: transactionNumber, error: numberError } = await supabase.rpc(
-      'generate_transaction_number'
+      'generate_transaction_number',
+      { p_branch_id: params.branch_id }
     )
 
     if (numberError) {
