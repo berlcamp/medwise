@@ -41,6 +41,7 @@ export default function AgentTransactionPage() {
   const [selectedItems, setSelectedItems] = useState<{ [key: number]: number }>(
     {}
   );
+  const [unitPrices, setUnitPrices] = useState<{ [key: number]: number }>({});
   const [customerId, setCustomerId] = useState<string>("");
   const [paymentType, setPaymentType] = useState<string>("Cash");
   const [paymentStatus, setPaymentStatus] = useState<string>("Unpaid");
@@ -83,7 +84,14 @@ export default function AgentTransactionPage() {
         if (itemsError) {
           console.error("Error loading agent items:", itemsError);
         } else {
-          setAgentItems(itemsData || []);
+          const items = itemsData || [];
+          setAgentItems(items);
+          // Initialize unit prices with default values
+          const initialPrices: { [key: number]: number } = {};
+          items.forEach((item) => {
+            initialPrices[item.id] = item.unit_price;
+          });
+          setUnitPrices(initialPrices);
         }
 
         // Load customers
@@ -123,12 +131,23 @@ export default function AgentTransactionPage() {
     });
   };
 
+  const handleUnitPriceChange = (itemId: number, price: number) => {
+    const clampedPrice = Math.max(0, price);
+    setUnitPrices({
+      ...unitPrices,
+      [itemId]: clampedPrice,
+    });
+  };
+
   const calculateTotal = () => {
     return Object.entries(selectedItems).reduce((sum, [itemId, qty]) => {
       if (qty <= 0) return sum;
-      const item = agentItems.find((i) => i.id === Number(itemId));
-      if (!item) return sum;
-      return sum + qty * item.unit_price;
+      const itemIdNum = Number(itemId);
+      const unitPrice =
+        unitPrices[itemIdNum] ??
+        agentItems.find((i) => i.id === itemIdNum)?.unit_price ??
+        0;
+      return sum + qty * unitPrice;
     }, 0);
   };
 
@@ -136,11 +155,13 @@ export default function AgentTransactionPage() {
     const itemsToSell = Object.entries(selectedItems)
       .filter(([, qty]) => qty > 0)
       .map(([itemId, qty]) => {
-        const item = agentItems.find((i) => i.id === Number(itemId));
+        const itemIdNum = Number(itemId);
+        const item = agentItems.find((i) => i.id === itemIdNum);
+        const unitPrice = unitPrices[itemIdNum] ?? item!.unit_price;
         return {
           product_id: item!.product_id,
           quantity: qty,
-          price: item!.unit_price,
+          price: unitPrice,
         };
       });
 
@@ -341,7 +362,8 @@ export default function AgentTransactionPage() {
                   ) : (
                     agentItems.map((item: AgentItem) => {
                       const quantity = selectedItems[item.id] || 0;
-                      const subtotal = quantity * item.unit_price;
+                      const unitPrice = unitPrices[item.id] ?? item.unit_price;
+                      const subtotal = quantity * unitPrice;
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
@@ -362,7 +384,19 @@ export default function AgentTransactionPage() {
                             </span>
                           </TableCell>
                           <TableCell className="text-center">
-                            {formatMoney(item.unit_price)}
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={unitPrice}
+                              onChange={(e) =>
+                                handleUnitPriceChange(
+                                  item.id,
+                                  Number(e.target.value)
+                                )
+                              }
+                              className="w-24 mx-auto"
+                            />
                           </TableCell>
                           <TableCell className="text-center">
                             <Input
