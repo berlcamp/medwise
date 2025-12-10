@@ -213,11 +213,18 @@
       background: white !important;
     }
 
+    #payment-history-print-area,
+    #payment-history-print-area * {
+      visibility: visible !important;
+      background: white !important;
+    }
+
     /* Remove gray backgrounds from print areas */
     #invoice-print-area table thead tr,
     #delivery-print-area table thead tr,
     #quotation-print-area table thead tr,
-    #consignment-print-area table thead tr {
+    #consignment-print-area table thead tr,
+    #payment-history-print-area table thead tr {
       background: white !important;
       background-color: white !important;
     }
@@ -253,6 +260,15 @@
       left: 0;
       width: 100%;
       page-break-after: auto;
+    }
+
+    #payment-history-print-area {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      page-break-after: auto;
+      page-break-before: avoid;
     }
 
     /* Ensure tables don't break awkwardly */

@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase/client'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { Printer, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -215,6 +216,9 @@ export const ReceivePaymentModal = ({
   }
 
   const printPaymentHistory = async () => {
+    // Clear print data first
+    setPrintData(null)
+
     // Load customer data if customer_id exists
     let customerData = null
     if (transaction.customer_id) {
@@ -235,11 +239,17 @@ export const ReceivePaymentModal = ({
       customer: customerData
     }
 
+    // Set print data after clearing
     setPrintData({ transaction: transactionWithCustomer, payments })
 
+    // Wait for React to render the component
     setTimeout(() => {
       window.print()
-    }, 150)
+      // Reset after print
+      setTimeout(() => {
+        setPrintData(null)
+      }, 500)
+    }, 300)
   }
 
   return (
@@ -525,7 +535,10 @@ export const ReceivePaymentModal = ({
         </DialogPanel>
       </div>
 
-      {printData && <PaymentHistoryPrint data={printData} />}
+      {typeof window !== 'undefined' && createPortal(
+        <PaymentHistoryPrint data={printData} />,
+        document.body
+      )}
     </Dialog>
   )
 }

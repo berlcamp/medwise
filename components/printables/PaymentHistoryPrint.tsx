@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { Transaction } from '@/types'
 import { format } from 'date-fns'
 
 export const PaymentHistoryPrint = ({ data }: { data: any }) => {
@@ -40,7 +39,8 @@ export const PaymentHistoryPrint = ({ data }: { data: any }) => {
         fontSize: '12px',
         lineHeight: '1.4',
         color: '#000',
-        backgroundColor: '#fff'
+        backgroundColor: '#fff',
+        pageBreakBefore: 'avoid'
       }}
     >
       <div className="text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
