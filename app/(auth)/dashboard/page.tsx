@@ -19,6 +19,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
+import 'react-date-range/dist/styles.css'
+import 'react-date-range/dist/theme/default.css'
 import {
   Bar,
   BarChart,
@@ -67,6 +69,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false)
   const [previousPeriodSales, setPreviousPeriodSales] = useState(0)
   const [inventoryTotalValue, setInventoryTotalValue] = useState(0)
+  const [inventoryValueCurrentPrice, setInventoryValueCurrentPrice] = useState(0)
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -223,6 +226,24 @@ export default function Page() {
           )
           setInventoryTotalValue(totalValue)
         }
+
+        // Calculate inventory value based on current price (selling_price)
+        const { data: stocksWithProducts, error: stocksWithProductsError } = await supabase
+          .from('product_stocks')
+          .select('remaining_quantity, product:product_id(selling_price)')
+          .eq('branch_id', selectedBranchId)
+          .gt('remaining_quantity', 0)
+
+        if (!stocksWithProductsError && stocksWithProducts) {
+          const totalValueCurrentPrice = stocksWithProducts.reduce(
+            (sum, stock: any) => {
+              const sellingPrice = stock.product?.selling_price || 0
+              return sum + (Number(stock.remaining_quantity) * Number(sellingPrice))
+            },
+            0
+          )
+          setInventoryValueCurrentPrice(totalValueCurrentPrice)
+        }
       }
     } catch (error) {
       console.error('Error loading dashboard:', error)
@@ -306,6 +327,11 @@ export default function Page() {
                 {mode === 'monthly' && `${format(startOfMonth(new Date()), 'MMM dd')} - ${format(new Date(), 'MMM dd, yyyy')}`}
               </span>
             )}
+            {mode === 'custom' && (
+              <span className="text-sm text-gray-500">
+                {format(range[0].startDate, 'MMM dd, yyyy')} - {format(range[0].endDate, 'MMM dd, yyyy')}
+              </span>
+            )}
           </div>
 
           {mode === 'custom' && (
@@ -327,19 +353,35 @@ export default function Page() {
           )}
         </div>
 
-        {/* Summary Cards */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${isBulkUser ? 'lg:grid-cols-2' : isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+        {/* Summary Cards - 3 widgets per row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Inventory Total Value - Admin only */}
           {isAdmin && (
             <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 shadow-lg rounded-xl p-6 text-white">
               <div className="flex justify-between items-start">
                 <div>
-                  <p className="text-indigo-100 text-sm font-medium">Inventory Value</p>
+                  <p className="text-indigo-100 text-sm font-medium">Inventory Value (Based on Purchase Cost)</p>
                   <h3 className="text-base font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
                   <p className="text-sm text-indigo-100 mt-2">On-hand total</p>
                 </div>
                 <div className="bg-indigo-400/30 p-3 rounded-lg">
                   <Package className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Inventory Value (Based on Current Price) - Admin only */}
+          {isAdmin && (
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg rounded-xl p-6 text-white">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium">Inventory Value (Based on Current Price)</p>
+                  <h3 className="text-base font-bold mt-2">{formatMoney(inventoryValueCurrentPrice)}</h3>
+                  <p className="text-sm text-purple-100 mt-2">At selling price</p>
+                </div>
+                <div className="bg-purple-400/30 p-3 rounded-lg">
+                  <DollarSign className="w-6 h-6" />
                 </div>
               </div>
             </div>
@@ -429,26 +471,30 @@ export default function Page() {
               </div>
             </div>
           </div>
+
+          {/* Products Sold - Hidden for bulk users */}
+          {!isBulkUser && (
+            <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
+              <div className="text-sm text-gray-500 mb-1">Products Sold</div>
+              <div className="text-lg font-bold text-gray-900">{totalProductsSold}</div>
+              <div className="text-xs text-gray-400 mt-1">Total units</div>
+            </div>
+          )}
+
+          {/* Products per Transaction - Hidden for bulk users */}
+          {!isBulkUser && (
+            <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
+              <div className="text-sm text-gray-500 mb-1">Products per Transaction</div>
+              <div className="text-lg font-bold text-gray-900">
+                {totalTransactions > 0 ? (totalProductsSold / totalTransactions).toFixed(1) : '0'}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">Average items</div>
+            </div>
+          )}
         </div>
 
-        {/* Additional Metrics Row */}
-        <div className={`grid grid-cols-1 ${isBulkUser ? 'md:grid-cols-1' : 'md:grid-cols-3'} gap-4`}>
-          {!isBulkUser && (
-            <>
-              <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
-                <div className="text-sm text-gray-500 mb-1">Products Sold</div>
-                <div className="text-lg font-bold text-gray-900">{totalProductsSold}</div>
-                <div className="text-xs text-gray-400 mt-1">Total units</div>
-              </div>
-              <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
-                <div className="text-sm text-gray-500 mb-1">Products per Transaction</div>
-                <div className="text-lg font-bold text-gray-900">
-                  {totalTransactions > 0 ? (totalProductsSold / totalTransactions).toFixed(1) : '0'}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">Average items</div>
-              </div>
-            </>
-          )}
+        {/* Stock Status - Separate row */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div className="bg-white shadow-sm rounded-lg p-4 border border-gray-100">
             <div className="text-sm text-gray-500 mb-1">Stock Status</div>
             <div className="text-lg font-bold text-gray-900">
