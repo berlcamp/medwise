@@ -1,6 +1,7 @@
 'use client'
 import { AddModal as AddCustomerModal } from '@/app/(auth)/customers/AddModal'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -24,6 +25,14 @@ import {
   PopoverContent,
   PopoverTrigger
 } from '@/components/ui/popover'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table'
 import { useAppSelector } from '@/lib/redux/hook'
 import { supabase } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -34,33 +43,24 @@ import {
 import { Customer, Product, ProductStock } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, parseISO, startOfToday } from 'date-fns'
-import { 
-  Check, 
-  ChevronsUpDown, 
-  Plus, 
-  Search, 
-  ShoppingCart, 
-  Trash2,
-  User,
-  CreditCard,
+import {
   Banknote,
+  Check,
+  ChevronsUpDown,
+  CreditCard,
+  Minus,
+  Plus,
+  Search,
+  ShoppingCart,
   Smartphone,
-  Minus
+  Trash2,
+  User
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table'
 
 // ---------- ZOD SCHEMA ----------
 const FormSchema = z.object({

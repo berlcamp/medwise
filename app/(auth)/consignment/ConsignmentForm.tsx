@@ -2,6 +2,7 @@
 
 import { AddModal as AddCustomerModal } from '@/app/(auth)/customers/AddModal'
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -52,11 +53,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { isAfter, parseISO, startOfToday } from 'date-fns'
 import { Check, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
-import { Badge } from '@/components/ui/badge'
 
 const FormSchema = z.object({
   customer_id: z.coerce
@@ -170,12 +170,7 @@ export default function ConsignmentForm() {
     }
 
     loadPreviousBalance()
-  }, [
-    form.watch('customer_id'),
-    form.watch('month'),
-    form.watch('year'),
-    selectedBranchId
-  ])
+  }, [form, selectedBranchId])
 
   const onSubmit = async (data: FormType) => {
     if (cartItems.length === 0) {

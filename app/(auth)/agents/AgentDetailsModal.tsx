@@ -1,35 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogPanel } from '@headlessui/react'
 import { Input } from '@/components/ui/input'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from '@/components/ui/table'
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger
 } from '@/components/ui/tabs'
+import { useAppSelector } from '@/lib/redux/hook'
 import { supabase } from '@/lib/supabase/client'
 import { formatMoney } from '@/lib/utils'
 import {
-  generateTransactionNumber,
-  recordAgentSale,
-  returnAgentItems
+    returnAgentItems
 } from '@/lib/utils/agent'
 import { Agent, AgentItem } from '@/types'
+import { Dialog, DialogPanel } from '@headlessui/react'
+import { format } from 'date-fns'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { useAppSelector } from '@/lib/redux/hook'
-import { ConfirmationModal } from '@/components/ConfirmationModal'
 
 interface Props {
   isOpen: boolean
@@ -48,10 +47,8 @@ export function AgentDetailsModal({
   const [agentData, setAgentData] = useState<Agent>(agent)
   const user = useAppSelector((state) => state.user.user)
 
-  // Sale recording state
-  const [saleItems, setSaleItems] = useState<{ [key: number]: number }>({})
-  const [recordingSale, setRecordingSale] = useState(false)
-  const [confirmSaleOpen, setConfirmSaleOpen] = useState(false)
+  // Transactions state
+  const [transactions, setTransactions] = useState<any[]>([])
 
   // Return items state
   const [returnItems, setReturnItems] = useState<{ [key: number]: number }>({})
@@ -93,64 +90,28 @@ export function AgentDetailsModal({
     fetchItems()
   }, [agentData?.id])
 
-  const handleRecordSale = async () => {
-    const itemsToSell = Object.entries(saleItems)
-      .filter(([, qty]) => qty > 0)
-      .map(([itemId, qty]) => {
-        const item = items.find((i) => i.id === Number(itemId))
-        return {
-          product_id: item.product_id,
-          quantity: qty,
-          price: item.unit_price
-        }
-      })
+  // Load transactions for this agent
+  useEffect(() => {
+    if (!agentData?.id || !isOpen) return
 
-    if (itemsToSell.length === 0) {
-      toast.error('Please enter quantities to record as sold')
-      return
-    }
+    const fetchTransactions = async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*, customer:customer_id(name,address)')
+        .eq('transaction_type', 'agent_sale')
+        .ilike('customer_name', `%${agentData.name}%`)
+        .order('created_at', { ascending: false })
 
-    setRecordingSale(true)
-
-    try {
-      const transactionNumber = await generateTransactionNumber()
-
-      const result = await recordAgentSale({
-        agent_id: agentData.id,
-        items: itemsToSell,
-        transaction_number: transactionNumber,
-        payment_type: 'Agent Sale',
-        payment_status: 'Pending',
-        created_by: user?.name || 'System'
-      })
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to record sale')
+      if (error) {
+        console.error('Error loading transactions:', error)
+      } else {
+        setTransactions(data || [])
       }
-
-      toast.success(result.message || 'Sale recorded successfully!')
-      setSaleItems({})
-      setConfirmSaleOpen(false)
-
-      // Reload items
-      const { data: itemsData } = await supabase
-        .from('agent_items')
-        .select(
-          `
-          *,
-          product:products (id, name, unit, selling_price)
-        `
-        )
-        .eq('agent_id', agentData.id)
-
-      if (itemsData) setItems(itemsData)
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to record sale')
     }
 
-    setRecordingSale(false)
-  }
+    fetchTransactions()
+  }, [agentData?.id, agentData?.name, isOpen])
+
 
   const handleReturnItems = async () => {
     const itemsToReturn = Object.entries(returnItems)
@@ -206,13 +167,6 @@ export function AgentDetailsModal({
     setReturningItems(false)
   }
 
-  const totalSaleAmount = Object.entries(saleItems).reduce(
-    (sum, [itemId, qty]) => {
-      const item = items.find((i) => i.id === Number(itemId))
-      return sum + (item ? qty * item.unit_price : 0)
-    },
-    0
-  )
 
   const totalItemsAdded = items.reduce((sum, i) => sum + i.quantity_added, 0)
   const totalItemsSold = items.reduce((sum, i) => sum + i.quantity_sold, 0)
@@ -300,7 +254,7 @@ export function AgentDetailsModal({
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="overview">Item Overview</TabsTrigger>
-                      <TabsTrigger value="record-sale">Record Sale</TabsTrigger>
+                      <TabsTrigger value="transactions">Transactions</TabsTrigger>
                       <TabsTrigger value="return">Return Items</TabsTrigger>
                     </TabsList>
 
@@ -387,68 +341,67 @@ export function AgentDetailsModal({
                       </div>
                     </TabsContent>
 
-                    {/* Record Sale Tab */}
-                    <TabsContent value="record-sale">
+                    {/* Transactions Tab */}
+                    <TabsContent value="transactions">
                       <div className="border rounded-lg mt-4">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Product</TableHead>
-                              <TableHead className="text-center">Available</TableHead>
-                              <TableHead className="text-center">Quantity to Sell</TableHead>
+                              <TableHead>Transaction No.</TableHead>
+                              <TableHead>Customer</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                              <TableHead className="text-center">Payment Status</TableHead>
+                              <TableHead>Date</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {items
-                              .filter((item: AgentItem) => item.current_balance > 0)
-                              .map((item: AgentItem) => (
-                                <TableRow key={item.id}>
+                            {transactions.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} className="text-center text-gray-500">
+                                  No transactions found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              transactions.map((transaction: any) => (
+                                <TableRow key={transaction.id}>
                                   <TableCell>
                                     <div className="font-medium">
-                                      {item.product?.name || 'Unknown'}
+                                      {transaction.transaction_number}
                                     </div>
                                   </TableCell>
+                                  <TableCell>
+                                    {transaction.customer_name || transaction.customer?.name || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatMoney(transaction.total_amount)}
+                                  </TableCell>
                                   <TableCell className="text-center">
-                                    <span className="font-semibold">
-                                      {item.current_balance}
+                                    <span
+                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                        transaction.payment_status === 'Paid'
+                                          ? 'bg-green-100 text-green-800'
+                                          : transaction.payment_status === 'Partial'
+                                          ? 'bg-orange-100 text-orange-800'
+                                          : transaction.payment_status === 'Unpaid'
+                                          ? 'bg-red-100 text-red-800'
+                                          : transaction.payment_status === 'Pending'
+                                          ? 'bg-orange-100 text-orange-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
+                                    >
+                                      {transaction.payment_status?.toUpperCase() || '-'}
                                     </span>
                                   </TableCell>
-                                  <TableCell className="text-center">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      max={item.current_balance}
-                                      value={saleItems[item.id] || 0}
-                                      onChange={(e) => {
-                                        const value = Number(e.target.value)
-                                        const clampedValue = Math.min(
-                                          Math.max(0, value),
-                                          item.current_balance
-                                        )
-                                        setSaleItems({
-                                          ...saleItems,
-                                          [item.id]: clampedValue
-                                        })
-                                      }}
-                                      className="w-20 mx-auto"
-                                    />
+                                  <TableCell>
+                                    {transaction.created_at
+                                      ? format(new Date(transaction.created_at), 'MMM dd, yyyy')
+                                      : '-'}
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                              ))
+                            )}
                           </TableBody>
                         </Table>
-                      </div>
-                      <div className="flex justify-end pt-4 border-t mt-4">
-                        <Button
-                          variant="blue"
-                          onClick={() => setConfirmSaleOpen(true)}
-                          disabled={
-                            recordingSale ||
-                            Object.values(saleItems).every((qty) => qty === 0)
-                          }
-                        >
-                          {recordingSale ? 'Processing...' : 'Record Sale'}
-                        </Button>
                       </div>
                     </TabsContent>
 
@@ -532,13 +485,6 @@ export function AgentDetailsModal({
       </Dialog>
 
       {/* Confirmation Modals */}
-      <ConfirmationModal
-        isOpen={confirmSaleOpen}
-        onClose={() => setConfirmSaleOpen(false)}
-        onConfirm={handleRecordSale}
-        message={`Are you sure you want to record this sale of ${formatMoney(totalSaleAmount)}?`}
-      />
-
       <ConfirmationModal
         isOpen={confirmReturnOpen}
         onClose={() => setConfirmReturnOpen(false)}

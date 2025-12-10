@@ -1,22 +1,29 @@
-import type { Metadata } from 'next'
-import './globals.css'
-import './nprogress.css'
+import Maintenance from "@/components/Maintenance";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import "./globals.css";
+import "./nprogress.css";
 
 export const metadata: Metadata = {
-  title: 'MedWise | POS',
-  description: 'MedWise | POS'
-}
+  title: "MedWise | POS",
+  description: "MedWise | POS",
+};
 
-export default function RootLayout({
-  children
+export default async function RootLayout({
+  children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const host = headersList.get("host") || "";
+
+  const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
+
   return (
     <html lang="en">
       <body className="bg-gray-200 dark:bg-[#191919]" suppressHydrationWarning>
-        {children}
+        {isLocalhost ? children : <Maintenance />}
       </body>
     </html>
-  )
+  );
 }

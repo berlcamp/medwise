@@ -1,12 +1,16 @@
 'use client'
 
 import { useAppSelector } from '@/lib/redux/hook'
+import { Plus } from 'lucide-react'
+import Link from 'next/link'
 import BranchSwitcher from './BranchSwitcher'
 import HeaderDropdown from './HeaderDropdownMenu'
+import { Button } from './ui/button'
 import { SidebarTrigger } from './ui/sidebar'
 
 export default function StickyHeader() {
   const user = useAppSelector((state) => state.user.user)
+  const isAgent = user?.type === 'agent'
 
   return (
     <header
@@ -23,7 +27,7 @@ export default function StickyHeader() {
         backgroundBlendMode: 'overlay'
       }}
     >
-      <SidebarTrigger />
+      {!isAgent && <SidebarTrigger />}
 
       {/* Left section: Logo */}
       <div className="flex items-center">
@@ -34,12 +38,19 @@ export default function StickyHeader() {
 
       <div className="flex-1"></div>
 
-      {/* New button linking to /transaction */}
-      {/* <Link href="/transaction">
-        <Button variant="default" className="mr-2">
-          New Transaction
-        </Button>
-      </Link> */}
+      {/* Create Transaction button for agents */}
+      {isAgent && (
+        <Link href="/agent-transaction">
+          <Button 
+            variant="default" 
+            className="mr-2 bg-green-600 hover:bg-green-700 text-white"
+            size="sm"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Create Transaction
+          </Button>
+        </Link>
+      )}
 
       {user?.type === 'super admin' && <BranchSwitcher />}
 

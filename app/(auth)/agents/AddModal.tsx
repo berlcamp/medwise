@@ -19,11 +19,12 @@ import {
 } from '@/components/ui/select'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
+import { supabase2 } from '@/lib/supabase/admin'
 import { supabase } from '@/lib/supabase/client'
 import { Agent } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Car, CheckCircle, MapPin, Phone, User, XCircle } from 'lucide-react'
+import { Car, CheckCircle, Mail, MapPin, Phone, User, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -34,6 +35,7 @@ const title = 'Agent'
 
 const FormSchema = z.object({
   name: z.string().min(1, 'Agent Name is required'),
+  email: z.string().email('Invalid email address').min(1, 'Email is required'),
   area: z.string().optional(),
   contact_number: z.string().optional(),
   vehicle_plate_number: z.string().optional(),
@@ -66,6 +68,7 @@ export const AddModal = ({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       name: editData ? editData.name : '',
+      email: editData ? editData.email || '' : '',
       area: editData ? editData.area : '',
       contact_number: editData ? editData.contact_number : '',
       vehicle_plate_number: editData ? editData.vehicle_plate_number : '',
@@ -84,11 +87,46 @@ export const AddModal = ({
     setIsSubmitting(true)
 
     try {
+      // Check if email already exists in agents table (for new agents or if email changed)
+      if (!editData || (editData && editData.email !== data.email)) {
+        const { data: existingAgent } = await supabase
+          .from('agents')
+          .select('id')
+          .eq('email', data.email.trim())
+          .maybeSingle()
+
+        if (existingAgent) {
+          form.setError('email', {
+            type: 'manual',
+            message: 'Email already exists for another agent'
+          })
+          setIsSubmitting(false)
+          return
+        }
+
+        // Check if email exists in users table
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', data.email.trim())
+          .maybeSingle()
+
+        if (existingUser) {
+          form.setError('email', {
+            type: 'manual',
+            message: 'Email already exists in the system'
+          })
+          setIsSubmitting(false)
+          return
+        }
+      }
+
       // When editing, preserve the original branch_id to maintain branch-level isolation
       const branchIdToUse = editData?.branch_id || selectedBranchId
 
       const newData = {
         name: data.name.trim(),
+        email: data.email.trim(),
         area: data.area || null,
         contact_number: data.contact_number || null,
         vehicle_plate_number: data.vehicle_plate_number || null,
@@ -98,34 +136,118 @@ export const AddModal = ({
       }
 
       if (editData?.id) {
-        const { error } = await supabase
+        // Update agent
+        const { error: agentError } = await supabase
           .from(table)
           .update(newData)
           .eq('id', editData.id)
 
-        if (error) {
-          throw new Error(error.message)
-        } else {
-          dispatch(updateList({ ...newData, id: editData.id }))
-          onClose()
+        if (agentError) {
+          throw new Error(agentError.message)
         }
+
+        // Update user record if email changed
+        if (editData.email !== data.email) {
+          const { error: userError } = await supabase
+            .from('users')
+            .update({
+              name: data.name.trim(),
+              email: data.email.trim(),
+              is_active: data.status === 'active'
+            })
+            .eq('email', editData.email)
+
+          if (userError) {
+            console.error('Error updating user:', userError)
+            // Don't throw, just log - agent is updated
+          }
+        } else {
+          // Update user name and status even if email didn't change
+          const { error: userError } = await supabase
+            .from('users')
+            .update({
+              name: data.name.trim(),
+              is_active: data.status === 'active'
+            })
+            .eq('email', data.email.trim())
+
+          if (userError) {
+            console.error('Error updating user:', userError)
+          }
+        }
+
+        dispatch(updateList({ ...newData, id: editData.id }))
+        onClose()
       } else {
-        const { data: inserted, error } = await supabase
+        // 🔹 Step 1: Get or create auth user (similar to staff AddModal)
+        const { data: authUserId, error: authError } = await supabase.rpc(
+          'get_user_id_by_email',
+          { p_email: data.email.trim() }
+        )
+
+        if (authError)
+          throw new Error(`Error fetching auth user: ${authError.message}`)
+
+        let user_id = authUserId
+
+        // 🔹 Step 2: If no auth user found, create one
+        if (!user_id) {
+          const { data: newAuth, error: createAuthError } =
+            await supabase2.auth.admin.createUser({
+              email: data.email.trim(),
+              email_confirm: true,
+              password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || 'Password123!'
+            })
+
+          if (createAuthError)
+            throw new Error(
+              `Error creating auth user: ${createAuthError.message}`
+            )
+
+          user_id = newAuth.user.id
+        }
+
+        // 🔹 Step 3: Create agent record
+        const { data: inserted, error: agentError } = await supabase
           .from(table)
           .insert([newData])
           .select()
           .single()
 
-        if (error) {
-          throw new Error(error.message)
-        } else {
-          if (onAdded) {
-            onAdded(inserted)
-          } else {
-            dispatch(addItem({ ...newData, id: inserted.id }))
-          }
-          onClose()
+        if (agentError) {
+          throw new Error(agentError.message)
         }
+
+        // 🔹 Step 4: Create user record for agent
+        try {
+          const { error: userError } = await supabase.from('users').insert({
+            name: data.name.trim(),
+            email: data.email.trim(),
+            user_id,
+            type: 'agent',
+            branch_id: branchIdToUse,
+            org_id: Number(process.env.NEXT_PUBLIC_ORG_ID),
+            is_active: data.status === 'active'
+          })
+
+          if (userError) {
+            console.error('Error creating user for agent:', userError)
+            // Rollback agent creation
+            await supabase.from(table).delete().eq('id', inserted.id)
+            throw new Error(`Failed to create user record: ${userError.message}`)
+          }
+        } catch (userErr) {
+          // Rollback agent creation if user creation fails
+          await supabase.from(table).delete().eq('id', inserted.id)
+          throw userErr
+        }
+
+        if (onAdded) {
+          onAdded(inserted)
+        } else {
+          dispatch(addItem({ ...newData, id: inserted.id }))
+        }
+        onClose()
       }
 
       toast.success('Successfully saved!')
@@ -142,10 +264,20 @@ export const AddModal = ({
     if (editData) {
       form.reset({
         name: editData.name,
+        email: editData.email || '',
         area: editData.area || '',
         contact_number: editData.contact_number || '',
         vehicle_plate_number: editData.vehicle_plate_number || '',
         status: editData.status
+      })
+    } else {
+      form.reset({
+        name: '',
+        email: '',
+        area: '',
+        contact_number: '',
+        vehicle_plate_number: '',
+        status: 'active'
       })
     }
   }, [form, editData, isOpen])
@@ -191,6 +323,29 @@ export const AddModal = ({
                               className="app__input_standard"
                               placeholder="Enter agent name"
                               {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="app__formlabel_standard flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            Email <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              className="app__input_standard"
+                              placeholder="Enter agent email"
+                              {...field}
+                              disabled={!!editData} // Disable email editing for existing agents
                             />
                           </FormControl>
                           <FormMessage />

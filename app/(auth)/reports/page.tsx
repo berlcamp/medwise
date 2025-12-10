@@ -1,19 +1,20 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client'
+import Notfoundpage from '@/components/Notfoundpage'
+import { CustomerSalesReport } from '@/components/reports/CustomerSalesReport'
+import { DailySalesSummary } from '@/components/reports/DailySalesSummary'
 import { ExpiryReport } from '@/components/reports/ExpiryReport'
 import InventoryReport from '@/components/reports/InventoryReport'
+import { PaymentMethodReport } from '@/components/reports/PaymentMethodReport'
+import { ProductPerformanceReport } from '@/components/reports/ProductPerformanceReport'
 import { ProfitReport } from '@/components/reports/ProfitReport'
 import SalesReport from '@/components/reports/SalesReport'
 import { StockCardReport } from '@/components/reports/StockCardReport'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
-import { FileText, TrendingUp, Package, Calendar, DollarSign, Users, BarChart3, CreditCard } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { DailySalesSummary } from '@/components/reports/DailySalesSummary'
-import { PaymentMethodReport } from '@/components/reports/PaymentMethodReport'
-import { CustomerSalesReport } from '@/components/reports/CustomerSalesReport'
-import { ProductPerformanceReport } from '@/components/reports/ProductPerformanceReport'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppSelector } from '@/lib/redux/hook'
-import Notfoundpage from '@/components/Notfoundpage'
+import { BarChart3, Calendar, CreditCard, DollarSign, FileText, Package, TrendingUp, Users } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 export default function ReportsPage() {
   const user = useAppSelector((state) => state.user.user)

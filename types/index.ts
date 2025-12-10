@@ -543,6 +543,7 @@ export interface Agent {
   org_id: number
   branch_id: number
   name: string
+  email?: string
   area?: string
   contact_number?: string
   vehicle_plate_number?: string

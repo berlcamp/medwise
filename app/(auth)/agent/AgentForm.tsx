@@ -1,6 +1,8 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Command,
   CommandEmpty,
@@ -36,14 +38,12 @@ import { cn, formatMoney } from '@/lib/utils'
 import { createAgentAssignment } from '@/lib/utils/agent'
 import { Agent, Product } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronsUpDown, Plus, Search, Trash2, User, Package, ShoppingCart, DollarSign, Loader2 } from 'lucide-react'
+import { Check, ChevronsUpDown, DollarSign, Loader2, Package, Plus, Search, ShoppingCart, Trash2, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 const FormSchema = z.object({
   agent_id: z.coerce
