@@ -199,7 +199,7 @@ export const List = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => printConsignment(item)}>
                       <Printer className="w-4 h-4 mr-2" />
-                      Print Consignment
+                      Print Summary
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
