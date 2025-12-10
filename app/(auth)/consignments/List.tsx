@@ -1,10 +1,21 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
+import { ConsignmentPrint } from '@/components/printables/ConsignmentPrint'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
+import { supabase } from '@/lib/supabase/client'
 import { formatConsignmentPeriod } from '@/lib/utils/consignment'
 import { Consignment, RootState } from '@/types'
 import { format } from 'date-fns'
+import { ChevronDown, Printer, Settings } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
+import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { ConsignmentDetailsModal } from './ConsignmentDetailsModal'
 
@@ -12,10 +23,59 @@ export const List = () => {
   const list = useSelector((state: RootState) => state.list.value)
   const [selectedItem, setSelectedItem] = useState<Consignment | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [printData, setPrintData] = useState<any>(null)
   
   const handleView = (item: Consignment) => {
     setSelectedItem(item)
     setIsModalOpen(true)
+  }
+
+  const printConsignment = async (item: Consignment) => {
+    // Load consignment items with product data
+    const { data: items, error: itemsError } = await supabase
+      .from('consignment_items')
+      .select(`*, product:product_id(name, unit)`)
+      .eq('consignment_id', item.id)
+
+    if (itemsError) {
+      console.error(itemsError)
+      toast.error('Failed to load consignment items')
+      return
+    }
+
+    // Load customer data if customer_id exists
+    let customerData = null
+    if (item.customer_id) {
+      const { data: customer, error: customerError } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('id', item.customer_id)
+        .single()
+
+      if (!customerError && customer) {
+        customerData = customer
+      }
+    }
+
+    // Combine consignment data with customer
+    const consignmentWithCustomer = {
+      ...item,
+      customer: customerData
+    }
+
+    setPrintData({ consignment: consignmentWithCustomer, items: items || [] })
+
+    // Use requestAnimationFrame to ensure DOM is updated before printing
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          window.print()
+          setTimeout(() => {
+            setPrintData(null)
+          }, 500)
+        }, 100)
+      })
+    })
   }
 
   return (
@@ -124,14 +184,25 @@ export const List = () => {
                   {item.status?.toUpperCase() || '-'}
                 </span>
               </td>
-              <td className="app__td text-center space-x-2">
-                <Button
-                  variant="blue"
-                  size="xs"
-                  onClick={() => handleView(item)}
-                >
-                  Manage
-                </Button>
+              <td className="app__td text-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="xs" variant="blue">
+                      Actions
+                      <ChevronDown className="ml-1 h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleView(item)}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Manage
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => printConsignment(item)}>
+                      <Printer className="w-4 h-4 mr-2" />
+                      Print Consignment
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </td>
             </tr>
           ))}
@@ -149,6 +220,8 @@ export const List = () => {
           consignment={selectedItem}
         />
       )}
+
+      <ConsignmentPrint data={printData} />
     </div>
   )
 }

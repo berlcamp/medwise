@@ -4,15 +4,15 @@ import { InvoicePrint } from '@/components/printables/InvoicePrint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase/client'
 import { RootState, Transaction } from '@/types'
 import { format } from 'date-fns'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Eye, Printer } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
 import { useSelector } from 'react-redux'
@@ -154,9 +154,11 @@ export const List = () => {
 
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => handleView(item)}>
+                      <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => printInvoice(item)}>
+                      <Printer className="w-4 h-4 mr-2" />
                       Print Invoice
                     </DropdownMenuItem>
                   </DropdownMenuContent>

@@ -1,28 +1,34 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
+import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { QuotationPrint } from '@/components/printables/QuotationPrint'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { useAppDispatch } from '@/lib/redux/hook'
+import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { formatMoney } from '@/lib/utils'
 import { Quotation, RootState } from '@/types'
 import { format } from 'date-fns'
-import { ChevronDown, Printer } from 'lucide-react'
+import { ChevronDown, Printer, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
-import { useSelector } from 'react-redux'
 import toast from 'react-hot-toast'
+import { useSelector } from 'react-redux'
 
 export const List = () => {
+  const dispatch = useAppDispatch()
   const list = useSelector((state: RootState) => state.list.value)
   const [printData, setPrintData] = useState<any>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null)
 
   const printQuotation = async (item: Quotation) => {
     // Load quotation items with product data
@@ -70,6 +76,34 @@ export const List = () => {
         }, 100)
       })
     })
+  }
+
+  const handleDeleteConfirmation = (quotation: Quotation) => {
+    setSelectedQuotation(quotation)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!selectedQuotation) return
+
+    const { error } = await supabase
+      .from('quotations')
+      .delete()
+      .eq('id', selectedQuotation.id)
+
+    if (error) {
+      if (error.code === '23503') {
+        toast.error('Selected quotation cannot be deleted.')
+      } else {
+        toast.error(error.message)
+      }
+      return
+    }
+
+    toast.success('Quotation deleted successfully!')
+    dispatch(deleteItem(selectedQuotation))
+    setIsDeleteModalOpen(false)
+    setSelectedQuotation(null)
   }
 
   const getStatusBadge = (status: string) => {
@@ -159,6 +193,13 @@ export const List = () => {
                       <Printer className="w-4 h-4 mr-2" />
                       Print Quotation
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleDeleteConfirmation(item)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Quotation
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </td>
@@ -168,6 +209,29 @@ export const List = () => {
       </table>
 
       <QuotationPrint data={printData} />
+
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false)
+          setSelectedQuotation(null)
+        }}
+        onConfirm={handleDelete}
+        message={
+          <div>
+            <p className="text-sm text-gray-700">
+              Are you sure you want to delete quotation{' '}
+              <span className="font-semibold">
+                {selectedQuotation?.quotation_number}
+              </span>
+              ?
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              This action cannot be undone. All associated items will also be deleted.
+            </p>
+          </div>
+        }
+      />
     </div>
   )
 }

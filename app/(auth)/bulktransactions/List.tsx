@@ -13,7 +13,7 @@ import {
 import { supabase } from '@/lib/supabase/client'
 import { RootState, Transaction } from '@/types'
 import { format } from 'date-fns'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, CreditCard, Eye, FileText, Printer } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
 import { useSelector } from 'react-redux'
@@ -229,13 +229,14 @@ export const List = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button size="xs" variant="blue">
-                      Manage
+                      Actions
                       <ChevronDown className="ml-1 h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => handleView(item)}>
+                      <Eye className="w-4 h-4 mr-2" />
                       View Details
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -244,14 +245,17 @@ export const List = () => {
                         setIsPaymentOpen(true)
                       }}
                     >
+                      <CreditCard className="w-4 h-4 mr-2" />
                       Manage Payments
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => printInvoice(item)}>
+                      <Printer className="w-4 h-4 mr-2" />
                       Print Invoice
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => printDeliveryReceipt(item)}
                     >
+                      <FileText className="w-4 h-4 mr-2" />
                       Print Delivery Receipt
                     </DropdownMenuItem>
                   </DropdownMenuContent>

@@ -2,8 +2,9 @@
 'use client'
 
 import { AddModal as AddCustomerModal } from '@/app/(auth)/customers/AddModal'
-import { QuotationPrint } from '@/components/printables/QuotationPrint'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Command,
   CommandEmpty,
@@ -39,14 +40,12 @@ import { supabase } from '@/lib/supabase/client'
 import { cn, formatMoney } from '@/lib/utils'
 import { Customer, Product } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Check, ChevronsUpDown, Plus, Search, Trash2, User, Calendar, Package, ShoppingCart, DollarSign, FileText, Loader2 } from 'lucide-react'
+import { Calendar, Check, ChevronsUpDown, DollarSign, FileText, Loader2, Package, Plus, Search, ShoppingCart, Trash2, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 const FormSchema = z.object({
   customer_id: z.coerce
@@ -90,43 +89,14 @@ export default function QuotationForm() {
   const [showProductResults, setShowProductResults] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [printData, setPrintData] = useState<any>(null)
-  const [shouldPrint, setShouldPrint] = useState(false)
-
+  
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   )
 
   const totalAmount = cartItems.reduce((acc, i) => acc + i.total, 0)
 
-  // Handle printing when printData is ready
-  useEffect(() => {
-    if (shouldPrint && printData) {
-      // Wait for React to render the component
-      const timer = setTimeout(() => {
-        // Check if the print element exists
-        const printElement = document.getElementById('quotation-print-area')
-        if (printElement) {
-          // Use requestAnimationFrame to ensure DOM is fully updated
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              window.print()
-              setTimeout(() => {
-                setPrintData(null)
-                setShouldPrint(false)
-              }, 500)
-            })
-          })
-        } else {
-          console.error('Print element not found')
-          setPrintData(null)
-          setShouldPrint(false)
-        }
-      }, 800)
-      return () => clearTimeout(timer)
-    }
-  }, [shouldPrint, printData])
-
+  
   // Load customers
   useEffect(() => {
     if (!selectedBranchId) return
@@ -236,46 +206,77 @@ export default function QuotationForm() {
     try {
       const customer = customers.find((c) => c.id === data.customer_id)
 
-      // Generate temporary quotation number for display
-      const { data: quoteNumData } = await supabase.rpc('generate_quotation_number')
-      const quotationNumber = quoteNumData || `QT-${Date.now()}`
-
-      // Prepare quotation data for printing
-      const quotationData = {
-        quotation_number: quotationNumber,
-        quotation_date: data.quotation_date,
-        valid_until: data.valid_until || null,
-        total_amount: totalAmount,
-        notes: data.notes || null,
-        customer_name: customer?.name || '',
-        customer: customer || null
+      if (!customer) {
+        toast.error('Customer not found')
+        return
       }
 
-      // Prepare items for printing
-      const printItems = cartItems.map((item, index) => ({
-        id: item.product_id || index,
-        product_name: item.product_name,
-        product: {
-          name: item.product_name,
-          unit: item.unit
-        },
+      // Generate quotation number
+      const { data: quoteNumData, error: quoteNumError } = await supabase.rpc('generate_quotation_number')
+      
+      if (quoteNumError) {
+        throw new Error(`Failed to generate quotation number: ${quoteNumError.message}`)
+      }
+
+      const quotationNumber = quoteNumData || `Q-${new Date().getFullYear()}-${Date.now()}`
+
+      // Save quotation to database
+      const { data: savedQuotation, error: quotationError } = await supabase
+        .from('quotations')
+        .insert({
+          org_id: Number(process.env.NEXT_PUBLIC_ORG_ID),
+          branch_id: selectedBranchId,
+          customer_id: data.customer_id,
+          customer_name: customer.name,
+          quotation_number: quotationNumber,
+          quotation_date: data.quotation_date,
+          valid_until: data.valid_until || null,
+          status: 'draft',
+          total_amount: totalAmount,
+          notes: data.notes || null
+        })
+        .select()
+        .single()
+
+      if (quotationError) {
+        throw new Error(`Failed to save quotation: ${quotationError.message}`)
+      }
+
+      if (!savedQuotation) {
+        throw new Error('Failed to save quotation: No data returned')
+      }
+
+      // Save quotation items
+      const itemsToInsert = cartItems.map((item) => ({
+        quotation_id: savedQuotation.id,
+        product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.price,
-        price: item.price,
-        total: item.total,
-        unit: item.unit
+        total: item.total
       }))
 
-      const printDataToSet = { 
-        quotation: quotationData, 
-        items: printItems || [] 
+      const { error: itemsError } = await supabase
+        .from('quotation_items')
+        .insert(itemsToInsert)
+
+      if (itemsError) {
+        // If items fail, try to delete the quotation to maintain consistency
+        await supabase.from('quotations').delete().eq('id', savedQuotation.id)
+        throw new Error(`Failed to save quotation items: ${itemsError.message}`)
       }
+
+      toast.success('Quotation saved successfully!')
       
-      setPrintData(printDataToSet)
-      setShouldPrint(true)
+      // Clear form and cart
+      setCartItems([])
+      form.reset({
+        quotation_date: new Date().toISOString().split('T')[0],
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      })
+
     } catch (err: any) {
       console.error(err)
-      toast.error(err.message || 'Failed to prepare quotation')
+      toast.error(err.message || 'Failed to save quotation')
     } finally {
       setSubmitting(false)
     }
@@ -650,12 +651,12 @@ export default function QuotationForm() {
                 {submitting ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Preparing...
+                    Saving...
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    Print Quotation
+                    Save Quotation
                   </span>
                 )}
               </Button>
@@ -674,7 +675,6 @@ export default function QuotationForm() {
         }}
       />
 
-      <QuotationPrint data={printData} />
     </div>
   )
 }
