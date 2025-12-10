@@ -375,7 +375,7 @@ export const AddModal = ({
                         <FormItem>
                           <FormLabel className="text-sm font-medium flex items-center gap-2">
                             <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                            Email Address
+                            Email Address (Use for login)
                             <span className="text-red-500">*</span>
                           </FormLabel>
                           <FormControl>

@@ -1,69 +1,140 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-'use client'
-import Notfoundpage from '@/components/Notfoundpage'
-import { CustomerSalesReport } from '@/components/reports/CustomerSalesReport'
-import { DailySalesSummary } from '@/components/reports/DailySalesSummary'
-import { ExpiryReport } from '@/components/reports/ExpiryReport'
-import InventoryReport from '@/components/reports/InventoryReport'
-import { PaymentMethodReport } from '@/components/reports/PaymentMethodReport'
-import { ProductPerformanceReport } from '@/components/reports/ProductPerformanceReport'
-import { ProfitReport } from '@/components/reports/ProfitReport'
-import SalesReport from '@/components/reports/SalesReport'
-import { StockCardReport } from '@/components/reports/StockCardReport'
-import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { useAppSelector } from '@/lib/redux/hook'
-import { BarChart3, Calendar, CreditCard, DollarSign, FileText, Package, TrendingUp, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+"use client";
+import Notfoundpage from "@/components/Notfoundpage";
+import { CustomerSalesReport } from "@/components/reports/CustomerSalesReport";
+import { DailySalesSummary } from "@/components/reports/DailySalesSummary";
+import { ExpiryReport } from "@/components/reports/ExpiryReport";
+import GLTransactionsReport from "@/components/reports/GLTransactionsReport";
+import InventoryReport from "@/components/reports/InventoryReport";
+import { PaymentMethodReport } from "@/components/reports/PaymentMethodReport";
+import { ProductPerformanceReport } from "@/components/reports/ProductPerformanceReport";
+import { ProfitReport } from "@/components/reports/ProfitReport";
+import SalesReport from "@/components/reports/SalesReport";
+import { StockCardReport } from "@/components/reports/StockCardReport";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAppSelector } from "@/lib/redux/hook";
+import {
+  BarChart3,
+  Calendar,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Package,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function ReportsPage() {
-  const user = useAppSelector((state) => state.user.user)
-  const isBulkUser = user?.type === 'bulk'
-  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
-  
+  const user = useAppSelector((state) => state.user.user);
+  const isBulkUser = user?.type === "bulk";
+  const isAdmin = user?.type === "admin" || user?.type === "super admin";
+
   // Sales and profit related tabs that should be hidden for bulk users
-  const restrictedTabs = ['sales', 'daily', 'profit', 'payment', 'customer', 'product']
-  
+  const restrictedTabs = [
+    "sales",
+    "daily",
+    "profit",
+    "payment",
+    "customer",
+    "product",
+    "gl",
+  ];
+
   const allReportTabs = [
-    { value: 'sales', label: 'Sales Report', icon: DollarSign, description: 'Transaction and sales data' },
-    { value: 'daily', label: 'Daily Summary', icon: Calendar, description: 'Daily sales overview' },
-    { value: 'profit', label: 'Profit Report', icon: TrendingUp, description: 'Profit and margin analysis' },
-    { value: 'payment', label: 'Payment Methods', icon: CreditCard, description: 'Payment method breakdown' },
-    { value: 'customer', label: 'Customer Sales', icon: Users, description: 'Customer performance' },
-    { value: 'product', label: 'Product Performance', icon: BarChart3, description: 'Top products analysis' },
-    { value: 'inventory', label: 'Inventory', icon: Package, description: 'Stock levels and status' },
-    { value: 'expiry', label: 'Expiry Report', icon: Calendar, description: 'Expiring products' },
-    { value: 'stockcard', label: 'Stock Movements', icon: FileText, description: 'Stock movement history' },
-  ]
-  
+    {
+      value: "sales",
+      label: "Sales Report",
+      icon: DollarSign,
+      description: "Transaction and sales data",
+    },
+    {
+      value: "daily",
+      label: "Daily Summary",
+      icon: Calendar,
+      description: "Daily sales overview",
+    },
+    {
+      value: "profit",
+      label: "Profit Report",
+      icon: TrendingUp,
+      description: "Profit and margin analysis",
+    },
+    {
+      value: "payment",
+      label: "Payment Methods",
+      icon: CreditCard,
+      description: "Payment method breakdown",
+    },
+    {
+      value: "customer",
+      label: "Customer Sales",
+      icon: Users,
+      description: "Customer performance",
+    },
+    {
+      value: "product",
+      label: "Product Performance",
+      icon: BarChart3,
+      description: "Top products analysis",
+    },
+    {
+      value: "gl",
+      label: "GL Transactions",
+      icon: CreditCard,
+      description: "GL payment method transactions",
+    },
+    {
+      value: "inventory",
+      label: "Inventory",
+      icon: Package,
+      description: "Stock levels and status",
+    },
+    {
+      value: "expiry",
+      label: "Expiry Report",
+      icon: Calendar,
+      description: "Expiring products",
+    },
+    {
+      value: "stockcard",
+      label: "Stock Movements",
+      icon: FileText,
+      description: "Stock movement history",
+    },
+  ];
+
   // Filter out restricted tabs for bulk users, and profit tab for non-admin users
-  const reportTabs = allReportTabs.filter(tab => {
-    if (isBulkUser && restrictedTabs.includes(tab.value)) return false
-    if (tab.value === 'profit' && !isAdmin) return false
-    return true
-  })
-  
-  const defaultTab = isBulkUser ? 'inventory' : 'sales'
-  const [tab, setTab] = useState(defaultTab)
-  
+  const reportTabs = allReportTabs.filter((tab) => {
+    if (isBulkUser && restrictedTabs.includes(tab.value)) return false;
+    if (tab.value === "profit" && !isAdmin) return false;
+    return true;
+  });
+
+  const defaultTab = isBulkUser ? "inventory" : "sales";
+  const [tab, setTab] = useState(defaultTab);
+
   // Reset tab if current tab is restricted
   useEffect(() => {
     if (isBulkUser && restrictedTabs.includes(tab)) {
-      setTab(defaultTab)
+      setTab(defaultTab);
     }
-    if (tab === 'profit' && !isAdmin) {
-      setTab(defaultTab)
+    if (tab === "profit" && !isAdmin) {
+      setTab(defaultTab);
     }
-  }, [isBulkUser, isAdmin, tab, defaultTab, restrictedTabs])
-  
+  }, [isBulkUser, isAdmin, tab, defaultTab, restrictedTabs]);
+
   // Restrict access for cashier users (after all hooks)
-  if (user?.type === 'cashier') return <Notfoundpage />
+  if (user?.type === "cashier") return <Notfoundpage />;
 
   return (
     <div className="space-y-6">
       <div className="app__title">
         <h1 className="text-3xl font-semibold">Reports & Analytics</h1>
-        <p className="text-sm text-gray-500 mt-1">Comprehensive business insights and data analysis</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Comprehensive business insights and data analysis
+        </p>
       </div>
 
       <div className="app__content">
@@ -72,7 +143,7 @@ export default function ReportsPage() {
             <Tabs value={tab} onValueChange={setTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1 bg-gray-100">
                 {reportTabs.map((report) => {
-                  const Icon = report.icon
+                  const Icon = report.icon;
                   return (
                     <TabsTrigger
                       key={report.value}
@@ -80,9 +151,11 @@ export default function ReportsPage() {
                       className="flex flex-col items-center gap-1.5 py-3 px-4 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                     >
                       <Icon className="h-4 w-4" />
-                      <span className="text-xs font-medium">{report.label}</span>
+                      <span className="text-xs font-medium">
+                        {report.label}
+                      </span>
                     </TabsTrigger>
-                  )
+                  );
                 })}
               </TabsList>
 
@@ -109,6 +182,9 @@ export default function ReportsPage() {
                     <TabsContent value="product" className="mt-0">
                       <ProductPerformanceReport />
                     </TabsContent>
+                    <TabsContent value="gl" className="mt-0">
+                      <GLTransactionsReport />
+                    </TabsContent>
                   </>
                 )}
                 <TabsContent value="inventory" className="mt-0">
@@ -126,5 +202,5 @@ export default function ReportsPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
