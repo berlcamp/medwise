@@ -335,7 +335,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-indigo-100 text-sm font-medium">Inventory Value</p>
-                  <h3 className="text-xl font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
+                  <h3 className="text-base font-bold mt-2">{formatMoney(inventoryTotalValue)}</h3>
                   <p className="text-sm text-indigo-100 mt-2">On-hand total</p>
                 </div>
                 <div className="bg-indigo-400/30 p-3 rounded-lg">
@@ -351,7 +351,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-blue-100 text-sm font-medium">Total Sales</p>
-                  <h3 className="text-xl font-bold mt-2">{formatMoney(totalSales)}</h3>
+                  <h3 className="text-base font-bold mt-2">{formatMoney(totalSales)}</h3>
                   {salesChange !== 0 && (
                     <div className="flex items-center mt-2 text-sm">
                       {salesChange > 0 ? (
@@ -381,7 +381,7 @@ export default function Page() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Total Transactions</p>
-                <h3 className="text-xl font-bold mt-2 text-gray-900">{totalTransactions}</h3>
+                <h3 className="text-base font-bold mt-2 text-gray-900">{totalTransactions}</h3>
                 <p className="text-sm text-gray-400 mt-2">Orders processed</p>
               </div>
               <div className="bg-green-100 p-3 rounded-lg">
@@ -396,7 +396,7 @@ export default function Page() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-gray-500 text-sm font-medium">Avg. Transaction</p>
-                  <h3 className="text-xl font-bold mt-2 text-gray-900">
+                  <h3 className="text-base font-bold mt-2 text-gray-900">
                     {formatMoney(averageTransactionValue)}
                   </h3>
                   <p className="text-sm text-gray-400 mt-2">Per order</p>
@@ -413,7 +413,7 @@ export default function Page() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Low Stock Items</p>
-                <h3 className="text-xl font-bold mt-2 text-gray-900">{lowStock.length}</h3>
+                <h3 className="text-base font-bold mt-2 text-gray-900">{lowStock.length}</h3>
                 <p className="text-sm text-orange-500 mt-2 flex items-center">
                   {lowStock.length > 0 && (
                     <>
