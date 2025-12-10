@@ -1,178 +1,169 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+"use client";
 
-import { ConfirmationModal } from '@/components/ConfirmationModal'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ConfirmationModal } from "@/components/ConfirmationModal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-} from '@/components/ui/table'
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger
-} from '@/components/ui/tabs'
-import { useAppSelector } from '@/lib/redux/hook'
-import { supabase } from '@/lib/supabase/client'
-import { formatMoney } from '@/lib/utils'
-import {
-    returnAgentItems
-} from '@/lib/utils/agent'
-import { Agent, AgentItem } from '@/types'
-import { Dialog, DialogPanel } from '@headlessui/react'
-import { format } from 'date-fns'
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAppSelector } from "@/lib/redux/hook";
+import { supabase } from "@/lib/supabase/client";
+import { formatMoney } from "@/lib/utils";
+import { returnAgentItems } from "@/lib/utils/agent";
+import { Agent, AgentItem } from "@/types";
+import { Dialog, DialogPanel } from "@headlessui/react";
+import { format } from "date-fns";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 interface Props {
-  isOpen: boolean
-  onClose: () => void
-  agent: Agent
+  isOpen: boolean;
+  onClose: () => void;
+  agent: Agent;
 }
 
-export function AgentDetailsModal({
-  isOpen,
-  onClose,
-  agent
-}: Props) {
-  const [items, setItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('overview')
-  const [agentData, setAgentData] = useState<Agent>(agent)
-  const user = useAppSelector((state) => state.user.user)
+export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
+  const [agentData, setAgentData] = useState<Agent>(agent);
+  const user = useAppSelector((state) => state.user.user);
 
   // Transactions state
-  const [transactions, setTransactions] = useState<any[]>([])
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   // Return items state
-  const [returnItems, setReturnItems] = useState<{ [key: number]: number }>({})
-  const [returningItems, setReturningItems] = useState(false)
-  const [confirmReturnOpen, setConfirmReturnOpen] = useState(false)
-
-
+  const [returnItems, setReturnItems] = useState<{ [key: number]: number }>({});
+  const [returningItems, setReturningItems] = useState(false);
+  const [confirmReturnOpen, setConfirmReturnOpen] = useState(false);
 
   useEffect(() => {
-    setAgentData(agent)
-  }, [agent])
+    setAgentData(agent);
+  }, [agent]);
 
   // Load agent items
   useEffect(() => {
-    if (!agentData?.id) return
+    if (!agentData?.id) return;
 
     const fetchItems = async () => {
-      setLoading(true)
+      setLoading(true);
       const { data, error } = await supabase
-        .from('agent_items')
+        .from("agent_items")
         .select(
           `
           *,
           product:products (id, name, unit, selling_price)
         `
         )
-        .eq('agent_id', agentData.id)
+        .eq("agent_id", agentData.id);
 
       if (error) {
-        console.error(error)
-        toast.error('Failed to load agent items')
+        console.error(error);
+        toast.error("Failed to load agent items");
       } else {
-        setItems(data || [])
+        setItems(data || []);
       }
 
-      setLoading(false)
-    }
+      setLoading(false);
+    };
 
-    fetchItems()
-  }, [agentData?.id])
+    fetchItems();
+  }, [agentData?.id]);
 
   // Load transactions for this agent
   useEffect(() => {
-    if (!agentData?.id || !isOpen) return
+    if (!agentData?.id || !isOpen) return;
 
     const fetchTransactions = async () => {
       const { data, error } = await supabase
-        .from('transactions')
-        .select('*, customer:customer_id(name,address)')
-        .eq('transaction_type', 'agent_sale')
-        .ilike('customer_name', `%${agentData.name}%`)
-        .order('created_at', { ascending: false })
+        .from("transactions")
+        .select("*, customer:customer_id(name,address)")
+        .eq("transaction_type", "agent_sale")
+        .eq("agent_id", agentData.id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error loading transactions:', error)
+        console.error("Error loading transactions:", error);
       } else {
-        setTransactions(data || [])
+        setTransactions(data || []);
       }
-    }
+    };
 
-    fetchTransactions()
-  }, [agentData?.id, agentData?.name, isOpen])
-
+    fetchTransactions();
+  }, [agentData?.id, isOpen]);
 
   const handleReturnItems = async () => {
     const itemsToReturn = Object.entries(returnItems)
       .filter(([, qty]) => qty > 0)
       .map(([itemId, qty]) => {
-        const item = items.find((i) => i.id === Number(itemId))
+        const item = items.find((i) => i.id === Number(itemId));
         return {
           product_id: item.product_id,
           product_stock_id: item.product_stock_id,
-          quantity: qty
-        }
-      })
+          quantity: qty,
+        };
+      });
 
     if (itemsToReturn.length === 0) {
-      toast.error('Please enter quantities to return')
-      return
+      toast.error("Please enter quantities to return");
+      return;
     }
 
-    setReturningItems(true)
+    setReturningItems(true);
 
     try {
       const result = await returnAgentItems({
         agent_id: agentData.id,
         items: itemsToReturn,
-        created_by: user?.name || 'System'
-      })
+        created_by: user?.name || "System",
+      });
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to return items')
+        throw new Error(result.error || "Failed to return items");
       }
 
-      toast.success(result.message || 'Items returned successfully!')
-      setReturnItems({})
-      setConfirmReturnOpen(false)
+      toast.success(result.message || "Items returned successfully!");
+      setReturnItems({});
+      setConfirmReturnOpen(false);
 
       // Reload items
       const { data: itemsData } = await supabase
-        .from('agent_items')
+        .from("agent_items")
         .select(
           `
           *,
           product:products (id, name, unit, selling_price)
         `
         )
-        .eq('agent_id', agentData.id)
+        .eq("agent_id", agentData.id);
 
-      if (itemsData) setItems(itemsData)
+      if (itemsData) setItems(itemsData);
     } catch (err: any) {
-      console.error(err)
-      toast.error(err.message || 'Failed to return items')
+      console.error(err);
+      toast.error(err.message || "Failed to return items");
     }
 
-    setReturningItems(false)
-  }
+    setReturningItems(false);
+  };
 
-
-  const totalItemsAdded = items.reduce((sum, i) => sum + i.quantity_added, 0)
-  const totalItemsSold = items.reduce((sum, i) => sum + i.quantity_sold, 0)
-  const totalItemsReturned = items.reduce((sum, i) => sum + i.quantity_returned, 0)
-  const totalCurrentBalance = items.reduce((sum, i) => sum + i.current_balance, 0)
-  const totalValue = items.reduce((sum, i) => sum + i.total_value, 0)
+  const totalItemsAdded = items.reduce((sum, i) => sum + i.quantity_added, 0);
+  const totalItemsSold = items.reduce((sum, i) => sum + i.quantity_sold, 0);
+  const totalItemsReturned = items.reduce(
+    (sum, i) => sum + i.quantity_returned,
+    0
+  );
+  const totalCurrentBalance = items.reduce(
+    (sum, i) => sum + i.current_balance,
+    0
+  );
+  const totalValue = items.reduce((sum, i) => sum + i.total_value, 0);
 
   return (
     <>
@@ -182,7 +173,10 @@ export function AgentDetailsModal({
         className="relative z-50 focus:outline-none"
         onClose={() => {}}
       >
-        <div className="fixed inset-0 bg-gray-600 opacity-80" aria-hidden="true" />
+        <div
+          className="fixed inset-0 bg-gray-600 opacity-80"
+          aria-hidden="true"
+        />
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <DialogPanel
             transition
@@ -199,15 +193,19 @@ export function AgentDetailsModal({
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
                       <div>
                         <p className="text-gray-500 text-xs">Area</p>
-                        <p className="font-semibold">{agentData.area || '-'}</p>
+                        <p className="font-semibold">{agentData.area || "-"}</p>
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Contact</p>
-                        <p className="font-semibold">{agentData.contact_number || '-'}</p>
+                        <p className="font-semibold">
+                          {agentData.contact_number || "-"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Vehicle Plate</p>
-                        <p className="font-semibold">{agentData.vehicle_plate_number || '-'}</p>
+                        <p className="font-semibold">
+                          {agentData.vehicle_plate_number || "-"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-gray-500 text-xs">Status</p>
@@ -254,7 +252,9 @@ export function AgentDetailsModal({
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="overview">Item Overview</TabsTrigger>
-                      <TabsTrigger value="transactions">Transactions</TabsTrigger>
+                      <TabsTrigger value="transactions">
+                        Transactions
+                      </TabsTrigger>
                       <TabsTrigger value="return">Return Items</TabsTrigger>
                     </TabsList>
 
@@ -265,18 +265,33 @@ export function AgentDetailsModal({
                           <TableHeader>
                             <TableRow>
                               <TableHead>Product</TableHead>
-                              <TableHead className="text-center">Added</TableHead>
-                              <TableHead className="text-center">Sold</TableHead>
-                              <TableHead className="text-center">Returned</TableHead>
-                              <TableHead className="text-center">Current</TableHead>
-                              <TableHead className="text-right">Unit Price</TableHead>
-                              <TableHead className="text-right">Total Value</TableHead>
+                              <TableHead className="text-center">
+                                Added
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Sold
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Returned
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Current
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Unit Price
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Total Value
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {items.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={7} className="text-center text-gray-500">
+                                <TableCell
+                                  colSpan={7}
+                                  className="text-center text-gray-500"
+                                >
                                   No items found
                                 </TableCell>
                               </TableRow>
@@ -286,7 +301,7 @@ export function AgentDetailsModal({
                                   <TableCell>
                                     <div>
                                       <div className="font-medium">
-                                        {item.product?.name || 'Unknown'}
+                                        {item.product?.name || "Unknown"}
                                       </div>
                                       {item.batch_no && (
                                         <div className="text-xs text-gray-500">
@@ -301,7 +316,7 @@ export function AgentDetailsModal({
                                         +{item.quantity_added}
                                       </span>
                                     ) : (
-                                      '-'
+                                      "-"
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -310,7 +325,7 @@ export function AgentDetailsModal({
                                         -{item.quantity_sold}
                                       </span>
                                     ) : (
-                                      '-'
+                                      "-"
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -319,7 +334,7 @@ export function AgentDetailsModal({
                                         -{item.quantity_returned}
                                       </span>
                                     ) : (
-                                      '-'
+                                      "-"
                                     )}
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -349,15 +364,22 @@ export function AgentDetailsModal({
                             <TableRow>
                               <TableHead>Transaction No.</TableHead>
                               <TableHead>Customer</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead className="text-center">Payment Status</TableHead>
+                              <TableHead className="text-right">
+                                Amount
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Payment Status
+                              </TableHead>
                               <TableHead>Date</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {transactions.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="text-center text-gray-500">
+                                <TableCell
+                                  colSpan={5}
+                                  className="text-center text-gray-500"
+                                >
                                   No transactions found
                                 </TableCell>
                               </TableRow>
@@ -370,7 +392,9 @@ export function AgentDetailsModal({
                                     </div>
                                   </TableCell>
                                   <TableCell>
-                                    {transaction.customer_name || transaction.customer?.name || '-'}
+                                    {transaction.customer_name ||
+                                      transaction.customer?.name ||
+                                      "-"}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {formatMoney(transaction.total_amount)}
@@ -378,24 +402,31 @@ export function AgentDetailsModal({
                                   <TableCell className="text-center">
                                     <span
                                       className={`px-2 py-1 rounded text-xs font-medium ${
-                                        transaction.payment_status === 'Paid'
-                                          ? 'bg-green-100 text-green-800'
-                                          : transaction.payment_status === 'Partial'
-                                          ? 'bg-orange-100 text-orange-800'
-                                          : transaction.payment_status === 'Unpaid'
-                                          ? 'bg-red-100 text-red-800'
-                                          : transaction.payment_status === 'Pending'
-                                          ? 'bg-orange-100 text-orange-800'
-                                          : 'bg-gray-100 text-gray-800'
+                                        transaction.payment_status === "Paid"
+                                          ? "bg-green-100 text-green-800"
+                                          : transaction.payment_status ===
+                                              "Partial"
+                                            ? "bg-orange-100 text-orange-800"
+                                            : transaction.payment_status ===
+                                                "Unpaid"
+                                              ? "bg-red-100 text-red-800"
+                                              : transaction.payment_status ===
+                                                  "Pending"
+                                                ? "bg-orange-100 text-orange-800"
+                                                : "bg-gray-100 text-gray-800"
                                       }`}
                                     >
-                                      {transaction.payment_status?.toUpperCase() || '-'}
+                                      {transaction.payment_status?.toUpperCase() ||
+                                        "-"}
                                     </span>
                                   </TableCell>
                                   <TableCell>
                                     {transaction.created_at
-                                      ? format(new Date(transaction.created_at), 'MMM dd, yyyy')
-                                      : '-'}
+                                      ? format(
+                                          new Date(transaction.created_at),
+                                          "MMM dd, yyyy"
+                                        )
+                                      : "-"}
                                   </TableCell>
                                 </TableRow>
                               ))
@@ -412,18 +443,24 @@ export function AgentDetailsModal({
                           <TableHeader>
                             <TableRow>
                               <TableHead>Product</TableHead>
-                              <TableHead className="text-center">Available</TableHead>
-                              <TableHead className="text-center">Quantity to Return</TableHead>
+                              <TableHead className="text-center">
+                                Available
+                              </TableHead>
+                              <TableHead className="text-center">
+                                Quantity to Return
+                              </TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {items
-                              .filter((item: AgentItem) => item.current_balance > 0)
+                              .filter(
+                                (item: AgentItem) => item.current_balance > 0
+                              )
                               .map((item: AgentItem) => (
                                 <TableRow key={item.id}>
                                   <TableCell>
                                     <div className="font-medium">
-                                      {item.product?.name || 'Unknown'}
+                                      {item.product?.name || "Unknown"}
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -438,15 +475,15 @@ export function AgentDetailsModal({
                                       max={item.current_balance}
                                       value={returnItems[item.id] || 0}
                                       onChange={(e) => {
-                                        const value = Number(e.target.value)
+                                        const value = Number(e.target.value);
                                         const clampedValue = Math.min(
                                           Math.max(0, value),
                                           item.current_balance
-                                        )
+                                        );
                                         setReturnItems({
                                           ...returnItems,
-                                          [item.id]: clampedValue
-                                        })
+                                          [item.id]: clampedValue,
+                                        });
                                       }}
                                       className="w-20 mx-auto"
                                     />
@@ -465,7 +502,7 @@ export function AgentDetailsModal({
                             Object.values(returnItems).every((qty) => qty === 0)
                           }
                         >
-                          {returningItems ? 'Processing...' : 'Return Items'}
+                          {returningItems ? "Processing..." : "Return Items"}
                         </Button>
                       </div>
                     </TabsContent>
@@ -492,5 +529,5 @@ export function AgentDetailsModal({
         message="Are you sure you want to return these items to inventory?"
       />
     </>
-  )
+  );
 }
