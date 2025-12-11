@@ -1,59 +1,40 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+"use client";
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { Input } from '../ui/input'
-import { supabase } from '@/lib/supabase/client'
-import { Branch } from '@/types'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { useEffect, useState } from 'react'
-import toast from 'react-hot-toast'
-import * as XLSX from 'xlsx'
-import { useAppSelector } from '@/lib/redux/hook'
-import { Loader2, Download, RefreshCw, Search } from 'lucide-react'
-import { saveAs } from 'file-saver'
+import { Button } from "@/components/ui/button";
+import { useAppSelector } from "@/lib/redux/hook";
+import { supabase } from "@/lib/supabase/client";
+import { endOfMonth, format, startOfMonth } from "date-fns";
+import { saveAs } from "file-saver";
+import { Download, Loader2, RefreshCw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
 
 export const CustomerSalesReport = () => {
-  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId)
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [selectedBranch, setSelectedBranch] = useState<number | null>(selectedBranchId)
-  
-  const [loading, setLoading] = useState(false)
-  const [startDate, setStartDate] = useState(startOfMonth(new Date()))
-  const [endDate, setEndDate] = useState(endOfMonth(new Date()))
-  const [reportData, setReportData] = useState<any[]>([])
-  const [search, setSearch] = useState('')
-
-  // Fetch branches
-  useEffect(() => {
-    const fetchBranches = async () => {
-      const { data } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
-      if (data) setBranches(data)
-    }
-    fetchBranches()
-  }, [])
-
-  // Update selected branch when Redux changes
-  useEffect(() => {
-    setSelectedBranch(selectedBranchId)
-  }, [selectedBranchId])
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId
+  );
+  const [loading, setLoading] = useState(false);
+  const [startDate, setStartDate] = useState(startOfMonth(new Date()));
+  const [endDate, setEndDate] = useState(endOfMonth(new Date()));
+  const [reportData, setReportData] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
 
   const fetchData = async () => {
-    if (!selectedBranch) {
-      toast.error('Please select a branch')
-      return
+    if (!selectedBranchId) {
+      toast.error("Please select a branch");
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
     try {
       const { data: transactions, error } = await supabase
-        .from('transactions')
-        .select(`
+        .from("transactions")
+        .select(
+          `
           id,
           customer_id,
           customer_name,
@@ -61,152 +42,168 @@ export const CustomerSalesReport = () => {
           payment_status,
           created_at,
           transaction_items(quantity, price, total)
-        `)
-        .eq('branch_id', selectedBranch)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-        .not('customer_id', 'is', null)
+        `
+        )
+        .eq("branch_id", selectedBranchId)
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString())
+        .not("customer_id", "is", null);
 
-      if (error) throw error
+      if (error) throw error;
 
       // Group by customer
-      const customerMap = new Map<number, any>()
-      
+      const customerMap = new Map<number, any>();
+
       transactions?.forEach((tx: any) => {
-        const customerId = tx.customer_id
-        if (!customerId) return
+        const customerId = tx.customer_id;
+        if (!customerId) return;
 
         if (!customerMap.has(customerId)) {
           customerMap.set(customerId, {
             customerId,
-            customerName: tx.customer_name || 'Unknown',
+            customerName: tx.customer_name || "Unknown",
             totalAmount: 0,
             transactionCount: 0,
             itemCount: 0,
             paid: 0,
             unpaid: 0,
             partial: 0,
-            lastTransactionDate: null
-          })
+            lastTransactionDate: null,
+          });
         }
 
-        const customer = customerMap.get(customerId)!
-        customer.totalAmount += Number(tx.total_amount) || 0
-        customer.transactionCount += 1
-        customer.itemCount += tx.transaction_items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0
-        
-        if (tx.payment_status === 'Paid') customer.paid += Number(tx.total_amount) || 0
-        if (tx.payment_status === 'Unpaid') customer.unpaid += Number(tx.total_amount) || 0
-        if (tx.payment_status === 'Partial') customer.partial += Number(tx.total_amount) || 0
-        
-        const txDate = new Date(tx.created_at)
-        if (!customer.lastTransactionDate || txDate > customer.lastTransactionDate) {
-          customer.lastTransactionDate = txDate
+        const customer = customerMap.get(customerId)!;
+        customer.totalAmount += Number(tx.total_amount) || 0;
+        customer.transactionCount += 1;
+        customer.itemCount +=
+          tx.transaction_items?.reduce(
+            (sum: number, item: any) => sum + (item.quantity || 0),
+            0
+          ) || 0;
+
+        if (tx.payment_status === "Paid")
+          customer.paid += Number(tx.total_amount) || 0;
+        if (tx.payment_status === "Unpaid")
+          customer.unpaid += Number(tx.total_amount) || 0;
+        if (tx.payment_status === "Partial")
+          customer.partial += Number(tx.total_amount) || 0;
+
+        const txDate = new Date(tx.created_at);
+        if (
+          !customer.lastTransactionDate ||
+          txDate > customer.lastTransactionDate
+        ) {
+          customer.lastTransactionDate = txDate;
         }
-      })
+      });
 
       const data = Array.from(customerMap.values())
-        .map(c => ({
+        .map((c) => ({
           ...c,
-          averageTransaction: c.transactionCount > 0 ? c.totalAmount / c.transactionCount : 0
+          averageTransaction:
+            c.transactionCount > 0 ? c.totalAmount / c.transactionCount : 0,
         }))
-        .sort((a, b) => b.totalAmount - a.totalAmount)
+        .sort((a, b) => b.totalAmount - a.totalAmount);
 
-      setReportData(data)
+      setReportData(data);
     } catch (err) {
-      console.error(err)
-      toast.error('Failed to load data')
+      console.error(err);
+      toast.error("Failed to load data");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (selectedBranch) {
-      fetchData()
+    if (selectedBranchId) {
+      fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranch, startDate, endDate])
+  }, [startDate, endDate, selectedBranchId]);
 
-  const filteredData = reportData.filter(c => 
+  const filteredData = reportData.filter((c) =>
     c.customerName.toLowerCase().includes(search.toLowerCase())
-  )
+  );
 
   const exportExcel = () => {
     const rows = filteredData.map((item) => ({
-      'Customer Name': item.customerName,
-      'Total Sales': item.totalAmount,
-      'Transactions': item.transactionCount,
-      'Items Purchased': item.itemCount,
-      'Paid': item.paid,
-      'Unpaid': item.unpaid,
-      'Partial': item.partial,
-      'Average Transaction': item.averageTransaction,
-      'Last Transaction': item.lastTransactionDate ? format(item.lastTransactionDate, 'MMM dd, yyyy') : '-'
-    }))
+      "Customer Name": item.customerName,
+      "Total Sales": item.totalAmount,
+      Transactions: item.transactionCount,
+      "Items Purchased": item.itemCount,
+      Paid: item.paid,
+      Unpaid: item.unpaid,
+      Partial: item.partial,
+      "Average Transaction": item.averageTransaction,
+      "Last Transaction": item.lastTransactionDate
+        ? format(item.lastTransactionDate, "MMM dd, yyyy")
+        : "-",
+    }));
 
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Customer Sales')
-    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-    saveAs(new Blob([buf]), `customer_sales_report_${format(new Date(), 'yyyyMMdd')}.xlsx`)
-  }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customer Sales");
+    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(
+      new Blob([buf]),
+      `customer_sales_report_${format(new Date(), "yyyyMMdd")}.xlsx`
+    );
+  };
 
   return (
     <div className="space-y-6">
       {/* FILTERS */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold">
+            Report Filters
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Branch</label>
-              <Select
-                value={selectedBranch?.toString() || ''}
-                onValueChange={(value) => setSelectedBranch(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id.toString()}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Start Date</label>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Start Date
+              </label>
               <Input
                 type="date"
-                value={format(startDate, 'yyyy-MM-dd')}
+                className="h-10 w-full"
+                value={format(startDate, "yyyy-MM-dd")}
                 onChange={(e) => setStartDate(new Date(e.target.value))}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">End Date</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                End Date
+              </label>
               <Input
                 type="date"
-                value={format(endDate, 'yyyy-MM-dd')}
+                className="h-10 w-full"
+                value={format(endDate, "yyyy-MM-dd")}
                 onChange={(e) => setEndDate(new Date(e.target.value))}
               />
             </div>
 
-            <div className="space-y-2 flex flex-col justify-end">
+            <div className="space-y-1.5 flex flex-col justify-end">
               <div className="flex gap-2">
-                <Button onClick={fetchData} variant="blue" size="sm" disabled={loading || !selectedBranch}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                <Button
+                  onClick={fetchData}
+                  variant="blue"
+                  size="sm"
+                  disabled={loading}
+                  className="flex-1 md:flex-initial"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                  )}
                   Generate
                 </Button>
                 {filteredData.length > 0 && (
                   <Button onClick={exportExcel} variant="green" size="sm">
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
                 )}
@@ -214,12 +211,16 @@ export const CustomerSalesReport = () => {
             </div>
           </div>
 
-          <div className="mt-4">
+          {/* Search */}
+          <div className="pt-2 border-t">
+            <label className="text-sm font-medium text-gray-700 mb-2 block">
+              Search Customer
+            </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search customer..."
-                className="pl-10"
+                placeholder="Search customer name..."
+                className="pl-10 h-10"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -248,28 +249,72 @@ export const CustomerSalesReport = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="p-3 text-left font-semibold">Customer</th>
-                    <th className="p-3 text-right font-semibold">Total Sales</th>
-                    <th className="p-3 text-right font-semibold">Transactions</th>
+                    <th className="p-3 text-right font-semibold">
+                      Total Sales
+                    </th>
+                    <th className="p-3 text-right font-semibold">
+                      Transactions
+                    </th>
                     <th className="p-3 text-right font-semibold">Items</th>
                     <th className="p-3 text-right font-semibold">Paid</th>
                     <th className="p-3 text-right font-semibold">Unpaid</th>
                     <th className="p-3 text-right font-semibold">Partial</th>
-                    <th className="p-3 text-right font-semibold">Avg. Transaction</th>
-                    <th className="p-3 text-left font-semibold">Last Transaction</th>
+                    <th className="p-3 text-right font-semibold">
+                      Avg. Transaction
+                    </th>
+                    <th className="p-3 text-left font-semibold">
+                      Last Transaction
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredData.map((item, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{item.customerName}</td>
-                      <td className="p-3 text-right font-semibold">₱{item.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-right">{item.transactionCount}</td>
+                      <td className="p-3 text-right font-semibold">
+                        ₱
+                        {item.totalAmount.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="p-3 text-right">
+                        {item.transactionCount}
+                      </td>
                       <td className="p-3 text-right">{item.itemCount}</td>
-                      <td className="p-3 text-right text-green-600">₱{item.paid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-right text-red-600">₱{item.unpaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-right text-orange-600">₱{item.partial.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3 text-right">₱{item.averageTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td className="p-3">{item.lastTransactionDate ? format(item.lastTransactionDate, 'MMM dd, yyyy') : '-'}</td>
+                      <td className="p-3 text-right text-green-600">
+                        ₱
+                        {item.paid.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="p-3 text-right text-red-600">
+                        ₱
+                        {item.unpaid.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="p-3 text-right text-orange-600">
+                        ₱
+                        {item.partial.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="p-3 text-right">
+                        ₱
+                        {item.averageTransaction.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="p-3">
+                        {item.lastTransactionDate
+                          ? format(item.lastTransactionDate, "MMM dd, yyyy")
+                          : "-"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -279,5 +324,5 @@ export const CustomerSalesReport = () => {
         </CardContent>
       </Card>
     </div>
-  )
-}
+  );
+};

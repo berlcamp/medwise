@@ -841,84 +841,83 @@ export default function TransactionForm({
                 )}
 
                 {/* GL Payment Fields */}
-                {transactionType !== "bulk" &&
-                  form.watch("payment_type") === "GL" && (
-                    <>
-                      {/* GL Number - Required */}
-                      <FormField
-                        control={form.control}
-                        name="gl_number"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold text-gray-700">
-                              GL Number <span className="text-red-500">*</span>
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="Enter GL Number"
-                                className="h-11 mt-2"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                {form.watch("payment_type") === "GL" && (
+                  <>
+                    {/* GL Number - Required */}
+                    <FormField
+                      control={form.control}
+                      name="gl_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold text-gray-700">
+                            GL Number <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Enter GL Number"
+                              className="h-11 mt-2"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      {/* Name of Beneficiary */}
-                      <FormField
-                        control={form.control}
-                        name="beneficiary_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold text-gray-700">
-                              Name of Beneficiary
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                {...field}
-                                placeholder="Enter beneficiary name"
-                                className="h-11 mt-2"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Name of Beneficiary */}
+                    <FormField
+                      control={form.control}
+                      name="beneficiary_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold text-gray-700">
+                            Name of Beneficiary
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Enter beneficiary name"
+                              className="h-11 mt-2"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      {/* Billing Agency - Required */}
-                      <FormField
-                        control={form.control}
-                        name="billing_agency"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-semibold text-gray-700">
-                              Billing Agency{" "}
-                              <span className="text-red-500">*</span>
-                            </FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-11 mt-2">
-                                  <SelectValue placeholder="Select billing agency" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {billingAgencies.map((agency) => (
-                                  <SelectItem key={agency} value={agency}>
-                                    {agency}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
+                    {/* Billing Agency - Required */}
+                    <FormField
+                      control={form.control}
+                      name="billing_agency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm font-semibold text-gray-700">
+                            Billing Agency{" "}
+                            <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-11 mt-2">
+                                <SelectValue placeholder="Select billing agency" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {billingAgencies.map((agency) => (
+                                <SelectItem key={agency} value={agency}>
+                                  {agency}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
               </div>
 
               {/* Total & Checkout Button */}

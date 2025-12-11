@@ -1,256 +1,297 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
+"use client";
 
-import { PaymentHistoryPrint } from '@/components/printables/PaymentHistoryPrint'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { PaymentHistoryPrint } from "@/components/printables/PaymentHistoryPrint";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useAppDispatch } from '@/lib/redux/hook'
-import { updateList } from '@/lib/redux/listSlice'
-import { supabase } from '@/lib/supabase/client'
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
-import { Printer, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import toast from 'react-hot-toast'
+  SelectValue,
+} from "@/components/ui/select";
+import { billingAgencies } from "@/lib/constants";
+import { useAppDispatch } from "@/lib/redux/hook";
+import { updateList } from "@/lib/redux/listSlice";
+import { supabase } from "@/lib/supabase/client";
+import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
+import { Printer, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import toast from "react-hot-toast";
 
 interface Props {
-  transaction: any
-  isOpen: boolean
-  onClose: () => void
-  onUpdated?: () => void
+  transaction: any;
+  isOpen: boolean;
+  onClose: () => void;
+  onUpdated?: () => void;
 }
 
 export const ReceivePaymentModal = ({
   transaction,
   isOpen,
   onClose,
-  onUpdated
+  onUpdated,
 }: Props) => {
-  const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState('Cash')
-  const [reference, setReference] = useState('')
-  const [remarks, setRemarks] = useState('')
-  const [loading, setLoading] = useState(false)
-  
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("Cash");
+  const [reference, setReference] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [collectionReceiptNumber, setCollectionReceiptNumber] = useState("");
+  const [loading, setLoading] = useState(false);
+
   // Cheque-specific fields
-  const [chequeNumber, setChequeNumber] = useState('')
-  const [bankName, setBankName] = useState('')
-  const [chequeDate, setChequeDate] = useState('')
+  const [chequeNumber, setChequeNumber] = useState("");
+  const [bankName, setBankName] = useState("");
+  const [chequeDate, setChequeDate] = useState("");
 
-  const [payments, setPayments] = useState<any[]>([])
-  const [totalPaid, setTotalPaid] = useState(0)
-  const [balance, setBalance] = useState(0)
-  const [printData, setPrintData] = useState<any>(null)
+  // GL-specific fields
+  const [glNumber, setGlNumber] = useState("");
+  const [billingAgency, setBillingAgency] = useState("");
+  const [beneficiaryName, setBeneficiaryName] = useState("");
 
-  const dispatch = useAppDispatch()
+  const [payments, setPayments] = useState<any[]>([]);
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [printData, setPrintData] = useState<any>(null);
+
+  const dispatch = useAppDispatch();
 
   // Load payments
   const loadPayments = async () => {
     const { data } = await supabase
-      .from('transaction_payments')
-      .select('*')
-      .eq('transaction_id', transaction.id)
-      .order('payment_date', { ascending: false })
+      .from("transaction_payments")
+      .select("*")
+      .eq("transaction_id", transaction.id)
+      .order("payment_date", { ascending: false });
 
-    setPayments(data || [])
+    setPayments(data || []);
 
-    const totalPaid = (data || []).reduce((sum, p) => sum + Number(p.amount), 0)
+    const totalPaid = (data || []).reduce(
+      (sum, p) => sum + Number(p.amount),
+      0
+    );
 
-    const totalAmount = Number(transaction.total_amount || 0)
-              const balance = totalAmount - totalPaid
+    const totalAmount = Number(transaction.total_amount || 0);
+    const balance = totalAmount - totalPaid;
 
-              // Determine payment status based on totalPaid and balance
-              let paymentStatus: 'Paid' | 'Partial' | 'Unpaid'
-              
-              if (balance <= 0) {
-                paymentStatus = 'Paid'
-                
-              } else if (totalPaid > 0) {
-                paymentStatus = 'Partial'
-              } else {
-                paymentStatus = 'Unpaid'
-              }
+    // Determine payment status based on totalPaid and balance
+    let paymentStatus: "Paid" | "Partial" | "Unpaid";
 
-              // Update Redux with the determined payment status
-              dispatch(
-                updateList({
-                  ...transaction,
-                  payment_status: paymentStatus,
-                  id: transaction.id
-                })
-              )
+    if (balance <= 0) {
+      paymentStatus = "Paid";
+    } else if (totalPaid > 0) {
+      paymentStatus = "Partial";
+    } else {
+      paymentStatus = "Unpaid";
+    }
 
-    setTotalPaid(totalPaid)
-    setBalance(Number(transaction.total_amount) - totalPaid)
-  }
+    // Update Redux with the determined payment status
+    dispatch(
+      updateList({
+        ...transaction,
+        payment_status: paymentStatus,
+        id: transaction.id,
+      })
+    );
+
+    setTotalPaid(totalPaid);
+    setBalance(Number(transaction.total_amount) - totalPaid);
+  };
 
   useEffect(() => {
-    if (isOpen) loadPayments()
+    if (isOpen) loadPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+  }, [isOpen]);
 
   const savePayment = async () => {
     if (!amount || Number(amount) <= 0) {
-      toast.error('Invalid amount')
-      return
+      toast.error("Invalid amount");
+      return;
     }
 
     if (Number(amount) > balance) {
-      toast.error('Payment cannot exceed remaining balance.')
-      return
+      toast.error("Payment cannot exceed remaining balance.");
+      return;
     }
 
     // Validate cheque fields if method is Cheque
-    if (method === 'Cheque') {
+    if (method === "Cheque") {
       if (!chequeNumber.trim()) {
-        toast.error('Please enter check number')
-        return
+        toast.error("Please enter check number");
+        return;
       }
       if (!bankName.trim()) {
-        toast.error('Please enter bank name')
-        return
+        toast.error("Please enter bank name");
+        return;
       }
       if (!chequeDate) {
-        toast.error('Please select check date')
-        return
+        toast.error("Please select check date");
+        return;
       }
     }
 
-    setLoading(true)
+    // Validate GL fields if method is GL
+    if (method === "GL") {
+      if (!glNumber.trim()) {
+        toast.error("GL Number is required");
+        return;
+      }
+      if (!billingAgency.trim()) {
+        toast.error("Billing Agency is required");
+        return;
+      }
+    }
+
+    setLoading(true);
 
     // Prepare payment data
     const paymentData: any = {
       transaction_id: transaction.id,
       amount: Number(amount),
       payment_method: method,
-      reference_number: method === 'Cheque' ? chequeNumber : (reference || null),
-      remarks: method === 'Cheque' 
-        ? JSON.stringify({
-            cheque_number: chequeNumber,
-            bank_name: bankName,
-            cheque_date: chequeDate,
-            amount: Number(amount)
-          })
-        : (remarks || null)
-    }
+      reference_number:
+        method === "Cheque"
+          ? chequeNumber
+          : method === "GL"
+            ? glNumber
+            : reference || null,
+      collection_receipt_number: collectionReceiptNumber.trim() || null,
+      remarks:
+        method === "Cheque"
+          ? JSON.stringify({
+              cheque_number: chequeNumber,
+              bank_name: bankName,
+              cheque_date: chequeDate,
+              amount: Number(amount),
+            })
+          : method === "GL"
+            ? JSON.stringify({
+                gl_number: glNumber,
+                billing_agency: billingAgency,
+                beneficiary_name: beneficiaryName || null,
+                amount: Number(amount),
+              })
+            : remarks || null,
+    };
 
     // If cheque date is today, we'll update payment status after saving
-    const chequeDateObj = method === 'Cheque' ? new Date(chequeDate) : null
-    const today = new Date()
-    const isChequeDateToday = chequeDateObj && 
-      chequeDateObj.toDateString() === today.toDateString()
+    const chequeDateObj = method === "Cheque" ? new Date(chequeDate) : null;
+    const today = new Date();
+    const isChequeDateToday =
+      chequeDateObj && chequeDateObj.toDateString() === today.toDateString();
 
-    const { error } = await supabase.from('transaction_payments').insert(paymentData)
+    const { error } = await supabase
+      .from("transaction_payments")
+      .insert(paymentData);
 
     if (error) {
-      setLoading(false)
-      toast.error('Error saving payment.')
-      return
+      setLoading(false);
+      toast.error("Error saving payment.");
+      return;
     }
 
     // Reload payments to get updated totalPaid
-    await loadPayments()
+    await loadPayments();
 
     // If cheque date is today, update transaction payment status to Paid
-    if (isChequeDateToday && method === 'Cheque') {
+    if (isChequeDateToday && method === "Cheque") {
       const { error: updateError } = await supabase
-        .from('transactions')
-        .update({ payment_status: 'Paid' })
-        .eq('id', transaction.id)
+        .from("transactions")
+        .update({ payment_status: "Paid" })
+        .eq("id", transaction.id);
 
       if (!updateError) {
         dispatch(
           updateList({
             ...transaction,
-            payment_status: 'Paid',
-            id: transaction.id
+            payment_status: "Paid",
+            id: transaction.id,
           })
-        )
+        );
       }
     }
 
-    setLoading(false)
-    toast.success('Payment recorded')
-    
+    setLoading(false);
+    toast.success("Payment recorded");
+
     // Pass totalPaid to onUpdated callback
-    if (onUpdated) onUpdated()
-    
+    if (onUpdated) onUpdated();
+
     // Reset form
-    setAmount('')
-    setReference('')
-    setRemarks('')
-    setMethod('Cash')
-    setChequeNumber('')
-    setBankName('')
-    setChequeDate('')
-  }
+    setAmount("");
+    setReference("");
+    setRemarks("");
+    setCollectionReceiptNumber("");
+    setMethod("Cash");
+    setChequeNumber("");
+    setBankName("");
+    setChequeDate("");
+    setGlNumber("");
+    setBillingAgency("");
+    setBeneficiaryName("");
+  };
 
   const removePayment = async (id: number) => {
-    if (!confirm('Remove this payment?')) return
+    if (!confirm("Remove this payment?")) return;
 
     const { error } = await supabase
-      .from('transaction_payments')
+      .from("transaction_payments")
       .delete()
-      .eq('id', id)
+      .eq("id", id);
 
     if (error) {
-      toast.error('Failed to remove payment.')
-      return
+      toast.error("Failed to remove payment.");
+      return;
     }
 
     // Reload payments to get updated totalPaid
-    await loadPayments()
+    await loadPayments();
 
-    toast.success('Payment removed')
-    
+    toast.success("Payment removed");
+
     // Pass totalPaid to onUpdated callback
-    if (onUpdated) onUpdated()
-  }
+    if (onUpdated) onUpdated();
+  };
 
   const printPaymentHistory = async () => {
     // Clear print data first
-    setPrintData(null)
+    setPrintData(null);
 
     // Load customer data if customer_id exists
-    let customerData = null
+    let customerData = null;
     if (transaction.customer_id) {
       const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', transaction.customer_id)
-        .single()
+        .from("customers")
+        .select("*")
+        .eq("id", transaction.customer_id)
+        .single();
 
       if (!customerError && customer) {
-        customerData = customer
+        customerData = customer;
       }
     }
 
     // Combine transaction data with customer
     const transactionWithCustomer = {
       ...transaction,
-      customer: customerData
-    }
+      customer: customerData,
+    };
 
     // Set print data after clearing
-    setPrintData({ transaction: transactionWithCustomer, payments })
+    setPrintData({ transaction: transactionWithCustomer, payments });
 
     // Wait for React to render the component
     setTimeout(() => {
-      window.print()
+      window.print();
       // Reset after print
       setTimeout(() => {
-        setPrintData(null)
-      }, 500)
-    }, 300)
-  }
+        setPrintData(null);
+      }, 500);
+    }, 300);
+  };
 
   return (
     <Dialog open={isOpen} onClose={onClose} as="div" className="relative z-50">
@@ -285,7 +326,11 @@ export const ReceivePaymentModal = ({
                     placeholder="Enter amount"
                   />
                   <p className="text-xs text-gray-500">
-                    Balance: ₱{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Balance: ₱
+                    {balance.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </p>
                 </div>
 
@@ -293,15 +338,21 @@ export const ReceivePaymentModal = ({
                   <Label className="app__formlabel_standard">
                     Payment Method
                   </Label>
-                  <Select 
-                    value={method} 
+                  <Select
+                    value={method}
                     onValueChange={(value) => {
-                      setMethod(value)
+                      setMethod(value);
                       // Reset cheque fields when method changes
-                      if (value !== 'Cheque') {
-                        setChequeNumber('')
-                        setBankName('')
-                        setChequeDate('')
+                      if (value !== "Cheque") {
+                        setChequeNumber("");
+                        setBankName("");
+                        setChequeDate("");
+                      }
+                      // Reset GL fields when method changes
+                      if (value !== "GL") {
+                        setGlNumber("");
+                        setBillingAgency("");
+                        setBeneficiaryName("");
                       }
                     }}
                   >
@@ -319,7 +370,19 @@ export const ReceivePaymentModal = ({
                   </Select>
                 </div>
 
-                {method === 'Cheque' ? (
+                <div className="flex flex-col gap-1">
+                  <Label className="app__formlabel_standard">
+                    Collection Receipt Number
+                  </Label>
+                  <Input
+                    className="app__input_standard"
+                    value={collectionReceiptNumber}
+                    onChange={(e) => setCollectionReceiptNumber(e.target.value)}
+                    placeholder="Enter collection receipt number"
+                  />
+                </div>
+
+                {method === "Cheque" ? (
                   <>
                     <div className="flex flex-col gap-1">
                       <Label className="app__formlabel_standard">
@@ -360,6 +423,54 @@ export const ReceivePaymentModal = ({
                       />
                     </div>
                   </>
+                ) : method === "GL" ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <Label className="app__formlabel_standard">
+                        GL Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        className="app__input_standard"
+                        value={glNumber}
+                        onChange={(e) => setGlNumber(e.target.value)}
+                        placeholder="Enter GL Number"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Label className="app__formlabel_standard">
+                        Name of Beneficiary
+                      </Label>
+                      <Input
+                        className="app__input_standard"
+                        value={beneficiaryName}
+                        onChange={(e) => setBeneficiaryName(e.target.value)}
+                        placeholder="Enter beneficiary name"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Label className="app__formlabel_standard">
+                        Billing Agency <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={billingAgency}
+                        onValueChange={setBillingAgency}
+                      >
+                        <SelectTrigger className="app__input_standard">
+                          <SelectValue placeholder="Select billing agency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {billingAgencies.map((agency) => (
+                            <SelectItem key={agency} value={agency}>
+                              {agency}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <div className="flex flex-col gap-1">
@@ -391,7 +502,7 @@ export const ReceivePaymentModal = ({
                   onClick={savePayment}
                   disabled={loading}
                 >
-                  {loading ? 'Saving...' : 'Save Payment'}
+                  {loading ? "Saving..." : "Save Payment"}
                 </Button>
               </div>
 
@@ -417,25 +528,48 @@ export const ReceivePaymentModal = ({
                         <th className="p-2 border">Method</th>
                         <th className="p-2 border">Amount</th>
                         {(() => {
-                          const hasChequePayment = payments.some((p) => p.payment_method === 'Cheque')
-                          return hasChequePayment ? (
+                          const hasChequePayment = payments.some(
+                            (p) => p.payment_method === "Cheque"
+                          );
+                          const hasGLPayment = payments.some(
+                            (p) => p.payment_method === "GL"
+                          );
+                          return (
                             <>
-                              <th className="p-2 border">Check No.</th>
-                              <th className="p-2 border">Bank Name</th>
-                              <th className="p-2 border">Check Date</th>
+                              {hasChequePayment && (
+                                <>
+                                  <th className="p-2 border">Check No.</th>
+                                  <th className="p-2 border">Bank Name</th>
+                                  <th className="p-2 border">Check Date</th>
+                                </>
+                              )}
+                              {hasGLPayment && (
+                                <>
+                                  <th className="p-2 border">GL Number</th>
+                                  <th className="p-2 border">Billing Agency</th>
+                                  <th className="p-2 border">Beneficiary</th>
+                                </>
+                              )}
                             </>
-                          ) : null
+                          );
                         })()}
                         <th className="p-2 border">Ref #</th>
+                        <th className="p-2 border">Collection Receipt #</th>
                         <th className="p-2 border w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const hasChequePayment = payments.some((p) => p.payment_method === 'Cheque')
-                        const baseCols = 5 // Date, Method, Amount, Ref #, Action
-                        const chequeCols = hasChequePayment ? 3 : 0 // Check No., Bank Name, Check Date
-                        const totalCols = baseCols + chequeCols
+                        const hasChequePayment = payments.some(
+                          (p) => p.payment_method === "Cheque"
+                        );
+                        const hasGLPayment = payments.some(
+                          (p) => p.payment_method === "GL"
+                        );
+                        const baseCols = 6; // Date, Method, Amount, Ref #, Collection Receipt #, Action
+                        const chequeCols = hasChequePayment ? 3 : 0; // Check No., Bank Name, Check Date
+                        const glCols = hasGLPayment ? 3 : 0; // GL Number, Billing Agency, Beneficiary
+                        const totalCols = baseCols + chequeCols + glCols;
 
                         if (payments.length === 0) {
                           return (
@@ -447,15 +581,25 @@ export const ReceivePaymentModal = ({
                                 No payments yet
                               </td>
                             </tr>
-                          )
+                          );
                         }
 
                         return payments.map((p, i) => {
                           // Parse cheque details from remarks if payment method is Cheque
-                          let chequeDetails = null
-                          if (p.payment_method === 'Cheque' && p.remarks) {
+                          let chequeDetails = null;
+                          if (p.payment_method === "Cheque" && p.remarks) {
                             try {
-                              chequeDetails = JSON.parse(p.remarks)
+                              chequeDetails = JSON.parse(p.remarks);
+                            } catch {
+                              // If parsing fails, remarks might not be JSON
+                            }
+                          }
+
+                          // Parse GL details from remarks if payment method is GL
+                          let glDetails = null;
+                          if (p.payment_method === "GL" && p.remarks) {
+                            try {
+                              glDetails = JSON.parse(p.remarks);
                             } catch {
                               // If parsing fails, remarks might not be JSON
                             }
@@ -464,36 +608,74 @@ export const ReceivePaymentModal = ({
                           return (
                             <tr
                               key={p.id}
-                              className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                              className={
+                                i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              }
                             >
                               <td className="p-2 border">
                                 {new Date(p.payment_date).toLocaleString()}
                               </td>
                               <td className="p-2 border">{p.payment_method}</td>
                               <td className="p-2 border">
-                                ₱{Number(p.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ₱
+                                {Number(p.amount).toLocaleString("en-US", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
                               </td>
                               {hasChequePayment && (
                                 <>
                                   <td className="p-2 border">
-                                    {p.payment_method === 'Cheque' 
-                                      ? (chequeDetails?.cheque_number || p.reference_number || '-')
-                                      : '-'}
+                                    {p.payment_method === "Cheque"
+                                      ? chequeDetails?.cheque_number ||
+                                        p.reference_number ||
+                                        "-"
+                                      : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === 'Cheque' 
-                                      ? (chequeDetails?.bank_name || '-')
-                                      : '-'}
+                                    {p.payment_method === "Cheque"
+                                      ? chequeDetails?.bank_name || "-"
+                                      : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === 'Cheque' && chequeDetails?.cheque_date
-                                      ? new Date(chequeDetails.cheque_date).toLocaleDateString()
-                                      : '-'}
+                                    {p.payment_method === "Cheque" &&
+                                    chequeDetails?.cheque_date
+                                      ? new Date(
+                                          chequeDetails.cheque_date
+                                        ).toLocaleDateString()
+                                      : "-"}
+                                  </td>
+                                </>
+                              )}
+                              {hasGLPayment && (
+                                <>
+                                  <td className="p-2 border">
+                                    {p.payment_method === "GL"
+                                      ? glDetails?.gl_number ||
+                                        p.reference_number ||
+                                        "-"
+                                      : "-"}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {p.payment_method === "GL"
+                                      ? glDetails?.billing_agency || "-"
+                                      : "-"}
+                                  </td>
+                                  <td className="p-2 border">
+                                    {p.payment_method === "GL"
+                                      ? glDetails?.beneficiary_name || "-"
+                                      : "-"}
                                   </td>
                                 </>
                               )}
                               <td className="p-2 border">
-                                {p.payment_method !== 'Cheque' ? (p.reference_number || '-') : '-'}
+                                {p.payment_method !== "Cheque" &&
+                                p.payment_method !== "GL"
+                                  ? p.reference_number || "-"
+                                  : "-"}
+                              </td>
+                              <td className="p-2 border">
+                                {p.collection_receipt_number || "-"}
                               </td>
                               <td className="p-2 border text-center">
                                 <button
@@ -504,8 +686,8 @@ export const ReceivePaymentModal = ({
                                 </button>
                               </td>
                             </tr>
-                          )
-                        })
+                          );
+                        });
                       })()}
                     </tbody>
                   </table>
@@ -513,14 +695,24 @@ export const ReceivePaymentModal = ({
 
                 <div className="mt-4 text-sm space-y-1">
                   <p>
-                    Total Paid:{' '}
+                    Total Paid:{" "}
                     <b className="text-green-700">
-                      ₱{totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ₱
+                      {totalPaid.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </b>
                   </p>
                   <p>
-                    Remaining Balance:{' '}
-                    <b className="text-red-600">₱{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
+                    Remaining Balance:{" "}
+                    <b className="text-red-600">
+                      ₱
+                      {balance.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </b>
                   </p>
                 </div>
               </div>
@@ -535,10 +727,8 @@ export const ReceivePaymentModal = ({
         </DialogPanel>
       </div>
 
-      {typeof window !== 'undefined' && createPortal(
-        <PaymentHistoryPrint data={printData} />,
-        document.body
-      )}
+      {typeof window !== "undefined" &&
+        createPortal(<PaymentHistoryPrint data={printData} />, document.body)}
     </Dialog>
-  )
-}
+  );
+};

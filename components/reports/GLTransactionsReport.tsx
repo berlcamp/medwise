@@ -6,6 +6,7 @@ import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 
+import { billingAgencies } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { Transaction } from "@/types";
@@ -48,6 +49,8 @@ export default function GLTransactionsReport() {
   const [mode, setMode] = useState("daily"); // daily / weekly / monthly / custom
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<Transaction[]>([]);
+  const [selectedBillingAgency, setSelectedBillingAgency] =
+    useState<string>("all");
   const [summary, setSummary] = useState({
     totalSales: 0,
     totalTransactions: 0,
@@ -104,6 +107,11 @@ export default function GLTransactionsReport() {
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: false });
+
+    // Apply billing agency filter if selected
+    if (selectedBillingAgency !== "all") {
+      query.eq("billing_agency", selectedBillingAgency);
+    }
 
     const { data, error } = await query;
 
@@ -187,25 +195,32 @@ export default function GLTransactionsReport() {
       loadGLTransactions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId, mode, range]);
+  }, [selectedBranchId, mode, range, selectedBillingAgency]);
 
   return (
     <div className="space-y-6">
       {/* FILTERS */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg font-semibold">
+            Report Filters
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Date Mode */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Date Range
+              </label>
               <Select value={mode} onValueChange={setMode}>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue
+                    placeholder="Select date range"
+                    className="truncate"
+                  />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[var(--radix-select-trigger-width)]">
                   <SelectItem value="daily">Today</SelectItem>
                   <SelectItem value="weekly">This Week</SelectItem>
                   <SelectItem value="monthly">This Month</SelectItem>
@@ -214,25 +229,56 @@ export default function GLTransactionsReport() {
               </Select>
             </div>
 
+            {/* Billing Agency Filter */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">
+                Billing Agency
+              </label>
+              <Select
+                value={selectedBillingAgency}
+                onValueChange={setSelectedBillingAgency}
+              >
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue
+                    placeholder="Select agency"
+                    className="truncate"
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="all">All Agencies</SelectItem>
+                  {billingAgencies.map((agency) => (
+                    <SelectItem
+                      key={agency}
+                      value={agency}
+                      className="truncate"
+                    >
+                      {agency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Actions */}
-            <div className="space-y-2 flex flex-col justify-end md:col-span-2">
+            <div className="space-y-1.5 flex flex-col justify-end">
               <div className="flex gap-2">
                 <Button
                   onClick={loadGLTransactions}
                   variant="blue"
                   size="sm"
                   disabled={loading || !selectedBranchId}
+                  className="flex-1 md:flex-initial"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
-                    <RefreshCw className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4 mr-2" />
                   )}
                   Generate
                 </Button>
                 {reportData.length > 0 && (
                   <Button onClick={downloadExcel} variant="green" size="sm">
-                    <Download className="h-4 w-4" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
                 )}
@@ -242,20 +288,25 @@ export default function GLTransactionsReport() {
 
           {/* DATE PICKER FOR CUSTOM */}
           {mode === "custom" && (
-            <div className="mt-4 border p-4 rounded-lg inline-block">
-              <DateRangePicker
-                onChange={(item) =>
-                  setRange([
-                    {
-                      startDate: item.selection.startDate ?? new Date(),
-                      endDate: item.selection.endDate ?? new Date(),
-                      key: "selection",
-                    },
-                  ])
-                }
-                moveRangeOnFirstSelection={false}
-                ranges={range}
-              />
+            <div className="mt-2 pt-4 border-t">
+              <label className="text-sm font-medium text-gray-700 mb-3 block">
+                Select Custom Date Range
+              </label>
+              <div className="flex justify-center">
+                <DateRangePicker
+                  onChange={(item) =>
+                    setRange([
+                      {
+                        startDate: item.selection.startDate ?? new Date(),
+                        endDate: item.selection.endDate ?? new Date(),
+                        key: "selection",
+                      },
+                    ])
+                  }
+                  moveRangeOnFirstSelection={false}
+                  ranges={range}
+                />
+              </div>
             </div>
           )}
         </CardContent>
