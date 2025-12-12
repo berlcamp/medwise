@@ -29,6 +29,7 @@ import {
 import {
   Consignment,
   ConsignmentItem,
+  ConsignmentItemTransaction,
   Product,
   ProductStock,
   Transaction,
@@ -90,12 +91,11 @@ export function ConsignmentDetailsModal({
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Print state
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [consignmentTransactions, setConsignmentTransactions] = useState<
     Transaction[]
   >([]);
   const [addItemsTransactions, setAddItemsTransactions] = useState<
-    Transaction[]
+    ConsignmentItemTransaction[]
   >([]);
   const [printData, setPrintData] = useState<any>(null);
   const [printType, setPrintType] = useState<"invoice" | "delivery" | null>(
@@ -137,14 +137,13 @@ export function ConsignmentDetailsModal({
 
     const fetchAddItemsTransactions = async () => {
       const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("customer_id", consignmentData.customer_id)
-        .eq("transaction_type", "consignment_add")
+        .from("consignment_item_transactions")
+        .select("*, customer:customers(*)")
+        .eq("consignment_id", consignmentData.id)
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        setAddItemsTransactions(data as Transaction[]);
+        setAddItemsTransactions(data as ConsignmentItemTransaction[]);
       }
     };
 
@@ -297,7 +296,8 @@ export function ConsignmentDetailsModal({
 
     try {
       const transactionNumber = await generateTransactionNumber(
-        consignmentData.branch_id
+        consignmentData.branch_id,
+        "consignment_sale"
       );
 
       const result = await recordConsignmentSale({
@@ -345,14 +345,23 @@ export function ConsignmentDetailsModal({
     setRecordingSale(false);
   };
 
-  const printInvoice = async (transaction: Transaction) => {
+  const printInvoice = async (
+    transaction: Transaction | ConsignmentItemTransaction,
+    source: "sale" | "add"
+  ) => {
     setPrintData(null);
     setPrintType(null);
 
-    const { data: items, error } = await supabase
-      .from("transaction_items")
-      .select(`*, product:product_id(name)`)
-      .eq("transaction_id", transaction.id);
+    const { data: items, error } =
+      source === "add"
+        ? await supabase
+            .from("consignment_item_transaction_items")
+            .select(`*, product:products(name)`)
+            .eq("consignment_transaction_id", transaction.id)
+        : await supabase
+            .from("transaction_items")
+            .select(`*, product:product_id(name)`)
+            .eq("transaction_id", transaction.id);
 
     if (error) {
       console.error(error);
@@ -372,14 +381,23 @@ export function ConsignmentDetailsModal({
     }, 200);
   };
 
-  const printDeliveryReceipt = async (transaction: Transaction) => {
+  const printDeliveryReceipt = async (
+    transaction: Transaction | ConsignmentItemTransaction,
+    source: "sale" | "add"
+  ) => {
     setPrintData(null);
     setPrintType(null);
 
-    const { data: items, error } = await supabase
-      .from("transaction_items")
-      .select(`*, product:product_id(name)`)
-      .eq("transaction_id", transaction.id);
+    const { data: items, error } =
+      source === "add"
+        ? await supabase
+            .from("consignment_item_transaction_items")
+            .select(`*, product:products(name)`)
+            .eq("consignment_transaction_id", transaction.id)
+        : await supabase
+            .from("transaction_items")
+            .select(`*, product:product_id(name)`)
+            .eq("transaction_id", transaction.id);
 
     if (error) {
       console.error(error);
@@ -590,10 +608,9 @@ export function ConsignmentDetailsModal({
             .eq("id", consignmentData.id)
             .single(),
           supabase
-            .from("transactions")
-            .select("*")
-            .eq("customer_id", consignmentData.customer_id)
-            .eq("transaction_type", "consignment_add")
+            .from("consignment_item_transactions")
+            .select("*, customer:customers(*)")
+            .eq("consignment_id", consignmentData.id)
             .order("created_at", { ascending: false }),
         ]);
 
@@ -603,7 +620,9 @@ export function ConsignmentDetailsModal({
         setConsignmentData(consignmentResult.data);
       }
       if (addItemsResult.data) {
-        setAddItemsTransactions(addItemsResult.data as Transaction[]);
+        setAddItemsTransactions(
+          addItemsResult.data as ConsignmentItemTransaction[]
+        );
       }
     } catch (err: any) {
       console.error(err);
@@ -745,8 +764,8 @@ export function ConsignmentDetailsModal({
                     <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="overview">Item Overview</TabsTrigger>
                       <TabsTrigger value="add-items">Add Items</TabsTrigger>
-                      <TabsTrigger value="add-items-history">
-                        Add Items History
+                      <TabsTrigger value="transaction-history">
+                        Transaction History
                       </TabsTrigger>
                       <TabsTrigger value="record-sale">Record Sale</TabsTrigger>
                       <TabsTrigger value="return">Return Items</TabsTrigger>
@@ -781,7 +800,7 @@ export function ConsignmentDetailsModal({
                                   <Button
                                     size="xs"
                                     variant="outline"
-                                    onClick={() => printDeliveryReceipt(tx)}
+                                    onClick={() => printDeliveryReceipt(tx, "sale")}
                                   >
                                     <Printer className="w-3 h-3 mr-1" />
                                     Delivery Receipt
@@ -789,7 +808,7 @@ export function ConsignmentDetailsModal({
                                   <Button
                                     size="xs"
                                     variant="outline"
-                                    onClick={() => printInvoice(tx)}
+                                    onClick={() => printInvoice(tx, "sale")}
                                   >
                                     <Printer className="w-3 h-3 mr-1" />
                                     Sales Invoice
@@ -908,79 +927,164 @@ export function ConsignmentDetailsModal({
                       </div>
                     </TabsContent>
 
-                    {/* Add Items History Tab */}
-                    <TabsContent value="add-items-history">
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                          View all transactions where items were added to this
-                          consignment. You can print delivery receipts and sales
-                          invoices for each transaction.
-                        </p>
-
-                        {addItemsTransactions.length === 0 ? (
-                          <div className="border-2 border-dashed rounded-lg p-12 text-center">
-                            <p className="text-muted-foreground">
-                              No add items transactions found.
+                    {/* Transaction History Tab */}
+                    <TabsContent value="transaction-history">
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold">
+                              Added Items
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Printed as delivery receipt or sales invoice
                             </p>
                           </div>
-                        ) : (
-                          <div className="border rounded-lg">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Transaction Number</TableHead>
-                                  <TableHead>Date</TableHead>
-                                  <TableHead className="text-right">
-                                    Total Amount
-                                  </TableHead>
-                                  <TableHead className="text-center">
-                                    Actions
-                                  </TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {addItemsTransactions.map((tx) => (
-                                  <TableRow key={tx.id}>
-                                    <TableCell className="font-medium">
-                                      {tx.transaction_number}
-                                    </TableCell>
-                                    <TableCell>
-                                      {format(
-                                        new Date(tx.created_at),
-                                        "MMM dd, yyyy HH:mm"
-                                      )}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {formatMoney(tx.total_amount)}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <div className="flex justify-center gap-2">
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() =>
-                                            printDeliveryReceipt(tx)
-                                          }
-                                        >
-                                          <Printer className="w-4 h-4 mr-1" />
-                                          Delivery Receipt
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => printInvoice(tx)}
-                                        >
-                                          <Printer className="w-4 h-4 mr-1" />
-                                          Sales Invoice
-                                        </Button>
-                                      </div>
-                                    </TableCell>
+
+                          {addItemsTransactions.length === 0 ? (
+                            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                              <p className="text-muted-foreground">
+                                No added-item transactions found.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="border rounded-lg">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Transaction Number</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead className="text-right">
+                                      Total Amount
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                      Actions
+                                    </TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {addItemsTransactions.map((tx) => (
+                                    <TableRow key={tx.id}>
+                                      <TableCell className="font-medium">
+                                        {tx.transaction_number}
+                                      </TableCell>
+                                      <TableCell>
+                                        {format(
+                                          new Date(tx.created_at),
+                                          "MMM dd, yyyy HH:mm"
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatMoney(tx.total_amount)}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <div className="flex justify-center gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                              printDeliveryReceipt(tx, "add")
+                                            }
+                                          >
+                                            <Printer className="w-4 h-4 mr-1" />
+                                            Delivery Receipt
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                              printInvoice(tx, "add")
+                                            }
+                                          >
+                                            <Printer className="w-4 h-4 mr-1" />
+                                            Sales Invoice
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold">
+                              Sold Items
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Generated from recorded consignment sales
+                            </p>
                           </div>
-                        )}
+
+                          {consignmentTransactions.length === 0 ? (
+                            <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                              <p className="text-muted-foreground">
+                                No consignment sales recorded yet.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="border rounded-lg">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Transaction Number</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead className="text-right">
+                                      Total Amount
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                      Actions
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {consignmentTransactions.map((tx) => (
+                                    <TableRow key={tx.id}>
+                                      <TableCell className="font-medium">
+                                        {tx.transaction_number}
+                                      </TableCell>
+                                      <TableCell>
+                                        {format(
+                                          new Date(tx.created_at),
+                                          "MMM dd, yyyy HH:mm"
+                                        )}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatMoney(tx.total_amount)}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <div className="flex justify-center gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                              printDeliveryReceipt(tx, "sale")
+                                            }
+                                          >
+                                            <Printer className="w-4 h-4 mr-1" />
+                                            Delivery Receipt
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() =>
+                                              printInvoice(tx, "sale")
+                                            }
+                                          >
+                                            <Printer className="w-4 h-4 mr-1" />
+                                            Sales Invoice
+                                          </Button>
+                                        </div>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </TabsContent>
 

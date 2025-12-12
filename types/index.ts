@@ -405,6 +405,37 @@ export interface TransactionWithItems extends Transaction {
   transaction_items: TransactionItem[];
 }
 
+export interface ConsignmentItemTransaction {
+  id: number;
+  org_id: number;
+  branch_id: number;
+  consignment_id: number;
+  customer_id: number;
+  customer_name?: string | null;
+  transaction_number: string;
+  transaction_type: string;
+  total_amount: number;
+  created_by?: string | null;
+  created_at: string;
+  customer?: Customer;
+  transaction_items?: ConsignmentItemTransactionItem[];
+}
+
+export interface ConsignmentItemTransactionItem {
+  id: number;
+  consignment_transaction_id: number;
+  product_id: number;
+  product_stock_id?: number | null;
+  batch_no?: string | null;
+  date_manufactured?: string | null;
+  expiration_date?: string | null;
+  quantity: number;
+  price: number;
+  total: number;
+  created_at: string;
+  product?: Product;
+}
+
 // ===============================
 // CONSIGNMENT SYSTEM
 // ===============================

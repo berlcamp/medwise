@@ -42,7 +42,10 @@ export async function createTransactionWithStockDeduction(
     // 1️⃣ Generate transaction number with branch_id
     const { data: transactionNumber, error: numberError } = await supabase.rpc(
       "generate_transaction_number",
-      { p_branch_id: params.branch_id }
+      {
+        p_branch_id: params.branch_id,
+        p_transaction_type: params.transaction_type,
+      }
     );
 
     if (numberError) {
