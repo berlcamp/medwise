@@ -18,27 +18,39 @@ CREATE OR REPLACE FUNCTION medwise.generate_transaction_number(
 RETURNS TEXT AS $$
 DECLARE
   v_today_prefix TEXT;
-  v_type_segment TEXT;
   v_last_number TEXT;
   v_next_sequence INTEGER;
+  v_last_seq INTEGER;
 BEGIN
   v_today_prefix := TO_CHAR(CURRENT_DATE, 'YYYYMMDD');
-  v_type_segment := COALESCE(NULLIF(TRIM(LOWER(p_transaction_type)), ''), 'txn');
 
+  -- Get last transaction number for today, this branch, and this transaction type
+  -- This ensures each transaction type has its own separate numbering series
   SELECT transaction_number INTO v_last_number
   FROM medwise.transactions
-  WHERE transaction_number LIKE v_today_prefix || '-' || v_type_segment || '-%'
+  WHERE transaction_number LIKE v_today_prefix || '-%'
     AND branch_id = p_branch_id
-  ORDER BY (SPLIT_PART(transaction_number, '-', 3)::INTEGER) DESC
+    AND (p_transaction_type IS NULL OR transaction_type = p_transaction_type)
+  -- Handles both legacy (YYYYMMDD-type-#) and new (YYYYMMDD-#) formats
+  ORDER BY (
+    COALESCE(
+      (regexp_match(transaction_number, '-([0-9]+)$'))[1]::INTEGER,
+      0
+    )
+  ) DESC
   LIMIT 1;
 
   IF v_last_number IS NULL THEN
     v_next_sequence := 1;
   ELSE
-    v_next_sequence := SPLIT_PART(v_last_number, '-', 3)::INTEGER + 1;
+    v_last_seq := COALESCE(
+      (regexp_match(v_last_number, '-([0-9]+)$'))[1]::INTEGER,
+      0
+    );
+    v_next_sequence := v_last_seq + 1;
   END IF;
 
-  RETURN v_today_prefix || '-' || v_type_segment || '-' || v_next_sequence;
+  RETURN v_today_prefix || '-' || v_next_sequence;
 END;
 $$ LANGUAGE plpgsql;
 
