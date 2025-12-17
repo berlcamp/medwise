@@ -41,8 +41,8 @@ export default function StickyHeader() {
       {/* Create Transaction button for agents */}
       {isAgent && (
         <Link href="/agent-transaction">
-          <Button 
-            variant="default" 
+          <Button
+            variant="default"
             className="mr-2 bg-green-600 hover:bg-green-700 text-white"
             size="sm"
           >

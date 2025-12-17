@@ -102,6 +102,10 @@ export function ConsignmentDetailsModal({
     null
   );
 
+  // State to track if there's a newer consignment
+  const [hasNewerConsignment, setHasNewerConsignment] = useState(false);
+  const [newerConsignment, setNewerConsignment] = useState<Consignment | null>(null);
+
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   );
@@ -110,6 +114,51 @@ export function ConsignmentDetailsModal({
   useEffect(() => {
     setConsignmentData(consignment);
   }, [consignment]);
+
+  // Check for newer consignments
+  useEffect(() => {
+    if (!consignmentData?.id || !isOpen) return;
+
+    const checkForNewerConsignment = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("consignments")
+          .select("*")
+          .eq("customer_id", consignmentData.customer_id)
+          .eq("branch_id", consignmentData.branch_id)
+          .neq("id", consignmentData.id)
+          .order("year", { ascending: false })
+          .order("month", { ascending: false })
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const latest = data[0];
+          // Check if the latest consignment is newer (later year OR same year with later month)
+          const isNewer =
+            latest.year > consignmentData.year ||
+            (latest.year === consignmentData.year &&
+              latest.month > consignmentData.month);
+
+          if (isNewer) {
+            setHasNewerConsignment(true);
+            setNewerConsignment(latest);
+          } else {
+            setHasNewerConsignment(false);
+            setNewerConsignment(null);
+          }
+        } else {
+          setHasNewerConsignment(false);
+          setNewerConsignment(null);
+        }
+      } catch (err) {
+        console.error("Error checking for newer consignment:", err);
+        setHasNewerConsignment(false);
+        setNewerConsignment(null);
+      }
+    };
+
+    checkForNewerConsignment();
+  }, [consignmentData?.id, consignmentData?.customer_id, consignmentData?.branch_id, consignmentData?.year, consignmentData?.month, isOpen]);
 
   // Load consignment sale transactions
   useEffect(() => {
@@ -763,12 +812,30 @@ export function ConsignmentDetailsModal({
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="overview">Item Overview</TabsTrigger>
-                      <TabsTrigger value="add-items">Add Items</TabsTrigger>
+                      <TabsTrigger 
+                        value="add-items"
+                        disabled={hasNewerConsignment}
+                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                      >
+                        Add Items
+                      </TabsTrigger>
                       <TabsTrigger value="transaction-history">
                         Transaction History
                       </TabsTrigger>
-                      <TabsTrigger value="record-sale">Record Sale</TabsTrigger>
-                      <TabsTrigger value="return">Return Items</TabsTrigger>
+                      <TabsTrigger 
+                        value="record-sale"
+                        disabled={hasNewerConsignment}
+                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                      >
+                        Record Sale
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="return"
+                        disabled={hasNewerConsignment}
+                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                      >
+                        Return Items
+                      </TabsTrigger>
                     </TabsList>
 
                     {/* Overview Tab */}
@@ -1090,312 +1157,457 @@ export function ConsignmentDetailsModal({
 
                     {/* Add Items Tab */}
                     <TabsContent value="add-items">
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                          Add new products or increase quantities of existing
-                          products in this consignment. Items will be deducted
-                          from available inventory.
-                        </p>
+                      {hasNewerConsignment ? (
+                        <div className="border-2 border-dashed rounded-lg p-12 text-center bg-yellow-50">
+                          <p className="text-lg font-semibold text-yellow-800 mb-2">
+                            This consignment is no longer active
+                          </p>
+                          <p className="text-sm text-yellow-700 mb-4">
+                            A newer consignment exists for this customer:{" "}
+                            <span className="font-medium">
+                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-sm text-gray-600">
+                            Add new products or increase quantities of existing
+                            products in this consignment. Items will be deducted
+                            from available inventory.
+                          </p>
 
-                        {/* Product Search */}
-                        <div>
-                          <label className="text-sm font-medium mb-2 block">
-                            Search Products
-                          </label>
-                          <div className="relative" ref={searchContainerRef}>
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <Input
-                              placeholder="Search products to add..."
-                              value={productSearchTerm}
-                              onChange={(e) => {
-                                setProductSearchTerm(e.target.value);
-                                setShowProductResults(
-                                  e.target.value.trim().length > 0
-                                );
-                              }}
-                              onFocus={() =>
-                                setShowProductResults(
-                                  productSearchTerm.trim().length > 0
-                                )
-                              }
-                              className="pl-10"
-                            />
+                          {/* Product Search */}
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">
+                              Search Products
+                            </label>
+                            <div className="relative" ref={searchContainerRef}>
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                              <Input
+                                placeholder="Search products to add..."
+                                value={productSearchTerm}
+                                onChange={(e) => {
+                                  setProductSearchTerm(e.target.value);
+                                  setShowProductResults(
+                                    e.target.value.trim().length > 0
+                                  );
+                                }}
+                                onFocus={() =>
+                                  setShowProductResults(
+                                    productSearchTerm.trim().length > 0
+                                  )
+                                }
+                                className="pl-10"
+                              />
 
-                            {/* Product Search Results Dropdown */}
-                            {showProductResults && loadingProducts && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
-                                <p className="text-gray-500">
-                                  Searching products...
-                                </p>
-                              </div>
-                            )}
-
-                            {showProductResults &&
-                              !loadingProducts &&
-                              products.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
-                                  <div className="p-2">
-                                    {products.map((product) => {
-                                      const alreadyInNewItems = newItems.some(
-                                        (item) => item.product_id === product.id
-                                      );
-
-                                      return (
-                                        <button
-                                          key={product.id}
-                                          onClick={() => {
-                                            addProductToNewItems(product.id, 1);
-                                          }}
-                                          className={cn(
-                                            "w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between",
-                                            alreadyInNewItems
-                                              ? "bg-blue-50 border border-blue-200"
-                                              : "hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer"
-                                          )}
-                                        >
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                              <h3 className="font-semibold text-sm">
-                                                {product.name}
-                                              </h3>
-                                              {alreadyInNewItems && (
-                                                <Badge
-                                                  variant="secondary"
-                                                  className="text-xs"
-                                                >
-                                                  In List
-                                                </Badge>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-3 mt-1">
-                                              <span className="text-xs text-gray-500">
-                                                {product.category}
-                                              </span>
-                                              <span className="text-xs text-gray-500">
-                                                •
-                                              </span>
-                                              <span className="text-xs text-gray-500">
-                                                {product.unit}
-                                              </span>
-                                              <span className="text-xs text-gray-500">
-                                                •
-                                              </span>
-                                              <Badge
-                                                variant="outline"
-                                                className="text-xs"
-                                              >
-                                                Stock: {product.stock_qty || 0}
-                                              </Badge>
-                                            </div>
-                                          </div>
-                                          <div className="text-right ml-4">
-                                            <p className="text-base font-bold text-blue-600">
-                                              ₱
-                                              {product.selling_price.toLocaleString(
-                                                "en-US",
-                                                {
-                                                  minimumFractionDigits: 2,
-                                                  maximumFractionDigits: 2,
-                                                }
-                                              )}
-                                            </p>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-
-                            {showProductResults &&
-                              !loadingProducts &&
-                              products.length === 0 &&
-                              productSearchTerm.trim() && (
+                              {/* Product Search Results Dropdown */}
+                              {showProductResults && loadingProducts && (
                                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
                                   <p className="text-gray-500">
-                                    No products found for &quot;
-                                    {productSearchTerm}&quot;
+                                    Searching products...
                                   </p>
                                 </div>
                               )}
-                          </div>
-                        </div>
 
-                        {/* New Items Table */}
-                        {newItems.length > 0 && (
+                              {showProductResults &&
+                                !loadingProducts &&
+                                products.length > 0 && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+                                    <div className="p-2">
+                                      {products.map((product) => {
+                                        const alreadyInNewItems = newItems.some(
+                                          (item) => item.product_id === product.id
+                                        );
+
+                                        return (
+                                          <button
+                                            key={product.id}
+                                            onClick={() => {
+                                              addProductToNewItems(product.id, 1);
+                                            }}
+                                            className={cn(
+                                              "w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between",
+                                              alreadyInNewItems
+                                                ? "bg-blue-50 border border-blue-200"
+                                                : "hover:bg-blue-50 border border-transparent hover:border-blue-200 cursor-pointer"
+                                            )}
+                                          >
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2">
+                                                <h3 className="font-semibold text-sm">
+                                                  {product.name}
+                                                </h3>
+                                                {alreadyInNewItems && (
+                                                  <Badge
+                                                    variant="secondary"
+                                                    className="text-xs"
+                                                  >
+                                                    In List
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-3 mt-1">
+                                                <span className="text-xs text-gray-500">
+                                                  {product.category}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  •
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  {product.unit}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                  •
+                                                </span>
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-xs"
+                                                >
+                                                  Stock: {product.stock_qty || 0}
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                            <div className="text-right ml-4">
+                                              <p className="text-base font-bold text-blue-600">
+                                                ₱
+                                                {product.selling_price.toLocaleString(
+                                                  "en-US",
+                                                  {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2,
+                                                  }
+                                                )}
+                                              </p>
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                              {showProductResults &&
+                                !loadingProducts &&
+                                products.length === 0 &&
+                                productSearchTerm.trim() && (
+                                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-lg shadow-lg p-6 z-50 text-center">
+                                    <p className="text-gray-500">
+                                      No products found for &quot;
+                                      {productSearchTerm}&quot;
+                                    </p>
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+
+                          {/* New Items Table */}
+                          {newItems.length > 0 && (
+                            <div className="border rounded-lg">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead>Unit</TableHead>
+                                    <TableHead className="text-center">
+                                      Stock Available
+                                    </TableHead>
+                                    <TableHead className="text-center">
+                                      Quantity
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                      Price
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                      Total
+                                    </TableHead>
+                                    <TableHead className="w-[100px]">
+                                      Action
+                                    </TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {newItems.map((item) => {
+                                    const existingItem = items.find(
+                                      (i: ConsignmentItem) =>
+                                        i.product_id === item.product_id
+                                    );
+                                    const currentConsignedQty =
+                                      existingItem?.current_balance || 0;
+
+                                    return (
+                                      <TableRow key={item.product_id}>
+                                        <TableCell className="font-medium">
+                                          {item.product_name}
+                                          {existingItem && (
+                                            <div className="text-xs text-gray-500 mt-1">
+                                              Currently consigned:{" "}
+                                              {currentConsignedQty}
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                        <TableCell>{item.unit}</TableCell>
+                                        <TableCell className="text-center">
+                                          <Badge variant="outline">
+                                            {item.stock_qty}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <Input
+                                            type="number"
+                                            min={1}
+                                            max={item.stock_qty}
+                                            value={item.quantity}
+                                            onChange={(e) =>
+                                              updateNewItemQuantity(
+                                                item.product_id,
+                                                Number(e.target.value)
+                                              )
+                                            }
+                                            className="w-20 mx-auto"
+                                          />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={item.price}
+                                            onChange={(e) =>
+                                              updateNewItemPrice(
+                                                item.product_id,
+                                                Number(e.target.value)
+                                              )
+                                            }
+                                            className="w-24 ml-auto"
+                                          />
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                          {formatMoney(item.total)}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={() =>
+                                              removeNewItem(item.product_id)
+                                            }
+                                          >
+                                            Remove
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
+                                </TableBody>
+                              </Table>
+
+                              {/* Summary */}
+                              <div className="bg-muted/30 px-4 py-4 border-t">
+                                <div className="flex justify-between text-lg font-bold">
+                                  <span>Total Value:</span>
+                                  <span>{formatMoney(totalAddAmount)}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {newItems.length === 0 && (
+                            <div className="border-2 border-dashed rounded-lg p-12 text-center">
+                              <p className="text-muted-foreground">
+                                No items added yet. Search and select products
+                                above to add them.
+                              </p>
+                            </div>
+                          )}
+
+                          {newItems.length > 0 && (
+                            <div className="flex justify-end pt-4 border-t">
+                              <Button
+                                variant="default"
+                                onClick={() => setConfirmAddOpen(true)}
+                                disabled={addingItems}
+                              >
+                                {addingItems
+                                  ? "Adding..."
+                                  : "Add Items to Consignment"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </TabsContent>
+
+                    {/* Record Sale Tab */}
+                    <TabsContent value="record-sale">
+                      {hasNewerConsignment ? (
+                        <div className="border-2 border-dashed rounded-lg p-12 text-center bg-yellow-50">
+                          <p className="text-lg font-semibold text-yellow-800 mb-2">
+                            This consignment is no longer active
+                          </p>
+                          <p className="text-sm text-yellow-700 mb-4">
+                            A newer consignment exists for this customer:{" "}
+                            <span className="font-medium">
+                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-sm text-gray-600">
+                            Enter quantities sold by the customer. This will
+                            deduct from consigned inventory and create a
+                            transaction record.
+                          </p>
                           <div className="border rounded-lg">
                             <Table>
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>Product</TableHead>
-                                  <TableHead>Unit</TableHead>
                                   <TableHead className="text-center">
-                                    Stock Available
+                                    Current Balance
                                   </TableHead>
                                   <TableHead className="text-center">
-                                    Quantity
+                                    Quantity Sold
                                   </TableHead>
                                   <TableHead className="text-right">
-                                    Price
+                                    Unit Price
                                   </TableHead>
                                   <TableHead className="text-right">
-                                    Total
-                                  </TableHead>
-                                  <TableHead className="w-[100px]">
-                                    Action
+                                    Subtotal
                                   </TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {newItems.map((item) => {
-                                  const existingItem = items.find(
-                                    (i: ConsignmentItem) =>
-                                      i.product_id === item.product_id
-                                  );
-                                  const currentConsignedQty =
-                                    existingItem?.current_balance || 0;
-
-                                  return (
-                                    <TableRow key={item.product_id}>
-                                      <TableCell className="font-medium">
-                                        {item.product_name}
-                                        {existingItem && (
-                                          <div className="text-xs text-gray-500 mt-1">
-                                            Currently consigned:{" "}
-                                            {currentConsignedQty}
+                                {items
+                                  .filter(
+                                    (item: ConsignmentItem) =>
+                                      item.current_balance > 0
+                                  )
+                                  .map((item: ConsignmentItem) => {
+                                    const qtySold = saleItems[item.id] || 0;
+                                    const subtotal = qtySold * item.unit_price;
+                                    return (
+                                      <TableRow key={item.id}>
+                                        <TableCell>
+                                          <div className="font-medium">
+                                            {item.product?.name || "Unknown"}
                                           </div>
-                                        )}
-                                      </TableCell>
-                                      <TableCell>{item.unit}</TableCell>
-                                      <TableCell className="text-center">
-                                        <Badge variant="outline">
-                                          {item.stock_qty}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <Input
-                                          type="number"
-                                          min={1}
-                                          max={item.stock_qty}
-                                          value={item.quantity}
-                                          onChange={(e) =>
-                                            updateNewItemQuantity(
-                                              item.product_id,
-                                              Number(e.target.value)
-                                            )
-                                          }
-                                          className="w-20 mx-auto"
-                                        />
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          step="0.01"
-                                          value={item.price}
-                                          onChange={(e) =>
-                                            updateNewItemPrice(
-                                              item.product_id,
-                                              Number(e.target.value)
-                                            )
-                                          }
-                                          className="w-24 ml-auto"
-                                        />
-                                      </TableCell>
-                                      <TableCell className="text-right font-medium">
-                                        {formatMoney(item.total)}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                          onClick={() =>
-                                            removeNewItem(item.product_id)
-                                          }
-                                        >
-                                          Remove
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <span className="font-semibold">
+                                            {item.current_balance}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            max={item.current_balance}
+                                            value={saleItems[item.id] || 0}
+                                            onChange={(e) => {
+                                              const value = Number(
+                                                e.target.value
+                                              );
+                                              const clampedValue = Math.min(
+                                                Math.max(0, value),
+                                                item.current_balance
+                                              );
+                                              setSaleItems({
+                                                ...saleItems,
+                                                [item.id]: clampedValue,
+                                              });
+                                            }}
+                                            className="w-20 mx-auto"
+                                          />
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {formatMoney(item.unit_price)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                          {formatMoney(subtotal)}
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  })}
                               </TableBody>
                             </Table>
-
-                            {/* Summary */}
-                            <div className="bg-muted/30 px-4 py-4 border-t">
-                              <div className="flex justify-between text-lg font-bold">
-                                <span>Total Value:</span>
-                                <span>{formatMoney(totalAddAmount)}</span>
-                              </div>
+                          </div>
+                          <div className="flex justify-between items-center pt-4 border-t">
+                            <div>
+                              <p className="text-sm text-gray-600">
+                                Total Sale Amount:
+                              </p>
+                              <p className="text-2xl font-bold text-green-600">
+                                {formatMoney(totalSaleAmount)}
+                              </p>
                             </div>
-                          </div>
-                        )}
-
-                        {newItems.length === 0 && (
-                          <div className="border-2 border-dashed rounded-lg p-12 text-center">
-                            <p className="text-muted-foreground">
-                              No items added yet. Search and select products
-                              above to add them.
-                            </p>
-                          </div>
-                        )}
-
-                        {newItems.length > 0 && (
-                          <div className="flex justify-end pt-4 border-t">
                             <Button
-                              variant="default"
-                              onClick={() => setConfirmAddOpen(true)}
-                              disabled={addingItems}
+                              variant="green"
+                              onClick={() => setConfirmSaleOpen(true)}
+                              disabled={
+                                recordingSale ||
+                                Object.values(saleItems).every((qty) => qty === 0)
+                              }
                             >
-                              {addingItems
-                                ? "Adding..."
-                                : "Add Items to Consignment"}
+                              {recordingSale ? "Recording..." : "Record Sale"}
                             </Button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </TabsContent>
 
-                    {/* Record Sale Tab */}
-                    <TabsContent value="record-sale">
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                          Enter quantities sold by the customer. This will
-                          deduct from consigned inventory and create a
-                          transaction record.
-                        </p>
-                        <div className="border rounded-lg">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Product</TableHead>
-                                <TableHead className="text-center">
-                                  Current Balance
-                                </TableHead>
-                                <TableHead className="text-center">
-                                  Quantity Sold
-                                </TableHead>
-                                <TableHead className="text-right">
-                                  Unit Price
-                                </TableHead>
-                                <TableHead className="text-right">
-                                  Subtotal
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {items
-                                .filter(
-                                  (item: ConsignmentItem) =>
-                                    item.current_balance > 0
-                                )
-                                .map((item: ConsignmentItem) => {
-                                  const qtySold = saleItems[item.id] || 0;
-                                  const subtotal = qtySold * item.unit_price;
-                                  return (
+                    {/* Return Items Tab */}
+                    <TabsContent value="return">
+                      {hasNewerConsignment ? (
+                        <div className="border-2 border-dashed rounded-lg p-12 text-center bg-yellow-50">
+                          <p className="text-lg font-semibold text-yellow-800 mb-2">
+                            This consignment is no longer active
+                          </p>
+                          <p className="text-sm text-yellow-700 mb-4">
+                            A newer consignment exists for this customer:{" "}
+                            <span className="font-medium">
+                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-sm text-gray-600">
+                            Return unsold items back to inventory. This will
+                            increase available stock.
+                          </p>
+                          <div className="border rounded-lg">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Product</TableHead>
+                                  <TableHead className="text-center">
+                                    Current Balance
+                                  </TableHead>
+                                  <TableHead className="text-center">
+                                    Quantity to Return
+                                  </TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {items
+                                  .filter(
+                                    (item: ConsignmentItem) =>
+                                      item.current_balance > 0
+                                  )
+                                  .map((item: ConsignmentItem) => (
                                     <TableRow key={item.id}>
                                       <TableCell>
                                         <div className="font-medium">
@@ -1412,136 +1624,42 @@ export function ConsignmentDetailsModal({
                                           type="number"
                                           min={0}
                                           max={item.current_balance}
-                                          value={saleItems[item.id] || 0}
+                                          value={returnItems[item.id] || 0}
                                           onChange={(e) => {
-                                            const value = Number(
-                                              e.target.value
-                                            );
+                                            const value = Number(e.target.value);
                                             const clampedValue = Math.min(
                                               Math.max(0, value),
                                               item.current_balance
                                             );
-                                            setSaleItems({
-                                              ...saleItems,
+                                            setReturnItems({
+                                              ...returnItems,
                                               [item.id]: clampedValue,
                                             });
                                           }}
                                           className="w-20 mx-auto"
                                         />
                                       </TableCell>
-                                      <TableCell className="text-right">
-                                        {formatMoney(item.unit_price)}
-                                      </TableCell>
-                                      <TableCell className="text-right">
-                                        {formatMoney(subtotal)}
-                                      </TableCell>
                                     </TableRow>
-                                  );
-                                })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                        <div className="flex justify-between items-center pt-4 border-t">
-                          <div>
-                            <p className="text-sm text-gray-600">
-                              Total Sale Amount:
-                            </p>
-                            <p className="text-2xl font-bold text-green-600">
-                              {formatMoney(totalSaleAmount)}
-                            </p>
+                                  ))}
+                              </TableBody>
+                            </Table>
                           </div>
-                          <Button
-                            variant="green"
-                            onClick={() => setConfirmSaleOpen(true)}
-                            disabled={
-                              recordingSale ||
-                              Object.values(saleItems).every((qty) => qty === 0)
-                            }
-                          >
-                            {recordingSale ? "Recording..." : "Record Sale"}
-                          </Button>
-                        </div>
-                      </div>
-                    </TabsContent>
-
-                    {/* Return Items Tab */}
-                    <TabsContent value="return">
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600">
-                          Return unsold items back to inventory. This will
-                          increase available stock.
-                        </p>
-                        <div className="border rounded-lg">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Product</TableHead>
-                                <TableHead className="text-center">
-                                  Current Balance
-                                </TableHead>
-                                <TableHead className="text-center">
-                                  Quantity to Return
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {items
-                                .filter(
-                                  (item: ConsignmentItem) =>
-                                    item.current_balance > 0
+                          <div className="flex justify-end pt-4 border-t">
+                            <Button
+                              variant="blue"
+                              onClick={() => setConfirmReturnOpen(true)}
+                              disabled={
+                                returningItems ||
+                                Object.values(returnItems).every(
+                                  (qty) => qty === 0
                                 )
-                                .map((item: ConsignmentItem) => (
-                                  <TableRow key={item.id}>
-                                    <TableCell>
-                                      <div className="font-medium">
-                                        {item.product?.name || "Unknown"}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <span className="font-semibold">
-                                        {item.current_balance}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Input
-                                        type="number"
-                                        min={0}
-                                        max={item.current_balance}
-                                        value={returnItems[item.id] || 0}
-                                        onChange={(e) => {
-                                          const value = Number(e.target.value);
-                                          const clampedValue = Math.min(
-                                            Math.max(0, value),
-                                            item.current_balance
-                                          );
-                                          setReturnItems({
-                                            ...returnItems,
-                                            [item.id]: clampedValue,
-                                          });
-                                        }}
-                                        className="w-20 mx-auto"
-                                      />
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                            </TableBody>
-                          </Table>
+                              }
+                            >
+                              {returningItems ? "Processing..." : "Return Items"}
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex justify-end pt-4 border-t">
-                          <Button
-                            variant="blue"
-                            onClick={() => setConfirmReturnOpen(true)}
-                            disabled={
-                              returningItems ||
-                              Object.values(returnItems).every(
-                                (qty) => qty === 0
-                              )
-                            }
-                          >
-                            {returningItems ? "Processing..." : "Return Items"}
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                     </TabsContent>
                   </Tabs>
 
