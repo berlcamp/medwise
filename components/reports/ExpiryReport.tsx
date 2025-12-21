@@ -90,6 +90,18 @@ export const ExpiryReport = () => {
     }
 
     setLoading(true);
+
+    // Format dates in local timezone to avoid UTC conversion issues
+    const formatLocalDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const start = formatLocalDate(range[0].startDate);
+    const end = formatLocalDate(range[0].endDate);
+
     try {
       const { data, error } = await supabase
         .from("product_stocks")
@@ -103,8 +115,8 @@ export const ExpiryReport = () => {
         .eq("branch_id", selectedBranchId)
         .gte("remaining_quantity", 1)
         .not("expiration_date", "is", null)
-        .gte("expiration_date", range[0].startDate.toISOString())
-        .lte("expiration_date", range[0].endDate.toISOString())
+        .gte("expiration_date", `${start} 00:00:00`)
+        .lte("expiration_date", `${end} 23:59:59`)
         .order("expiration_date", { ascending: true });
 
       if (error) throw error;

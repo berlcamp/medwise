@@ -1,82 +1,82 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-'use client'
-import { ConsignmentPrint } from '@/components/printables/ConsignmentPrint'
-import { Button } from '@/components/ui/button'
+"use client";
+import { ConsignmentPrint } from "@/components/printables/ConsignmentPrint";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
-import { supabase } from '@/lib/supabase/client'
-import { formatConsignmentPeriod } from '@/lib/utils/consignment'
-import { Consignment, RootState } from '@/types'
-import { format } from 'date-fns'
-import { ChevronDown, Printer, Settings } from 'lucide-react'
-import { useState } from 'react'
-import Avatar from 'react-avatar'
-import toast from 'react-hot-toast'
-import { useSelector } from 'react-redux'
-import { ConsignmentDetailsModal } from './ConsignmentDetailsModal'
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { supabase } from "@/lib/supabase/client";
+import { formatConsignmentPeriod } from "@/lib/utils/consignment";
+import { Consignment, RootState } from "@/types";
+import { format } from "date-fns";
+import { ChevronDown, Printer, Settings } from "lucide-react";
+import { useState } from "react";
+import Avatar from "react-avatar";
+import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { ConsignmentDetailsModal } from "./ConsignmentDetailsModal";
 
 export const List = () => {
-  const list = useSelector((state: RootState) => state.list.value)
-  const [selectedItem, setSelectedItem] = useState<Consignment | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [printData, setPrintData] = useState<any>(null)
-  
+  const list = useSelector((state: RootState) => state.list.value);
+  const [selectedItem, setSelectedItem] = useState<Consignment | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [printData, setPrintData] = useState<any>(null);
+
   const handleView = (item: Consignment) => {
-    setSelectedItem(item)
-    setIsModalOpen(true)
-  }
+    setSelectedItem(item);
+    setIsModalOpen(true);
+  };
 
   const printConsignment = async (item: Consignment) => {
     // Load consignment items with product data
     const { data: items, error: itemsError } = await supabase
-      .from('consignment_items')
+      .from("consignment_items")
       .select(`*, product:product_id(name, unit)`)
-      .eq('consignment_id', item.id)
+      .eq("consignment_id", item.id);
 
     if (itemsError) {
-      console.error(itemsError)
-      toast.error('Failed to load consignment items')
-      return
+      console.error(itemsError);
+      toast.error("Failed to load consignment items");
+      return;
     }
 
     // Load customer data if customer_id exists
-    let customerData = null
+    let customerData = null;
     if (item.customer_id) {
       const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', item.customer_id)
-        .single()
+        .from("customers")
+        .select("*")
+        .eq("id", item.customer_id)
+        .single();
 
       if (!customerError && customer) {
-        customerData = customer
+        customerData = customer;
       }
     }
 
     // Combine consignment data with customer
     const consignmentWithCustomer = {
       ...item,
-      customer: customerData
-    }
+      customer: customerData,
+    };
 
-    setPrintData({ consignment: consignmentWithCustomer, items: items || [] })
+    setPrintData({ consignment: consignmentWithCustomer, items: items || [] });
 
     // Use requestAnimationFrame to ensure DOM is updated before printing
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          window.print()
+          window.print();
           setTimeout(() => {
-            setPrintData(null)
-          }, 500)
-        }, 100)
-      })
-    })
-  }
+            setPrintData(null);
+          }, 500);
+        }, 100);
+      });
+    });
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -103,7 +103,7 @@ export const List = () => {
                   <div className="font-semibold">{item.consignment_number}</div>
                   <div className="text-xs text-gray-500">
                     {item.created_at &&
-                      format(new Date(item.created_at), 'MMM dd, yyyy')}
+                      format(new Date(item.created_at), "MMM dd, yyyy")}
                   </div>
                 </div>
               </td>
@@ -136,7 +136,7 @@ export const List = () => {
                     {item.previous_balance_qty}
                   </span>
                 ) : (
-                  '-'
+                  "-"
                 )}
               </td>
               <td className="app__td text-center">
@@ -145,7 +145,7 @@ export const List = () => {
                     +{item.new_items_qty}
                   </span>
                 ) : (
-                  '-'
+                  "-"
                 )}
               </td>
               <td className="app__td text-center">
@@ -154,7 +154,7 @@ export const List = () => {
                     -{item.sold_qty}
                   </span>
                 ) : (
-                  '-'
+                  "-"
                 )}
               </td>
               <td className="app__td text-center">
@@ -165,7 +165,11 @@ export const List = () => {
               <td className="app__td text-right">
                 {item.balance_due > 0 ? (
                   <span className="text-red-600 font-semibold">
-                    ₱{Number(item.balance_due).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ₱
+                    {Number(item.balance_due).toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 ) : (
                   <span className="text-gray-400">₱0.00</span>
@@ -174,14 +178,14 @@ export const List = () => {
               <td className="app__td text-center">
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${
-                    item.status === 'active'
-                      ? 'bg-green-100 text-green-800'
-                      : item.status === 'settled'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-gray-100 text-gray-800'
+                    item.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : item.status === "settled"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-800"
                   }`}
                 >
-                  {item.status?.toUpperCase() || '-'}
+                  {item.status?.toUpperCase() || "-"}
                 </span>
               </td>
               <td className="app__td text-center">
@@ -213,9 +217,9 @@ export const List = () => {
         <ConsignmentDetailsModal
           isOpen={isModalOpen}
           onClose={() => {
-            setIsModalOpen(false)
+            setIsModalOpen(false);
             // Refresh list after closing modal
-            window.location.reload()
+            window.location.reload();
           }}
           consignment={selectedItem}
         />
@@ -223,5 +227,5 @@ export const List = () => {
 
       <ConsignmentPrint data={printData} />
     </div>
-  )
-}
+  );
+};

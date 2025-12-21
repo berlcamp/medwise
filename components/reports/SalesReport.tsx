@@ -93,8 +93,19 @@ export default function SalesReport() {
 
     setLoading(true);
 
-    const start = range[0].startDate.toISOString().split("T")[0];
-    const end = range[0].endDate.toISOString().split("T")[0];
+    // Format dates in local timezone to avoid UTC conversion issues
+    const formatLocalDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const start = formatLocalDate(range[0].startDate);
+    const end = formatLocalDate(range[0].endDate);
+
+    console.log("start", start);
+    console.log("end", end);
 
     let query = supabase
       .from("transactions")
