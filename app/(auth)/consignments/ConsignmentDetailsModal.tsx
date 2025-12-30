@@ -104,7 +104,9 @@ export function ConsignmentDetailsModal({
 
   // State to track if there's a newer consignment
   const [hasNewerConsignment, setHasNewerConsignment] = useState(false);
-  const [newerConsignment, setNewerConsignment] = useState<Consignment | null>(null);
+  const [newerConsignment, setNewerConsignment] = useState<Consignment | null>(
+    null
+  );
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -158,7 +160,14 @@ export function ConsignmentDetailsModal({
     };
 
     checkForNewerConsignment();
-  }, [consignmentData?.id, consignmentData?.customer_id, consignmentData?.branch_id, consignmentData?.year, consignmentData?.month, isOpen]);
+  }, [
+    consignmentData?.id,
+    consignmentData?.customer_id,
+    consignmentData?.branch_id,
+    consignmentData?.year,
+    consignmentData?.month,
+    isOpen,
+  ]);
 
   // Load consignment sale transactions
   useEffect(() => {
@@ -803,7 +812,10 @@ export function ConsignmentDetailsModal({
                     <div>
                       <p className="text-xs text-gray-600">Balance Due</p>
                       <p className="font-semibold text-red-600">
-                        {formatMoney(consignmentData.balance_due)}
+                        {formatMoney(
+                          consignmentData.total_consigned_value -
+                            consignmentData.total_sold_value
+                        )}
                       </p>
                     </div>
                   </div>
@@ -812,27 +824,39 @@ export function ConsignmentDetailsModal({
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-5">
                       <TabsTrigger value="overview">Item Overview</TabsTrigger>
-                      <TabsTrigger 
+                      <TabsTrigger
                         value="add-items"
                         disabled={hasNewerConsignment}
-                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                        className={
+                          hasNewerConsignment
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }
                       >
                         Add Items
                       </TabsTrigger>
                       <TabsTrigger value="transaction-history">
                         Transaction History
                       </TabsTrigger>
-                      <TabsTrigger 
+                      <TabsTrigger
                         value="record-sale"
                         disabled={hasNewerConsignment}
-                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                        className={
+                          hasNewerConsignment
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }
                       >
                         Record Sale
                       </TabsTrigger>
-                      <TabsTrigger 
+                      <TabsTrigger
                         value="return"
                         disabled={hasNewerConsignment}
-                        className={hasNewerConsignment ? "opacity-50 cursor-not-allowed" : ""}
+                        className={
+                          hasNewerConsignment
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                        }
                       >
                         Return Items
                       </TabsTrigger>
@@ -1101,9 +1125,6 @@ export function ConsignmentDetailsModal({
                                     <TableHead className="text-right">
                                       Total Amount
                                     </TableHead>
-                                    <TableHead className="text-center">
-                                      Actions
-                                    </TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1120,30 +1141,6 @@ export function ConsignmentDetailsModal({
                                       </TableCell>
                                       <TableCell className="text-right">
                                         {formatMoney(tx.total_amount)}
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <div className="flex justify-center gap-2">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                              printDeliveryReceipt(tx, "sale")
-                                            }
-                                          >
-                                            <Printer className="w-4 h-4 mr-1" />
-                                            Delivery Receipt
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                              printInvoice(tx, "sale")
-                                            }
-                                          >
-                                            <Printer className="w-4 h-4 mr-1" />
-                                            Sales Invoice
-                                          </Button>
-                                        </div>
                                       </TableCell>
                                     </TableRow>
                                   ))}
@@ -1165,11 +1162,18 @@ export function ConsignmentDetailsModal({
                           <p className="text-sm text-yellow-700 mb-4">
                             A newer consignment exists for this customer:{" "}
                             <span className="font-medium">
-                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                              {newerConsignment?.consignment_number} (
+                              {formatConsignmentPeriod(
+                                newerConsignment?.month || 0,
+                                newerConsignment?.year || 0
+                              )}
+                              )
                             </span>
                           </p>
                           <p className="text-sm text-gray-600">
-                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                            Operations can only be performed on the latest
+                            consignment. Please use the latest consignment to
+                            add items, record sales, or return items.
                           </p>
                         </div>
                       ) : (
@@ -1220,14 +1224,18 @@ export function ConsignmentDetailsModal({
                                     <div className="p-2">
                                       {products.map((product) => {
                                         const alreadyInNewItems = newItems.some(
-                                          (item) => item.product_id === product.id
+                                          (item) =>
+                                            item.product_id === product.id
                                         );
 
                                         return (
                                           <button
                                             key={product.id}
                                             onClick={() => {
-                                              addProductToNewItems(product.id, 1);
+                                              addProductToNewItems(
+                                                product.id,
+                                                1
+                                              );
                                             }}
                                             className={cn(
                                               "w-full text-left p-3 rounded-md mb-1 transition-colors flex items-center justify-between",
@@ -1267,7 +1275,8 @@ export function ConsignmentDetailsModal({
                                                   variant="outline"
                                                   className="text-xs"
                                                 >
-                                                  Stock: {product.stock_qty || 0}
+                                                  Stock:{" "}
+                                                  {product.stock_qty || 0}
                                                 </Badge>
                                               </div>
                                             </div>
@@ -1453,11 +1462,18 @@ export function ConsignmentDetailsModal({
                           <p className="text-sm text-yellow-700 mb-4">
                             A newer consignment exists for this customer:{" "}
                             <span className="font-medium">
-                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                              {newerConsignment?.consignment_number} (
+                              {formatConsignmentPeriod(
+                                newerConsignment?.month || 0,
+                                newerConsignment?.year || 0
+                              )}
+                              )
                             </span>
                           </p>
                           <p className="text-sm text-gray-600">
-                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                            Operations can only be performed on the latest
+                            consignment. Please use the latest consignment to
+                            add items, record sales, or return items.
                           </p>
                         </div>
                       ) : (
@@ -1555,7 +1571,9 @@ export function ConsignmentDetailsModal({
                               onClick={() => setConfirmSaleOpen(true)}
                               disabled={
                                 recordingSale ||
-                                Object.values(saleItems).every((qty) => qty === 0)
+                                Object.values(saleItems).every(
+                                  (qty) => qty === 0
+                                )
                               }
                             >
                               {recordingSale ? "Recording..." : "Record Sale"}
@@ -1575,11 +1593,18 @@ export function ConsignmentDetailsModal({
                           <p className="text-sm text-yellow-700 mb-4">
                             A newer consignment exists for this customer:{" "}
                             <span className="font-medium">
-                              {newerConsignment?.consignment_number} ({formatConsignmentPeriod(newerConsignment?.month || 0, newerConsignment?.year || 0)})
+                              {newerConsignment?.consignment_number} (
+                              {formatConsignmentPeriod(
+                                newerConsignment?.month || 0,
+                                newerConsignment?.year || 0
+                              )}
+                              )
                             </span>
                           </p>
                           <p className="text-sm text-gray-600">
-                            Operations can only be performed on the latest consignment. Please use the latest consignment to add items, record sales, or return items.
+                            Operations can only be performed on the latest
+                            consignment. Please use the latest consignment to
+                            add items, record sales, or return items.
                           </p>
                         </div>
                       ) : (
@@ -1626,7 +1651,9 @@ export function ConsignmentDetailsModal({
                                           max={item.current_balance}
                                           value={returnItems[item.id] || 0}
                                           onChange={(e) => {
-                                            const value = Number(e.target.value);
+                                            const value = Number(
+                                              e.target.value
+                                            );
                                             const clampedValue = Math.min(
                                               Math.max(0, value),
                                               item.current_balance
@@ -1655,7 +1682,9 @@ export function ConsignmentDetailsModal({
                                 )
                               }
                             >
-                              {returningItems ? "Processing..." : "Return Items"}
+                              {returningItems
+                                ? "Processing..."
+                                : "Return Items"}
                             </Button>
                           </div>
                         </div>
