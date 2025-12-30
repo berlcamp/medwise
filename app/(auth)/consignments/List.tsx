@@ -163,17 +163,22 @@ export const List = () => {
                 </span>
               </td>
               <td className="app__td text-right">
-                {item.balance_due > 0 ? (
-                  <span className="text-red-600 font-semibold">
-                    ₱
-                    {Number(item.balance_due).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
-                ) : (
-                  <span className="text-gray-400">₱0.00</span>
-                )}
+                {(() => {
+                  const balanceDue =
+                    (Number(item.total_consigned_value) || 0) -
+                    (Number(item.total_sold_value) || 0);
+                  return balanceDue > 0 ? (
+                    <span className="text-red-600 font-semibold">
+                      ₱
+                      {balanceDue.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">₱0.00</span>
+                  );
+                })()}
               </td>
               <td className="app__td text-center">
                 <span
