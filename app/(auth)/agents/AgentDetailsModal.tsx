@@ -44,9 +44,16 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
   const [returningItems, setReturningItems] = useState(false);
   const [confirmReturnOpen, setConfirmReturnOpen] = useState(false);
 
+  // Product name filter (shared across tabs)
+  const [productSearch, setProductSearch] = useState("");
+
   useEffect(() => {
     setAgentData(agent);
   }, [agent]);
+
+  useEffect(() => {
+    if (!isOpen) setProductSearch("");
+  }, [isOpen]);
 
   // Load agent items
   useEffect(() => {
@@ -84,7 +91,9 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
     const fetchTransactions = async () => {
       const { data, error } = await supabase
         .from("transactions")
-        .select("*, customer:customer_id(name,address)")
+        .select(
+          "*, customer:customer_id(name,address), transaction_items(*, product:product_id(name))"
+        )
         .eq("transaction_type", "agent_sale")
         .eq("agent_id", agentData.id)
         .order("created_at", { ascending: false });
@@ -152,6 +161,34 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
 
     setReturningItems(false);
   };
+
+  const productSearchLower = productSearch.trim().toLowerCase();
+
+  const filteredItems = productSearchLower
+    ? items.filter(
+        (item: AgentItem) =>
+          (item.product?.name || "").toLowerCase().includes(productSearchLower)
+      )
+    : items;
+
+  const filteredTransactions = productSearchLower
+    ? transactions.filter((tx: any) =>
+        tx.transaction_items?.some(
+          (ti: any) =>
+            (ti.product?.name || "").toLowerCase().includes(productSearchLower)
+        )
+      )
+    : transactions;
+
+  const returnableItems = items.filter(
+    (item: AgentItem) => item.current_balance > 0
+  );
+  const filteredReturnItems = productSearchLower
+    ? returnableItems.filter(
+        (item: AgentItem) =>
+          (item.product?.name || "").toLowerCase().includes(productSearchLower)
+      )
+    : returnableItems;
 
   const totalItemsAdded = items.reduce((sum, i) => sum + i.quantity_added, 0);
   const totalItemsSold = items.reduce((sum, i) => sum + i.quantity_sold, 0);
@@ -260,6 +297,14 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
 
                     {/* Overview Tab */}
                     <TabsContent value="overview">
+                      <div className="mt-4 flex gap-2 items-center">
+                        <Input
+                          placeholder="Search by product name..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </div>
                       <div className="border rounded-lg mt-4">
                         <Table>
                           <TableHeader>
@@ -286,7 +331,7 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {items.length === 0 ? (
+                            {filteredItems.length === 0 ? (
                               <TableRow>
                                 <TableCell
                                   colSpan={7}
@@ -296,7 +341,7 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              items.map((item: AgentItem) => (
+                              filteredItems.map((item: AgentItem) => (
                                 <TableRow key={item.id}>
                                   <TableCell>
                                     <div>
@@ -358,6 +403,14 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
 
                     {/* Transactions Tab */}
                     <TabsContent value="transactions">
+                      <div className="mt-4 flex gap-2 items-center">
+                        <Input
+                          placeholder="Search by product name..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </div>
                       <div className="border rounded-lg mt-4">
                         <Table>
                           <TableHeader>
@@ -374,7 +427,7 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {transactions.length === 0 ? (
+                            {filteredTransactions.length === 0 ? (
                               <TableRow>
                                 <TableCell
                                   colSpan={5}
@@ -384,7 +437,7 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              transactions.map((transaction: any) => (
+                              filteredTransactions.map((transaction: any) => (
                                 <TableRow key={transaction.id}>
                                   <TableCell>
                                     <div className="font-medium">
@@ -438,6 +491,14 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
 
                     {/* Return Items Tab */}
                     <TabsContent value="return">
+                      <div className="mt-4 flex gap-2 items-center">
+                        <Input
+                          placeholder="Search by product name..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="max-w-xs"
+                        />
+                      </div>
                       <div className="border rounded-lg mt-4">
                         <Table>
                           <TableHeader>
@@ -452,11 +513,17 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {items
-                              .filter(
-                                (item: AgentItem) => item.current_balance > 0
-                              )
-                              .map((item: AgentItem) => (
+                            {filteredReturnItems.length === 0 ? (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={3}
+                                  className="text-center text-gray-500"
+                                >
+                                  No items found
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              filteredReturnItems.map((item: AgentItem) => (
                                 <TableRow key={item.id}>
                                   <TableCell>
                                     <div className="font-medium">
@@ -489,7 +556,8 @@ export function AgentDetailsModal({ isOpen, onClose, agent }: Props) {
                                     />
                                   </TableCell>
                                 </TableRow>
-                              ))}
+                              ))
+                            )}
                           </TableBody>
                         </Table>
                       </div>
