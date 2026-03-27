@@ -28,7 +28,7 @@ export const PaymentHistoryPrint = ({ data }: { data: any }) => {
     (sum: number, p: any) => sum + Number(p.amount || 0),
     0
   );
-  const balance = Number(transaction.total_amount || 0) - totalPaid;
+  const balance = Math.round((Number(transaction.total_amount || 0) - totalPaid) * 100) / 100;
 
   return (
     <div

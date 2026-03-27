@@ -75,7 +75,7 @@ export const ReceivePaymentModal = ({
     );
 
     const totalAmount = Number(transaction.total_amount || 0);
-    const balance = totalAmount - totalPaid;
+    const balance = Math.round((totalAmount - totalPaid) * 100) / 100;
 
     // Determine payment status based on totalPaid and balance
     let paymentStatus: "Paid" | "Partial" | "Unpaid";
@@ -98,7 +98,10 @@ export const ReceivePaymentModal = ({
     );
 
     setTotalPaid(totalPaid);
-    setBalance(Number(transaction.total_amount) - totalPaid);
+    setBalance(
+      Math.round((Number(transaction.total_amount || 0) - totalPaid) * 100) /
+        100
+    );
   };
 
   useEffect(() => {
@@ -112,7 +115,9 @@ export const ReceivePaymentModal = ({
       return;
     }
 
-    if (Number(amount) > balance) {
+    const amountCents = Math.round(Number(amount) * 100);
+    const balanceCents = Math.round(balance * 100);
+    if (amountCents > balanceCents) {
       toast.error("Payment cannot exceed remaining balance.");
       return;
     }
@@ -303,7 +308,7 @@ export const ReceivePaymentModal = ({
 
       {/* Centered panel container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <DialogPanel className="app__modal_dialog_panel">
+        <DialogPanel className="app__modal_dialog_panel_lg !max-w-[min(80rem,calc(100vw-2rem))] w-[calc(100vw-2rem)]">
           {/* Header */}
           <div className="app__modal_dialog_title_container">
             <DialogTitle className="text-base font-medium">
@@ -313,9 +318,9 @@ export const ReceivePaymentModal = ({
 
           {/* Scrollable content */}
           <div className="app__modal_dialog_content ">
-            <div className="flex gap-6">
+            <div className="flex flex-col lg:flex-row gap-6 min-w-0">
               {/* Left form */}
-              <div className="w-1/3 space-y-4 border-r pr-6">
+              <div className="w-full lg:max-w-[min(100%,22rem)] shrink-0 space-y-4 lg:border-r lg:pr-6">
                 <div className="flex flex-col gap-1">
                   <Label className="app__formlabel_standard">Amount</Label>
                   <Input
@@ -507,7 +512,7 @@ export const ReceivePaymentModal = ({
               </div>
 
               {/* Right payment history table */}
-              <div className="w-2/3">
+              <div className="min-w-0 flex-1">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">Payment History</h3>
                   <Button
@@ -520,8 +525,8 @@ export const ReceivePaymentModal = ({
                     Print
                   </Button>
                 </div>
-                <div className="border rounded-md overflow-hidden max-h-[400px] overflow-y-auto">
-                  <table className="w-full text-sm">
+                <div className="border rounded-md overflow-auto max-h-[min(58vh,640px)]">
+                  <table className="w-full min-w-[56rem] text-sm">
                     <thead className="bg-gray-100 text-gray-700 sticky top-0">
                       <tr>
                         <th className="p-2 border">Date</th>
