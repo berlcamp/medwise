@@ -105,6 +105,7 @@ export default function ConsignmentForm() {
   const [formValues, setFormValues] = useState<FormType | null>(null)
   const [previousBalance, setPreviousBalance] = useState<Consignment | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
+  const [existingConsignment, setExistingConsignment] = useState(false)
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -122,55 +123,62 @@ export default function ConsignmentForm() {
     return () => clearTimeout(timer)
   }, [productSearchTerm])
 
-  // Load previous month's balance when customer and period change
+  const watchedCustomerId = form.watch('customer_id')
+  const watchedMonth = form.watch('month')
+  const watchedYear = form.watch('year')
+
+  // Load previous month's balance and check for existing consignment
   useEffect(() => {
-    const loadPreviousBalance = async () => {
-      const customerId = form.watch('customer_id')
-      const month = form.watch('month')
-      const year = form.watch('year')
+    if (!watchedCustomerId || !watchedMonth || !watchedYear) return
 
-      if (!customerId || !month || !year) return
-
+    const loadData = async () => {
       setLoadingBalance(true)
 
-      // Calculate previous month
-      const prevMonth = month === 1 ? 12 : month - 1
-      const prevYear = month === 1 ? year - 1 : year
-
       try {
-        const { data, error } = await supabase
-          .from('consignments')
-          .select(
-            `
-            *,
-            consignment_items (
+        // Check for previous balance and existing consignment in parallel
+        const [prevResult, existingResult] = await Promise.all([
+          supabase
+            .from('consignments')
+            .select(
+              `
               *,
-              product:products (id, name, selling_price, unit)
+              consignment_items (
+                *,
+                product:products (id, name, selling_price, unit)
+              )
+            `
             )
-          `
-          )
-          .eq('customer_id', customerId)
-          .eq('branch_id', selectedBranchId)
-          .eq('month', prevMonth)
-          .eq('year', prevYear)
-          .eq('status', 'active')
-          .single()
+            .eq('customer_id', watchedCustomerId)
+            .eq('branch_id', selectedBranchId)
+            .eq('status', 'active')
+            .or(`year.lt.${watchedYear},and(year.eq.${watchedYear},month.lt.${watchedMonth})`)
+            .order('year', { ascending: false })
+            .order('month', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('consignments')
+            .select('id')
+            .eq('customer_id', watchedCustomerId)
+            .eq('branch_id', selectedBranchId)
+            .eq('month', watchedMonth)
+            .eq('year', watchedYear)
+            .maybeSingle()
+        ])
 
-        if (!error && data) {
-          setPreviousBalance(data)
-        } else {
-          setPreviousBalance(null)
-        }
+        setPreviousBalance(!prevResult.error && prevResult.data ? prevResult.data : null)
+        setExistingConsignment(!existingResult.error && !!existingResult.data)
       } catch (err) {
-        console.error('Error loading previous balance:', err)
+        console.error('Error loading consignment data:', err)
         setPreviousBalance(null)
+        setExistingConsignment(false)
       }
 
       setLoadingBalance(false)
     }
 
-    loadPreviousBalance()
-  }, [form, selectedBranchId])
+    loadData()
+  }, [watchedCustomerId, watchedMonth, watchedYear, selectedBranchId])
 
   const onSubmit = async (data: FormType) => {
     if (cartItems.length === 0) {
@@ -545,8 +553,21 @@ export default function ConsignmentForm() {
               </div>
             </div>
 
+            {/* Duplicate Consignment Warning */}
+            {existingConsignment && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h3 className="font-semibold text-red-900 mb-1">
+                  Consignment Already Exists
+                </h3>
+                <p className="text-sm text-red-800">
+                  A consignment for this customer already exists for{' '}
+                  {getMonthName(watchedMonth)} {watchedYear}. Please select a different period.
+                </p>
+              </div>
+            )}
+
             {/* Previous Balance Info */}
-            {previousBalance && (
+            {previousBalance && !existingConsignment && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h3 className="font-semibold text-blue-900 mb-2">
                   Previous Month Balance
@@ -786,7 +807,7 @@ export default function ConsignmentForm() {
             <Button 
               type="submit" 
               size="lg"
-              disabled={cartItems.length === 0}
+              disabled={cartItems.length === 0 || existingConsignment}
             >
               Create Consignment
             </Button>
