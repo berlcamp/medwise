@@ -308,3 +308,17 @@ EXCEPTION
     );
 END;
 $$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- ONE-TIME FIX: Close old consignments that have a newer
+-- consignment for the same customer/branch
+-- =====================================================
+UPDATE medwise.consignments c
+SET status = 'closed', updated_at = NOW()
+WHERE c.status = 'active'
+  AND EXISTS (
+    SELECT 1 FROM medwise.consignments newer
+    WHERE newer.customer_id = c.customer_id
+      AND newer.branch_id = c.branch_id
+      AND (newer.year > c.year OR (newer.year = c.year AND newer.month > c.month))
+  );
