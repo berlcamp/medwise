@@ -90,7 +90,7 @@ export const List = () => {
             <th className="app__th text-center">New Items</th>
             <th className="app__th text-center">Sold</th>
             <th className="app__th text-center">Current Balance</th>
-            <th className="app__th text-right">Balance Due</th>
+            <th className="app__th text-right">Left Consigned Value</th>
             <th className="app__th text-center">Status</th>
             <th className="app__th text-center">Actions</th>
           </tr>

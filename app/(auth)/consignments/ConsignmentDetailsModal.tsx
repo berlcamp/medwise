@@ -810,7 +810,7 @@ export function ConsignmentDetailsModal({
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600">Balance Due</p>
+                      <p className="text-xs text-gray-600">Left Consigned Value</p>
                       <p className="font-semibold text-red-600">
                         {formatMoney(
                           consignmentData.total_consigned_value -

@@ -143,7 +143,7 @@ export const ConsignmentPrint = ({ data }: { data: any }) => {
             </div>
             <div>
               <p style={{ margin: '2px 0' }}>
-                <strong>Balance Due:</strong> {formatCurrency(consignment.balance_due || 0)}
+                <strong>Payable to Mediwise:</strong> {formatCurrency(consignment.balance_due || 0)}
               </p>
             </div>
           </div>
@@ -282,13 +282,6 @@ export const ConsignmentPrint = ({ data }: { data: any }) => {
               <span>{formatCurrency(consignment.total_sold_value || 0)}</span>
             </div>
             <div
-              className="flex justify-between"
-              style={{ marginBottom: '5px' }}
-            >
-              <span>Total Paid:</span>
-              <span>{formatCurrency(consignment.total_paid || 0)}</span>
-            </div>
-            <div
               className="flex justify-between border-t border-black pt-2 mt-2 font-bold"
               style={{
                 borderTop: '1px solid #000',
@@ -296,7 +289,7 @@ export const ConsignmentPrint = ({ data }: { data: any }) => {
                 marginTop: '8px'
               }}
             >
-              <span>Balance Due:</span>
+              <span>Payable to Mediwise:</span>
               <span>{formatCurrency(consignment.balance_due || 0)}</span>
             </div>
           </div>
