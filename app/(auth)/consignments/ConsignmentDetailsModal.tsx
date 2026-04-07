@@ -69,6 +69,9 @@ export function ConsignmentDetailsModal({
   const [returningItems, setReturningItems] = useState(false);
   const [confirmReturnOpen, setConfirmReturnOpen] = useState(false);
 
+  const [overviewItemSearch, setOverviewItemSearch] = useState("");
+  const [returnItemSearch, setReturnItemSearch] = useState("");
+
   // Add items state
   const [newItems, setNewItems] = useState<
     Array<{
@@ -116,6 +119,13 @@ export function ConsignmentDetailsModal({
   useEffect(() => {
     setConsignmentData(consignment);
   }, [consignment]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setOverviewItemSearch("");
+      setReturnItemSearch("");
+    }
+  }, [isOpen]);
 
   // Check for newer consignments
   useEffect(() => {
@@ -545,6 +555,32 @@ export function ConsignmentDetailsModal({
     0
   );
 
+  const matchesConsignmentItemSearch = (
+    item: ConsignmentItem,
+    queryLower: string
+  ) => {
+    const name = (item.product?.name || "").toLowerCase();
+    const batch = (item.batch_no || "").toLowerCase();
+    return name.includes(queryLower) || batch.includes(queryLower);
+  };
+
+  const overviewSearchLower = overviewItemSearch.trim().toLowerCase();
+  const filteredOverviewItems = overviewSearchLower
+    ? items.filter((item: ConsignmentItem) =>
+        matchesConsignmentItemSearch(item, overviewSearchLower)
+      )
+    : items;
+
+  const returnSearchLower = returnItemSearch.trim().toLowerCase();
+  const returnableConsignmentItems = items.filter(
+    (item: ConsignmentItem) => item.current_balance > 0
+  );
+  const filteredReturnTabItems = returnSearchLower
+    ? returnableConsignmentItems.filter((item: ConsignmentItem) =>
+        matchesConsignmentItemSearch(item, returnSearchLower)
+      )
+    : returnableConsignmentItems;
+
   // Add items handlers
   const addProductToNewItems = (productId: number, qty = 1) => {
     const product = products.find((p) => p.id === productId);
@@ -911,6 +947,20 @@ export function ConsignmentDetailsModal({
                         </div>
                       )} */}
 
+                      <div className="mt-4 mb-4">
+                        <div className="relative max-w-sm">
+                          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            placeholder="Search by product or batch..."
+                            value={overviewItemSearch}
+                            onChange={(e) =>
+                              setOverviewItemSearch(e.target.value)
+                            }
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+
                       <div className="border rounded-lg">
                         <Table>
                           <TableHeader>
@@ -940,17 +990,19 @@ export function ConsignmentDetailsModal({
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {items.length === 0 ? (
+                            {filteredOverviewItems.length === 0 ? (
                               <TableRow>
                                 <TableCell
                                   colSpan={8}
                                   className="text-center text-gray-500"
                                 >
-                                  No items found
+                                  {items.length === 0
+                                    ? "No items found"
+                                    : "No items match your search"}
                                 </TableCell>
                               </TableRow>
                             ) : (
-                              items.map((item: ConsignmentItem) => (
+                              filteredOverviewItems.map((item: ConsignmentItem) => (
                                 <TableRow key={item.id}>
                                   <TableCell>
                                     <div>
@@ -1613,6 +1665,17 @@ export function ConsignmentDetailsModal({
                             Return unsold items back to inventory. This will
                             increase available stock.
                           </p>
+                          <div className="relative max-w-sm">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                              placeholder="Search by product or batch..."
+                              value={returnItemSearch}
+                              onChange={(e) =>
+                                setReturnItemSearch(e.target.value)
+                              }
+                              className="pl-9"
+                            />
+                          </div>
                           <div className="border rounded-lg">
                             <Table>
                               <TableHeader>
@@ -1627,47 +1690,64 @@ export function ConsignmentDetailsModal({
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
-                                {items
-                                  .filter(
-                                    (item: ConsignmentItem) =>
-                                      item.current_balance > 0
+                                {filteredReturnTabItems.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell
+                                      colSpan={3}
+                                      className="text-center text-gray-500"
+                                    >
+                                      {returnableConsignmentItems.length === 0
+                                        ? "No items with balance to return"
+                                        : "No items match your search"}
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  filteredReturnTabItems.map(
+                                    (item: ConsignmentItem) => (
+                                      <TableRow key={item.id}>
+                                        <TableCell>
+                                          <div>
+                                            <div className="font-medium">
+                                              {item.product?.name || "Unknown"}
+                                            </div>
+                                            {item.batch_no && (
+                                              <div className="text-xs text-gray-500">
+                                                Batch: {item.batch_no}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <span className="font-semibold">
+                                            {item.current_balance}
+                                          </span>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                          <Input
+                                            type="number"
+                                            min={0}
+                                            max={item.current_balance}
+                                            value={returnItems[item.id] || 0}
+                                            onChange={(e) => {
+                                              const value = Number(
+                                                e.target.value
+                                              );
+                                              const clampedValue = Math.min(
+                                                Math.max(0, value),
+                                                item.current_balance
+                                              );
+                                              setReturnItems({
+                                                ...returnItems,
+                                                [item.id]: clampedValue,
+                                              });
+                                            }}
+                                            className="w-20 mx-auto"
+                                          />
+                                        </TableCell>
+                                      </TableRow>
+                                    )
                                   )
-                                  .map((item: ConsignmentItem) => (
-                                    <TableRow key={item.id}>
-                                      <TableCell>
-                                        <div className="font-medium">
-                                          {item.product?.name || "Unknown"}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <span className="font-semibold">
-                                          {item.current_balance}
-                                        </span>
-                                      </TableCell>
-                                      <TableCell className="text-center">
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          max={item.current_balance}
-                                          value={returnItems[item.id] || 0}
-                                          onChange={(e) => {
-                                            const value = Number(
-                                              e.target.value
-                                            );
-                                            const clampedValue = Math.min(
-                                              Math.max(0, value),
-                                              item.current_balance
-                                            );
-                                            setReturnItems({
-                                              ...returnItems,
-                                              [item.id]: clampedValue,
-                                            });
-                                          }}
-                                          className="w-20 mx-auto"
-                                        />
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
+                                )}
                               </TableBody>
                             </Table>
                           </div>
