@@ -7,12 +7,13 @@ import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock, RootState } from '@/types'
 import { format, isBefore, parseISO } from 'date-fns'
-import { MinusCircle, Pencil, Trash2 } from 'lucide-react'
+import { History, MinusCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { useSelector } from 'react-redux'
 import { RemoveStockModal } from './RemoveStockModal'
 import { EditStockModal } from './EditStockModal'
+import { TrackMovementModal } from './TrackMovementModal'
 
 // view table
 const table = 'product_stocks'
@@ -25,6 +26,7 @@ export const List = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
   const [modalEditOpen, setModalEditOpen] = useState(false)
+  const [modalTrackOpen, setModalTrackOpen] = useState(false)
 
   const [selectedItem, setSelectedItem] = useState<ProductStock | null>(null)
 
@@ -87,6 +89,17 @@ export const List = () => {
                       </span>
                     )}
                   </div>
+                  <button
+                    type="button"
+                    className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                    onClick={() => {
+                      setSelectedItem(item)
+                      setModalTrackOpen(true)
+                    }}
+                  >
+                    <History className="w-3 h-3" />
+                    Track Movement
+                  </button>
                 </td>
 
                 {/* Category column: category + batch # + supplier */}
@@ -164,6 +177,12 @@ export const List = () => {
       <EditStockModal
         isOpen={modalEditOpen}
         onClose={() => setModalEditOpen(false)}
+        selectedItem={selectedItem}
+      />
+
+      <TrackMovementModal
+        isOpen={modalTrackOpen}
+        onClose={() => setModalTrackOpen(false)}
         selectedItem={selectedItem}
       />
 
