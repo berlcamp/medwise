@@ -36,27 +36,20 @@ export const List = () => {
     setIsModalOpen(true)
   }
 
-  // "Delivered in N days" (created -> receipt/delivered date) or "N days
-  // pending" (created -> today). Returns null when it can't be computed.
+  // Days lapsed since the order was delivered (delivery date -> today).
+  // Nothing is shown while the order is still pending. Returns null when it
+  // can't be computed.
   const getDeliveryDurationLabel = (item: Transaction): string | null => {
-    if (!item.created_at) return null
-    const createdAt = new Date(item.created_at)
     const deliveredOn = item.delivery_receipt_date
       ? parseISO(item.delivery_receipt_date)
       : item.delivered_at
         ? new Date(item.delivered_at)
         : null
-    const pluralize = (n: number) => `${n} day${n === 1 ? '' : 's'}`
+    if (!deliveredOn) return null
 
-    if (deliveredOn) {
-      const days = Math.max(0, differenceInCalendarDays(deliveredOn, createdAt))
-      return `Delivered in ${pluralize(days)}`
-    }
-    if (item.delivery_status !== 'Delivered') {
-      const days = Math.max(0, differenceInCalendarDays(new Date(), createdAt))
-      return `${pluralize(days)} pending`
-    }
-    return null
+    const days = Math.max(0, differenceInCalendarDays(new Date(), deliveredOn))
+    if (days === 0) return 'Delivered today'
+    return `Delivered ${days} day${days === 1 ? '' : 's'} ago`
   }
 
   const printInvoice = async (item: Transaction) => {

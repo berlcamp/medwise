@@ -143,9 +143,10 @@ export function TransactionDetailsModal({
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Days between order creation and delivery (if delivered) or until now (if
-  // still pending). The delivery date is taken from the delivery receipt date
-  // when available, falling back to the auto-stamped delivered_at.
+  // Days lapsed since the order was delivered (delivery date -> today). Nothing
+  // is shown while the order is still pending. The delivery date is taken from
+  // the delivery receipt date when available, falling back to the auto-stamped
+  // delivered_at.
   const pluralizeDays = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 
   const deliveredOn = savedReceiptDate
@@ -155,18 +156,10 @@ export function TransactionDetailsModal({
       : null;
 
   let deliveryDurationLabel: string | null = null;
-  if (transaction.created_at) {
-    const createdAt = new Date(transaction.created_at);
-    if (deliveredOn) {
-      const days = Math.max(
-        0,
-        differenceInCalendarDays(deliveredOn, createdAt)
-      );
-      deliveryDurationLabel = `Delivered in ${pluralizeDays(days)}`;
-    } else if (transaction.delivery_status !== "Delivered") {
-      const days = Math.max(0, differenceInCalendarDays(new Date(), createdAt));
-      deliveryDurationLabel = `${pluralizeDays(days)} pending`;
-    }
+  if (deliveredOn) {
+    const days = Math.max(0, differenceInCalendarDays(new Date(), deliveredOn));
+    deliveryDurationLabel =
+      days === 0 ? "Delivered today" : `Delivered ${pluralizeDays(days)} ago`;
   }
 
   return (
