@@ -31,7 +31,11 @@ export const DeliveryStatusDropdown = ({ transaction, onUpdated }: Props) => {
   const handleSave = async () => {
     const { data, error } = await supabase
       .from('transactions')
-      .update({ delivery_status: newStatus })
+      .update({
+        delivery_status: newStatus,
+        // Stamp the delivery date when marking Delivered; clear it if reverted.
+        delivered_at: newStatus === 'Delivered' ? new Date().toISOString() : null
+      })
       .eq('id', transaction.id)
       .select()
 

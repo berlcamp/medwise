@@ -256,6 +256,15 @@ export const TrackMovementModal = ({
     }
   }
 
+  const formatDay = (d?: string) => {
+    if (!d) return '-'
+    try {
+      return format(parseISO(d), 'MMM dd, yyyy')
+    } catch {
+      return d
+    }
+  }
+
   return (
     <Dialog open={isOpen} as="div" className="relative z-50" onClose={onClose}>
       <div className="fixed inset-0 bg-gray-600 opacity-80" aria-hidden="true" />
@@ -286,15 +295,11 @@ export const TrackMovementModal = ({
                   </div>
                   <div>
                     <span className="font-semibold">Manufactured:</span>{' '}
-                    {selectedItem.date_manufactured
-                      ? format(parseISO(selectedItem.date_manufactured), 'MMM dd, yyyy')
-                      : '-'}
+                    {formatDay(selectedItem.date_manufactured)}
                   </div>
                   <div>
                     <span className="font-semibold">Expires:</span>{' '}
-                    {selectedItem.expiration_date
-                      ? format(parseISO(selectedItem.expiration_date), 'MMM dd, yyyy')
-                      : '-'}
+                    {formatDay(selectedItem.expiration_date)}
                   </div>
                   <div>
                     <span className="font-semibold">Initial Qty:</span>{' '}

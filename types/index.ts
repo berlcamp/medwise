@@ -374,6 +374,7 @@ export interface Transaction {
   customer?: Customer;
   transaction_items: TransactionItem[];
   created_at: string;
+  delivered_at?: string | null;
 }
 
 export interface TransactionItem {

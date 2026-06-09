@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/utils";
 import { Transaction } from "@/types";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import { format } from "date-fns";
+import { differenceInCalendarDays, format } from "date-fns";
 import { Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -108,6 +108,33 @@ export function TransactionDetailsModal({
   }, [isOpen, transaction.reference_number]);
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Days between order creation and delivery (if delivered) or until now (if
+  // still pending). Returns null when we can't compute it.
+  const pluralizeDays = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+
+  let deliveryDurationLabel: string | null = null;
+  if (transaction.created_at) {
+    const createdAt = new Date(transaction.created_at);
+    if (transaction.delivery_status === "Delivered") {
+      if (transaction.delivered_at) {
+        const days = Math.max(
+          0,
+          differenceInCalendarDays(
+            new Date(transaction.delivered_at),
+            createdAt
+          )
+        );
+        deliveryDurationLabel = `Delivered in ${pluralizeDays(days)}`;
+      }
+    } else {
+      const days = Math.max(
+        0,
+        differenceInCalendarDays(new Date(), createdAt)
+      );
+      deliveryDurationLabel = `${pluralizeDays(days)} pending`;
+    }
+  }
 
   return (
     <>
@@ -218,6 +245,17 @@ export function TransactionDetailsModal({
                           <Badge variant="blue">In Transit</Badge>
                         )}
                       </div>
+                      {deliveryDurationLabel && (
+                        <p
+                          className={`mt-1 text-xs font-medium ${
+                            transaction.delivery_status === "Delivered"
+                              ? "text-green-700"
+                              : "text-orange-700"
+                          }`}
+                        >
+                          {deliveryDurationLabel}
+                        </p>
+                      )}
                     </div>
                   </div>
 

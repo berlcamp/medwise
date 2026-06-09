@@ -6,7 +6,7 @@ import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
 import { ProductStock, RootState } from '@/types'
-import { format, isBefore, parseISO } from 'date-fns'
+import { format, isBefore, isValid, parseISO } from 'date-fns'
 import { History, MinusCircle, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
@@ -66,11 +66,19 @@ export const List = () => {
               : null
             const today = new Date()
             today.setHours(0, 0, 0, 0)
-            const isExpired = expDate ? isBefore(expDate, today) : false
-            const formattedExp = expDate ? format(expDate, 'MMM dd, yyyy') : '-'
-            const formattedMfg = item.date_manufactured
-              ? format(parseISO(item.date_manufactured), 'MMM dd, yyyy')
-              : '-'
+            const isExpired =
+              expDate && isValid(expDate) ? isBefore(expDate, today) : false
+            const formattedExp =
+              expDate && isValid(expDate)
+                ? format(expDate, 'MMM dd, yyyy')
+                : '-'
+            const mfgDate = item.date_manufactured
+              ? parseISO(item.date_manufactured)
+              : null
+            const formattedMfg =
+              mfgDate && isValid(mfgDate)
+                ? format(mfgDate, 'MMM dd, yyyy')
+                : '-'
 
             return (
               <tr key={item.id} className="app__tr">
