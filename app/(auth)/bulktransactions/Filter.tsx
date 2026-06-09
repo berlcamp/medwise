@@ -17,19 +17,21 @@ interface FormType {
   delivery_status: string
   date_from: string
   date_to: string
+  delivered_since: string
 }
 
 export const Filter = ({
   filter,
   setFilter
 }: {
-  filter: { 
+  filter: {
     keyword: string
     transaction_number: string
     payment_status: string
     delivery_status: string
     date_from: string
     date_to: string
+    delivered_since: string
   }
   setFilter: (filter: {
     keyword: string
@@ -38,6 +40,7 @@ export const Filter = ({
     delivery_status: string
     date_from: string
     date_to: string
+    delivered_since: string
   }) => void
 }) => {
   // Determine initial date mode based on existing filter
@@ -61,7 +64,8 @@ export const Filter = ({
     defaultValues: {
       ...filter,
       payment_status: filter.payment_status || 'all',
-      delivery_status: filter.delivery_status || 'all'
+      delivery_status: filter.delivery_status || 'all',
+      delivered_since: filter.delivered_since || 'all'
     }
   })
 
@@ -113,18 +117,20 @@ export const Filter = ({
       payment_status: data.payment_status === 'all' ? '' : (data.payment_status || ''),
       delivery_status: data.delivery_status === 'all' ? '' : (data.delivery_status || ''),
       date_from: data.date_from || '',
-      date_to: data.date_to || ''
+      date_to: data.date_to || '',
+      delivered_since: data.delivered_since === 'all' ? '' : (data.delivered_since || '')
     })
   }
 
   const handleReset = () => {
-    reset({ 
-      keyword: '', 
+    reset({
+      keyword: '',
       transaction_number: '',
       payment_status: 'all',
       delivery_status: 'all',
       date_from: '',
-      date_to: ''
+      date_to: '',
+      delivered_since: 'all'
     })
     setDateMode('all')
     setDateRange([{
@@ -132,13 +138,14 @@ export const Filter = ({
       endDate: undefined,
       key: 'selection'
     }])
-    setFilter({ 
-      keyword: '', 
+    setFilter({
+      keyword: '',
       transaction_number: '',
       payment_status: '',
       delivery_status: '',
       date_from: '',
-      date_to: ''
+      date_to: '',
+      delivered_since: ''
     })
   }
 
@@ -222,6 +229,32 @@ export const Filter = ({
                     <SelectItem value="In Transit">In Transit</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          {/* Delivered Since (days lapsed) */}
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-gray-600 mb-1">
+              Delivered Since
+            </label>
+            <Controller
+              control={control}
+              name="delivered_since"
+              render={({ field }) => (
+                <Select value={field.value || 'all'} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="Any" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any</SelectItem>
+                    <SelectItem value="7">1 week ago or older</SelectItem>
+                    <SelectItem value="14">2 weeks ago or older</SelectItem>
+                    <SelectItem value="30">1 month ago or older</SelectItem>
+                    <SelectItem value="60">2 months ago or older</SelectItem>
+                    <SelectItem value="90">3 months ago or older</SelectItem>
                   </SelectContent>
                 </Select>
               )}

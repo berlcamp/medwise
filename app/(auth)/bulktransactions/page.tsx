@@ -22,7 +22,8 @@ export default function Page() {
     payment_status: '',
     delivery_status: '',
     date_from: '',
-    date_to: ''
+    date_to: '',
+    delivered_since: ''
   })
 
   const dispatch = useAppDispatch()
@@ -73,7 +74,23 @@ export default function Page() {
         query = query.lte('created_at', endDate.toISOString())
       }
 
-      if (!filter.keyword && !filter.transaction_number && !filter.payment_status && !filter.delivery_status && !filter.date_from && !filter.date_to) {
+      // Apply "delivered at least N days ago" filter. The effective delivery
+      // date is delivery_receipt_date, falling back to delivered_at — mirror
+      // that coalesce so the count matches the "Delivered X days ago" label.
+      if (filter.delivered_since && filter.delivered_since.trim() !== '') {
+        const days = Number(filter.delivered_since)
+        if (!Number.isNaN(days)) {
+          const cutoff = new Date()
+          cutoff.setDate(cutoff.getDate() - days)
+          cutoff.setHours(23, 59, 59, 999)
+          const iso = cutoff.toISOString()
+          query = query.or(
+            `delivery_receipt_date.lte.${iso},and(delivery_receipt_date.is.null,delivered_at.lte.${iso})`
+          )
+        }
+      }
+
+      if (!filter.keyword && !filter.transaction_number && !filter.payment_status && !filter.delivery_status && !filter.date_from && !filter.date_to && !filter.delivered_since) {
         query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }
 
