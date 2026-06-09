@@ -43,6 +43,11 @@ export function TransactionDetailsModal({
   const [receiptDate, setReceiptDate] = useState(
     transaction.delivery_receipt_date || ""
   );
+  // Saved value (drives the duration label); kept separate so typing in the
+  // input doesn't change the label until Save succeeds.
+  const [savedReceiptDate, setSavedReceiptDate] = useState(
+    transaction.delivery_receipt_date || ""
+  );
   const [savingReceiptDate, setSavingReceiptDate] = useState(false);
 
   useEffect(() => {
@@ -113,6 +118,7 @@ export function TransactionDetailsModal({
 
   useEffect(() => {
     setReceiptDate(transaction.delivery_receipt_date || "");
+    setSavedReceiptDate(transaction.delivery_receipt_date || "");
   }, [isOpen, transaction.delivery_receipt_date]);
 
   const handleUpdateReceiptDate = async () => {
@@ -128,8 +134,8 @@ export function TransactionDetailsModal({
       console.error(error);
       toast.error("Failed to update delivery receipt date");
     } else {
-      // Keep the local transaction in sync so the day count updates immediately.
-      transaction.delivery_receipt_date = receiptDate || null;
+      // Update local state so the day count refreshes immediately.
+      setSavedReceiptDate(receiptDate || "");
       toast.success("Delivery receipt date updated");
     }
     setSavingReceiptDate(false);
@@ -142,8 +148,8 @@ export function TransactionDetailsModal({
   // when available, falling back to the auto-stamped delivered_at.
   const pluralizeDays = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 
-  const deliveredOn = transaction.delivery_receipt_date
-    ? parseISO(transaction.delivery_receipt_date)
+  const deliveredOn = savedReceiptDate
+    ? parseISO(savedReceiptDate)
     : transaction.delivered_at
       ? new Date(transaction.delivered_at)
       : null;
