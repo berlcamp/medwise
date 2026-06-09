@@ -17,7 +17,7 @@ import { supabase } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/utils";
 import { Transaction } from "@/types";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import { differenceInCalendarDays, format } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { Printer } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -40,6 +40,10 @@ export function TransactionDetailsModal({
     transaction.reference_number || ""
   );
   const [printData, setPrintData] = useState<any>(null);
+  const [receiptDate, setReceiptDate] = useState(
+    transaction.delivery_receipt_date || ""
+  );
+  const [savingReceiptDate, setSavingReceiptDate] = useState(false);
 
   useEffect(() => {
     if (!transaction?.id) return;
@@ -107,31 +111,54 @@ export function TransactionDetailsModal({
     setReferenceNumber(transaction.reference_number || "");
   }, [isOpen, transaction.reference_number]);
 
+  useEffect(() => {
+    setReceiptDate(transaction.delivery_receipt_date || "");
+  }, [isOpen, transaction.delivery_receipt_date]);
+
+  const handleUpdateReceiptDate = async () => {
+    if (!transaction?.id) return;
+
+    setSavingReceiptDate(true);
+    const { error } = await supabase
+      .from("transactions")
+      .update({ delivery_receipt_date: receiptDate || null })
+      .eq("id", transaction.id);
+
+    if (error) {
+      console.error(error);
+      toast.error("Failed to update delivery receipt date");
+    } else {
+      // Keep the local transaction in sync so the day count updates immediately.
+      transaction.delivery_receipt_date = receiptDate || null;
+      toast.success("Delivery receipt date updated");
+    }
+    setSavingReceiptDate(false);
+  };
+
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Days between order creation and delivery (if delivered) or until now (if
-  // still pending). Returns null when we can't compute it.
+  // still pending). The delivery date is taken from the delivery receipt date
+  // when available, falling back to the auto-stamped delivered_at.
   const pluralizeDays = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
+
+  const deliveredOn = transaction.delivery_receipt_date
+    ? parseISO(transaction.delivery_receipt_date)
+    : transaction.delivered_at
+      ? new Date(transaction.delivered_at)
+      : null;
 
   let deliveryDurationLabel: string | null = null;
   if (transaction.created_at) {
     const createdAt = new Date(transaction.created_at);
-    if (transaction.delivery_status === "Delivered") {
-      if (transaction.delivered_at) {
-        const days = Math.max(
-          0,
-          differenceInCalendarDays(
-            new Date(transaction.delivered_at),
-            createdAt
-          )
-        );
-        deliveryDurationLabel = `Delivered in ${pluralizeDays(days)}`;
-      }
-    } else {
+    if (deliveredOn) {
       const days = Math.max(
         0,
-        differenceInCalendarDays(new Date(), createdAt)
+        differenceInCalendarDays(deliveredOn, createdAt)
       );
+      deliveryDurationLabel = `Delivered in ${pluralizeDays(days)}`;
+    } else if (transaction.delivery_status !== "Delivered") {
+      const days = Math.max(0, differenceInCalendarDays(new Date(), createdAt));
       deliveryDurationLabel = `${pluralizeDays(days)} pending`;
     }
   }
@@ -248,9 +275,7 @@ export function TransactionDetailsModal({
                       {deliveryDurationLabel && (
                         <p
                           className={`mt-1 text-xs font-medium ${
-                            transaction.delivery_status === "Delivered"
-                              ? "text-green-700"
-                              : "text-orange-700"
+                            deliveredOn ? "text-green-700" : "text-orange-700"
                           }`}
                         >
                           {deliveryDurationLabel}
@@ -283,6 +308,32 @@ export function TransactionDetailsModal({
                       </div>
                     </div>
                   )}
+
+                  {/* Delivery Receipt Date */}
+                  <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-sm font-medium text-gray-600">
+                        Delivery Receipt Date:
+                      </label>
+                      <Input
+                        type="date"
+                        className="w-48 h-8 text-sm"
+                        value={receiptDate}
+                        onChange={(e) => setReceiptDate(e.target.value)}
+                      />
+                      <Button
+                        variant="blue"
+                        size="xs"
+                        onClick={handleUpdateReceiptDate}
+                        disabled={savingReceiptDate}
+                      >
+                        {savingReceiptDate ? "Saving..." : "Save"}
+                      </Button>
+                      <span className="text-xs text-gray-500">
+                        Used to compute the delivery duration.
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Items Table */}
                   <div className="border rounded-lg">

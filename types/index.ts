@@ -375,6 +375,7 @@ export interface Transaction {
   transaction_items: TransactionItem[];
   created_at: string;
   delivered_at?: string | null;
+  delivery_receipt_date?: string | null;
 }
 
 export interface TransactionItem {
