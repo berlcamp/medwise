@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase/client'
 import { RootState, Transaction } from '@/types'
-import { format } from 'date-fns'
+import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { ChevronDown, CreditCard, Eye, FileText, Printer } from 'lucide-react'
 import { useState } from 'react'
 import Avatar from 'react-avatar'
@@ -34,6 +34,29 @@ export const List = () => {
   const handleView = (item: Transaction) => {
     setSelectedItem(item)
     setIsModalOpen(true)
+  }
+
+  // "Delivered in N days" (created -> receipt/delivered date) or "N days
+  // pending" (created -> today). Returns null when it can't be computed.
+  const getDeliveryDurationLabel = (item: Transaction): string | null => {
+    if (!item.created_at) return null
+    const createdAt = new Date(item.created_at)
+    const deliveredOn = item.delivery_receipt_date
+      ? parseISO(item.delivery_receipt_date)
+      : item.delivered_at
+        ? new Date(item.delivered_at)
+        : null
+    const pluralize = (n: number) => `${n} day${n === 1 ? '' : 's'}`
+
+    if (deliveredOn) {
+      const days = Math.max(0, differenceInCalendarDays(deliveredOn, createdAt))
+      return `Delivered in ${pluralize(days)}`
+    }
+    if (item.delivery_status !== 'Delivered') {
+      const days = Math.max(0, differenceInCalendarDays(new Date(), createdAt))
+      return `${pluralize(days)} pending`
+    }
+    return null
   }
 
   const printInvoice = async (item: Transaction) => {
@@ -119,9 +142,21 @@ export const List = () => {
       }
     }
 
+    // Re-fetch the latest transaction so the receipt date reflects any recent
+    // edit (the Redux list copy may be stale after editing the delivery date).
+    let freshTransaction = item
+    const { data: latest, error: latestError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', item.id)
+      .single()
+    if (!latestError && latest) {
+      freshTransaction = latest
+    }
+
     // Combine transaction data with customer
     const transactionWithCustomer = {
-      ...item,
+      ...freshTransaction,
       customer: customerData
     }
 
@@ -206,6 +241,21 @@ export const List = () => {
                     // optional: refresh list after update
                   }}
                 />
+                {(() => {
+                  const label = getDeliveryDurationLabel(item)
+                  if (!label) return null
+                  return (
+                    <div
+                      className={`mt-1 text-xs font-medium ${
+                        item.delivery_receipt_date || item.delivered_at
+                          ? 'text-green-700'
+                          : 'text-orange-700'
+                      }`}
+                    >
+                      {label}
+                    </div>
+                  )
+                })()}
               </td>
               <td className="app__td text-center">
                 <span

@@ -98,7 +98,9 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
             </p>
             <p style={{ margin: '4px 0' }}>
               <strong>Date:</strong>{' '}
-              {format(new Date(transaction.created_at), 'MMM dd, yyyy')}
+              {formatDate(
+                transaction.delivery_receipt_date || transaction.created_at
+              )}
             </p>
             <p style={{ margin: '4px 0' }}>
               <strong>Terms:</strong> _______________________
