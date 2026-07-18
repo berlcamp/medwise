@@ -114,6 +114,8 @@ export default function SalesReport() {
       transaction_items (*, product:product_id(name))`
       )
       .eq("branch_id", selectedBranchId)
+      // Exclude consignment hand-off transactions (goods on loan, not sales)
+      .neq("transaction_type", "consignment_add")
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: false });

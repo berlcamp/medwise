@@ -115,9 +115,7 @@ export const ProfitReport = () => {
     transactionsData.forEach((t: any) => {
       t.transaction_items.forEach((item: any) => {
         const revenue = Number(item.total) || 0;
-        const costPrice = Number(
-          item.stock?.purchase_price || item.product?.purchase_price || 0
-        );
+        const costPrice = Number(item.stock?.purchase_price || 0);
         const cost = costPrice * (item.quantity || 0);
 
         totalRevenue += revenue;
@@ -144,9 +142,7 @@ export const ProfitReport = () => {
 
     reportData.forEach((t) =>
       t.transaction_items.forEach((item: any) => {
-        const costPrice = Number(
-          item.stock?.purchase_price || item.product?.purchase_price || 0
-        );
+        const costPrice = Number(item.stock?.purchase_price || 0);
         const cost = costPrice * (item.quantity || 0);
         const profit = Number(item.total) - cost;
 
@@ -415,9 +411,7 @@ export const ProfitReport = () => {
                   {reportData.map((t) =>
                     t.transaction_items.map((item: any, idx: number) => {
                       const costPrice = Number(
-                        item.stock?.purchase_price ||
-                          item.product?.purchase_price ||
-                          0
+                        item.stock?.purchase_price || 0
                       );
                       const cost = costPrice * (item.quantity || 0);
                       const profit = Number(item.total) - cost;
