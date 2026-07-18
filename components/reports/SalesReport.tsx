@@ -6,6 +6,11 @@ import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 
+import {
+  REPORTABLE_SALE_TYPES,
+  CHANNEL_TX_TYPE,
+  type ReportChannel,
+} from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { Transaction } from "@/types";
@@ -32,7 +37,11 @@ import {
   SelectValue,
 } from "../ui/select";
 
-export default function SalesReport() {
+export default function SalesReport({
+  channel,
+}: {
+  channel?: ReportChannel;
+} = {}) {
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   );
@@ -114,15 +123,20 @@ export default function SalesReport() {
       transaction_items (*, product:product_id(name))`
       )
       .eq("branch_id", selectedBranchId)
-      // Exclude consignment hand-off transactions (goods on loan, not sales)
-      .neq("transaction_type", "consignment_add")
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: false });
 
-    // 🔥 Apply transaction type filter
-    if (txnType !== "All") {
-      query = query.eq("transaction_type", txnType);
+    // Channel scoping. Inside a channel tab the type is fixed; otherwise limit
+    // to reportable sale types (retail + consignment hand-offs excluded).
+    if (channel) {
+      query = query.eq("transaction_type", CHANNEL_TX_TYPE[channel]);
+    } else {
+      query = query.in("transaction_type", REPORTABLE_SALE_TYPES);
+      // Manual type dropdown only applies to the standalone (no-channel) view.
+      if (txnType !== "All") {
+        query = query.eq("transaction_type", txnType);
+      }
     }
 
     // Apply payment status filter
@@ -210,7 +224,7 @@ export default function SalesReport() {
       loadSales();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [txnType, paymentStatus, selectedBranchId]);
+  }, [txnType, paymentStatus, selectedBranchId, channel]);
 
   return (
     <div className="space-y-6">
@@ -249,7 +263,8 @@ export default function SalesReport() {
               </Select>
             </div>
 
-            {/* Transaction Type */}
+            {/* Transaction Type (standalone view only) */}
+            {!channel && (
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">
                 Transaction Type
@@ -271,6 +286,7 @@ export default function SalesReport() {
                 </SelectContent>
               </Select>
             </div>
+            )}
 
             {/* Payment Status */}
             <div className="space-y-1.5">
