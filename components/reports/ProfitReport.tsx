@@ -19,6 +19,11 @@ import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
+import {
+  REPORTABLE_SALE_TYPES,
+  CHANNEL_TX_TYPE,
+  type ReportChannel,
+} from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Select,
@@ -28,7 +33,11 @@ import {
   SelectValue,
 } from "../ui/select";
 
-export const ProfitReport = () => {
+export const ProfitReport = ({
+  channel,
+}: {
+  channel?: ReportChannel;
+} = {}) => {
   const user = useAppSelector((state) => state.user.user);
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -106,7 +115,10 @@ export const ProfitReport = () => {
       // handed to a consignee (goods on loan), not actual sales. Counting
       // them overstates revenue/profit and double-counts once the goods
       // later sell via a `consignment_sale` transaction.
-      .neq("transaction_type", "consignment_add")
+      .in(
+        "transaction_type",
+        channel ? [CHANNEL_TX_TYPE[channel]] : REPORTABLE_SALE_TYPES
+      )
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: true });
@@ -196,7 +208,10 @@ export const ProfitReport = () => {
         )
         .in("id", txnIds)
         .eq("branch_id", selectedBranchId)
-        .neq("transaction_type", "consignment_add");
+        .in(
+          "transaction_type",
+          channel ? [CHANNEL_TX_TYPE[channel]] : REPORTABLE_SALE_TYPES
+        );
 
       if (tErr) {
         toast.error("Failed to load data");
@@ -342,7 +357,7 @@ export const ProfitReport = () => {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, selectedBranchId, mode, range, basis]);
+  }, [isAdmin, selectedBranchId, mode, range, basis, channel]);
 
   // Restrict access to admin only - must be after all hooks
   if (!isAdmin) return <Notfoundpage />;
@@ -549,6 +564,13 @@ export const ProfitReport = () => {
               Based on payments received (by payment date). Cost and profit are
               estimated per payment in proportion to each transaction&apos;s
               margin.
+              {channel && channel !== "bulk" && (
+                <>
+                  {" "}
+                  Note: {channel} sales don&apos;t record payments here, so this
+                  view will be empty for this channel.
+                </>
+              )}
             </p>
           )}
         </CardHeader>
