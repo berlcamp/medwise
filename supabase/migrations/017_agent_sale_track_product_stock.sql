@@ -132,7 +132,12 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION medwise.record_agent_sale TO authenticated;
+-- Argument list is required: `record_agent_sale` is overloaded (an older
+-- signature from migration 006 still exists), so a bare function name is
+-- ambiguous. This targets the current (customer-aware) signature.
+GRANT EXECUTE ON FUNCTION medwise.record_agent_sale(
+  BIGINT, INTEGER, TEXT, JSONB, TEXT, TEXT, TEXT, TEXT
+) TO authenticated;
 
 -- 2️⃣ One-time backfill for historical agent_sale lines (null-only, reversible)
 UPDATE medwise.transaction_items ti
