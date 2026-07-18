@@ -6,7 +6,7 @@ import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 
-import { billingAgencies } from "@/lib/constants";
+import { billingAgencies, REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { Transaction } from "@/types";
@@ -112,6 +112,7 @@ export default function GLTransactionsReport() {
       )
       .eq("branch_id", selectedBranchId)
       .eq("payment_type", "GL")
+      .in("transaction_type", REPORTABLE_SALE_TYPES)
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: false });

@@ -2,6 +2,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { endOfMonth, format, startOfMonth } from "date-fns";
@@ -58,7 +59,7 @@ export const CustomerSalesReport = () => {
         )
         .eq("branch_id", selectedBranchId)
         // Exclude consignment hand-off transactions (goods on loan, not sales)
-        .neq("transaction_type", "consignment_add")
+        .in("transaction_type", REPORTABLE_SALE_TYPES)
         .gte("created_at", `${start} 00:00:00`)
         .lte("created_at", `${end} 23:59:59`)
         .not("customer_id", "is", null);
