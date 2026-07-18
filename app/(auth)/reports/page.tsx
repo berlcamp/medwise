@@ -1,15 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import Notfoundpage from "@/components/Notfoundpage";
+import { ChannelReports } from "@/components/reports/ChannelReports";
 import { CustomerSalesReport } from "@/components/reports/CustomerSalesReport";
-import { DailySalesSummary } from "@/components/reports/DailySalesSummary";
 import { ExpiryReport } from "@/components/reports/ExpiryReport";
 import GLTransactionsReport from "@/components/reports/GLTransactionsReport";
 import InventoryReport from "@/components/reports/InventoryReport";
 import { PaymentMethodReport } from "@/components/reports/PaymentMethodReport";
 import { ProductPerformanceReport } from "@/components/reports/ProductPerformanceReport";
-import { ProfitReport } from "@/components/reports/ProfitReport";
-import SalesReport from "@/components/reports/SalesReport";
 import { StockCardReport } from "@/components/reports/StockCardReport";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,11 +16,12 @@ import {
   BarChart3,
   Calendar,
   CreditCard,
-  DollarSign,
   FileText,
   Package,
-  TrendingUp,
+  ShoppingCart,
+  Truck,
   Users,
+  UserCog,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -31,99 +30,42 @@ export default function ReportsPage() {
   const isBulkUser = user?.type === "bulk";
   const isAdmin = user?.type === "admin" || user?.type === "super admin";
 
-  // Sales and profit related tabs that should be hidden for bulk users
-  const restrictedTabs = [
-    "sales",
-    "daily",
-    "profit",
-    "payment",
-    "customer",
-    "product",
-    "gl",
+  // Channel tabs (Sales/Profit/Daily inside) — hidden for bulk users.
+  const channelTabs = [
+    { value: "bulk", label: "Bulk", icon: ShoppingCart },
+    { value: "consignment", label: "Consignment", icon: Truck },
+    { value: "agent", label: "Agent", icon: UserCog },
   ];
 
-  const allReportTabs = [
-    {
-      value: "sales",
-      label: "Sales Report",
-      icon: DollarSign,
-      description: "Transaction and sales data",
-    },
-    {
-      value: "daily",
-      label: "Daily Summary",
-      icon: Calendar,
-      description: "Daily sales overview",
-    },
-    {
-      value: "profit",
-      label: "Profit Report",
-      icon: TrendingUp,
-      description: "Profit and margin analysis",
-    },
-    {
-      value: "payment",
-      label: "Payment Methods",
-      icon: CreditCard,
-      description: "Payment method breakdown",
-    },
-    {
-      value: "customer",
-      label: "Customer Sales",
-      icon: Users,
-      description: "Customer performance",
-    },
-    {
-      value: "product",
-      label: "Product Performance",
-      icon: BarChart3,
-      description: "Top products analysis",
-    },
-    {
-      value: "gl",
-      label: "GL Transactions",
-      icon: CreditCard,
-      description: "GL payment method transactions",
-    },
-    {
-      value: "inventory",
-      label: "Inventory",
-      icon: Package,
-      description: "Stock levels and status",
-    },
-    {
-      value: "expiry",
-      label: "Expiry Report",
-      icon: Calendar,
-      description: "Expiring products",
-    },
-    {
-      value: "stockcard",
-      label: "Stock Movements",
-      icon: FileText,
-      description: "Stock movement history",
-    },
+  // Global tabs. Customer/Product/Payment/GL are sales-analysis (hidden for
+  // bulk users); Inventory/Expiry/Stock are always available.
+  const salesGlobalTabs = [
+    { value: "customer", label: "Customer Sales", icon: Users },
+    { value: "product", label: "Product Performance", icon: BarChart3 },
+    { value: "payment", label: "Payment Methods", icon: CreditCard },
+    { value: "gl", label: "GL Transactions", icon: CreditCard },
+  ];
+  const inventoryTabs = [
+    { value: "inventory", label: "Inventory", icon: Package },
+    { value: "expiry", label: "Expiry Report", icon: Calendar },
+    { value: "stockcard", label: "Stock Movements", icon: FileText },
   ];
 
-  // Filter out restricted tabs for bulk users, and profit tab for non-admin users
-  const reportTabs = allReportTabs.filter((tab) => {
-    if (isBulkUser && restrictedTabs.includes(tab.value)) return false;
-    if (tab.value === "profit" && !isAdmin) return false;
-    return true;
-  });
+  const visibleTabs = [
+    ...(isBulkUser ? [] : channelTabs),
+    ...(isBulkUser ? [] : salesGlobalTabs),
+    ...inventoryTabs,
+  ];
 
-  const defaultTab = isBulkUser ? "inventory" : "sales";
+  const defaultTab = isBulkUser ? "inventory" : "bulk";
   const [tab, setTab] = useState(defaultTab);
 
-  // Reset tab if current tab is restricted
+  // Reset to a permitted tab if the current one becomes unavailable.
   useEffect(() => {
-    if (isBulkUser && restrictedTabs.includes(tab)) {
+    if (!visibleTabs.some((t) => t.value === tab)) {
       setTab(defaultTab);
     }
-    if (tab === "profit" && !isAdmin) {
-      setTab(defaultTab);
-    }
-  }, [isBulkUser, isAdmin, tab, defaultTab, restrictedTabs]);
+  }, [isBulkUser, isAdmin, tab, defaultTab]);
 
   // Restrict access for cashier users (after all hooks)
   if (user?.type === "cashier") return <Notfoundpage />;
@@ -142,7 +84,7 @@ export default function ReportsPage() {
           <CardContent className="p-6">
             <Tabs value={tab} onValueChange={setTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5 gap-2 h-auto p-1 bg-gray-100">
-                {reportTabs.map((report) => {
+                {visibleTabs.map((report) => {
                   const Icon = report.icon;
                   return (
                     <TabsTrigger
@@ -162,25 +104,23 @@ export default function ReportsPage() {
               <div className="mt-6">
                 {!isBulkUser && (
                   <>
-                    <TabsContent value="sales" className="mt-0">
-                      <SalesReport />
+                    <TabsContent value="bulk" className="mt-0">
+                      <ChannelReports channel="bulk" isAdmin={isAdmin} />
                     </TabsContent>
-                    <TabsContent value="daily" className="mt-0">
-                      <DailySalesSummary />
+                    <TabsContent value="consignment" className="mt-0">
+                      <ChannelReports channel="consignment" isAdmin={isAdmin} />
                     </TabsContent>
-                    {isAdmin && (
-                      <TabsContent value="profit" className="mt-0">
-                        <ProfitReport />
-                      </TabsContent>
-                    )}
-                    <TabsContent value="payment" className="mt-0">
-                      <PaymentMethodReport />
+                    <TabsContent value="agent" className="mt-0">
+                      <ChannelReports channel="agent" isAdmin={isAdmin} />
                     </TabsContent>
                     <TabsContent value="customer" className="mt-0">
                       <CustomerSalesReport />
                     </TabsContent>
                     <TabsContent value="product" className="mt-0">
                       <ProductPerformanceReport />
+                    </TabsContent>
+                    <TabsContent value="payment" className="mt-0">
+                      <PaymentMethodReport />
                     </TabsContent>
                     <TabsContent value="gl" className="mt-0">
                       <GLTransactionsReport />
