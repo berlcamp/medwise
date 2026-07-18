@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import {
+  REPORTABLE_SALE_TYPES,
+  CHANNEL_TX_TYPE,
+  type ReportChannel,
+} from "@/lib/constants";
+import {
   endOfMonth,
   endOfWeek,
   format,
@@ -34,7 +39,11 @@ import {
   SelectValue,
 } from "../ui/select";
 
-export const DailySalesSummary = () => {
+export const DailySalesSummary = ({
+  channel,
+}: {
+  channel?: ReportChannel;
+} = {}) => {
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   );
@@ -102,7 +111,10 @@ export const DailySalesSummary = () => {
         )
         .eq("branch_id", selectedBranchId)
         // Exclude consignment hand-off transactions (goods on loan, not sales)
-        .neq("transaction_type", "consignment_add")
+        .in(
+          "transaction_type",
+          channel ? [CHANNEL_TX_TYPE[channel]] : REPORTABLE_SALE_TYPES
+        )
         .gte("created_at", `${start} 00:00:00`)
         .lte("created_at", `${end} 23:59:59`)
         .order("created_at", { ascending: true });
@@ -183,7 +195,7 @@ export const DailySalesSummary = () => {
       fetchSummary();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, selectedBranchId]);
+  }, [startDate, endDate, selectedBranchId, channel]);
 
   const exportExcel = () => {
     const rows = summary.map((day) => ({
