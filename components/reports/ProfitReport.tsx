@@ -89,6 +89,11 @@ export const ProfitReport = () => {
       `
       )
       .eq("branch_id", selectedBranchId)
+      // Exclude consignment hand-off transactions: these represent goods
+      // handed to a consignee (goods on loan), not actual sales. Counting
+      // them overstates revenue/profit and double-counts once the goods
+      // later sell via a `consignment_sale` transaction.
+      .neq("transaction_type", "consignment_add")
       .gte("created_at", `${start} 00:00:00`)
       .lte("created_at", `${end} 23:59:59`)
       .order("created_at", { ascending: true });
