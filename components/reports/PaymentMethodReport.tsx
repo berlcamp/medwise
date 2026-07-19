@@ -12,7 +12,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
   CreditCard,
   DollarSign,
@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Select,
@@ -144,28 +143,46 @@ export const PaymentMethodReport = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, selectedBranchId]);
 
-  const exportExcel = () => {
-    const rows = reportData.map((item) => ({
-      "Payment Method": item.paymentType,
-      "Total Amount": item.totalAmount,
-      Transactions: item.transactionCount,
-      Paid: item.paid,
-      Unpaid: item.unpaid,
-      Partial: item.partial,
-      "Average Transaction":
-        item.transactionCount > 0
-          ? item.totalAmount / item.transactionCount
-          : 0,
-    }));
+  const exportPdf = () => {
+    const money = (n: number) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Payment Methods");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf]),
-      `payment_method_report_${format(new Date(), "yyyyMMdd")}.xlsx`
-    );
+    exportReportPdf({
+      title: "Payment Method Report",
+      fileName: "payment_method_report",
+      meta: [
+        `Period: ${format(startDate, "MMM dd, yyyy")} - ${format(
+          endDate,
+          "MMM dd, yyyy"
+        )}`,
+      ],
+      columns: [
+        "Payment Method",
+        "Total Amount",
+        "Transactions",
+        "Paid",
+        "Unpaid",
+        "Partial",
+        "Average Transaction",
+      ],
+      numericColumns: [1, 2, 3, 4, 5, 6],
+      rows: reportData.map((item) => [
+        item.paymentType,
+        money(item.totalAmount),
+        item.transactionCount,
+        money(item.paid),
+        money(item.unpaid),
+        money(item.partial),
+        money(
+          item.transactionCount > 0
+            ? item.totalAmount / item.transactionCount
+            : 0
+        ),
+      ]),
+    });
   };
 
   return (
@@ -218,7 +235,7 @@ export const PaymentMethodReport = () => {
                   Generate
                 </Button>
                 {reportData.length > 0 && (
-                  <Button onClick={exportExcel} variant="green" size="sm">
+                  <Button onClick={exportPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>

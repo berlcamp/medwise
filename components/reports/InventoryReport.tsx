@@ -5,11 +5,10 @@ import { Input } from "@/components/ui/input";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { differenceInDays, format, isBefore, parseISO } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import { Download, Loader2, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
@@ -44,26 +43,25 @@ export default function InventoryReport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBranchId]);
 
-  const downloadExcel = () => {
-    // Convert your `data` array into sheet rows
-    const rows = data.map((i) => ({
-      "Product Name": i.name,
-      Category: i.category,
-      "Stock on Hand": i.stock_on_hand,
-      "Nearest Expiry": i.nearest_expiration || "—",
-    }));
-
-    // Convert to worksheet
-    const ws = XLSX.utils.json_to_sheet(rows);
-
-    // Create workbook
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventory Report");
-
-    // Export as Excel file
-    const buffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-    const blob = new Blob([buffer], { type: "application/octet-stream" });
-    saveAs(blob, "Inventory_Report.xlsx");
+  const downloadPdf = () => {
+    exportReportPdf({
+      title: "Inventory Report",
+      fileName: "Inventory_Report",
+      orientation: "portrait",
+      columns: [
+        "Product Name",
+        "Category",
+        "Stock on Hand",
+        "Nearest Expiry",
+      ],
+      numericColumns: [2],
+      rows: data.map((i) => [
+        i.name,
+        i.category,
+        i.stock_on_hand,
+        i.nearest_expiration || "—",
+      ]),
+    });
   };
 
   const loadInventory = async () => {
@@ -229,9 +227,9 @@ export default function InventoryReport() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Inventory Report</CardTitle>
           {filtered.length > 0 && (
-            <Button onClick={downloadExcel} variant="green" size="sm">
+            <Button onClick={downloadPdf} variant="green" size="sm">
               <Download className="h-4 w-4 mr-2" />
-              Export Excel
+              Export PDF
             </Button>
           )}
         </CardHeader>

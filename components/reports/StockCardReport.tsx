@@ -6,11 +6,10 @@ import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { Branch, Product, User } from "@/types";
 import { format, parseISO } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import { Download, Loader2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 type StockMovement = {
@@ -105,37 +104,45 @@ export const StockCardReport = () => {
   );
 
   // ---------- EXPORT TO EXCEL ----------
-  const exportToExcel = () => {
+  const exportToPdf = () => {
     if (!filteredMovements.length) {
       toast.error("No data to export!");
       return;
     }
 
-    const wsData = filteredMovements.map((m) => ({
-      Date: format(parseISO(m.created_at), "MMM dd, yyyy HH:mm"),
-      Product: m.product_name,
-      "Batch / Mfg / Exp": `${m.batch_no ? `Batch: ${m.batch_no}, ` : ""}${
-        m.manufacturer ? `Mfg: ${m.manufacturer}, ` : ""
-      }${m.date_manufactured ? `Date: ${format(parseISO(m.date_manufactured), "MMM dd, yyyy")}, ` : ""}Exp: ${
-        m.expiration_date
-          ? format(parseISO(m.expiration_date), "MMM dd, yyyy")
-          : "-"
-      }`,
-      Type: `${m.type} ${m.branch && `(${m.branch?.name})`}`,
-      Quantity: m.quantity,
-      //   Remaining: m.remaining_quantity ?? '-',
-      User: m.user?.name,
-      Remarks: m.remarks || "-",
-    }));
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, "Stock Card");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf]),
-      `stock_card_report_${new Date().toISOString()}.xlsx`
-    );
+    exportReportPdf({
+      title: "Stock Card Report",
+      fileName: "stock_card_report",
+      columns: [
+        "Date",
+        "Product",
+        "Batch / Mfg / Exp",
+        "Type",
+        "Quantity",
+        "User",
+        "Remarks",
+      ],
+      numericColumns: [4],
+      rows: filteredMovements.map((m) => [
+        format(parseISO(m.created_at), "MMM dd, yyyy HH:mm"),
+        m.product_name,
+        `${m.batch_no ? `Batch: ${m.batch_no}, ` : ""}${
+          m.manufacturer ? `Mfg: ${m.manufacturer}, ` : ""
+        }${
+          m.date_manufactured
+            ? `Date: ${format(parseISO(m.date_manufactured), "MMM dd, yyyy")}, `
+            : ""
+        }Exp: ${
+          m.expiration_date
+            ? format(parseISO(m.expiration_date), "MMM dd, yyyy")
+            : "-"
+        }`,
+        `${m.type} ${m.branch ? `(${m.branch?.name})` : ""}`.trim(),
+        m.quantity,
+        m.user?.name || "-",
+        m.remarks || "-",
+      ]),
+    });
   };
 
   return (
@@ -181,7 +188,7 @@ export const StockCardReport = () => {
                   Refresh
                 </Button>
                 {filteredMovements.length > 0 && (
-                  <Button onClick={exportToExcel} variant="green" size="sm">
+                  <Button onClick={exportToPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>

@@ -17,7 +17,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
   DollarSign,
   Download,
@@ -29,7 +29,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Select,
@@ -197,27 +196,52 @@ export const DailySalesSummary = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, selectedBranchId, channel]);
 
-  const exportExcel = () => {
-    const rows = summary.map((day) => ({
-      Date: format(parseISO(day.date), "MMM dd, yyyy"),
-      "Total Sales": day.sales,
-      Transactions: day.transactions,
-      Customers: day.customers,
-      "Average Transaction": day.averageTransaction,
-      "Paid Amount": day.paid,
-      "Unpaid Amount": day.unpaid,
-      "Retail Sales": day.retail,
-      "Bulk Sales": day.bulk,
-    }));
+  const exportPdf = () => {
+    const money = (n: number) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Daily Summary");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf]),
-      `daily_sales_summary_${format(new Date(), "yyyyMMdd")}.xlsx`
-    );
+    exportReportPdf({
+      title: "Daily Sales Summary",
+      fileName: "daily_sales_summary",
+      meta: [
+        `Period: ${format(startDate, "MMM dd, yyyy")} - ${format(
+          endDate,
+          "MMM dd, yyyy"
+        )}`,
+      ],
+      summary: [
+        { label: "Total Sales", value: money(totals.totalSales) },
+        { label: "Transactions", value: String(totals.totalTransactions) },
+        { label: "Customers", value: String(totals.totalCustomers) },
+        { label: "Avg. Transaction", value: money(totals.averageTransaction) },
+      ],
+      columns: [
+        "Date",
+        "Total Sales",
+        "Transactions",
+        "Customers",
+        "Avg. Transaction",
+        "Paid Amount",
+        "Unpaid Amount",
+        "Retail Sales",
+        "Bulk Sales",
+      ],
+      numericColumns: [1, 2, 3, 4, 5, 6, 7, 8],
+      rows: summary.map((day) => [
+        format(parseISO(day.date), "MMM dd, yyyy"),
+        money(day.sales),
+        day.transactions,
+        day.customers,
+        money(day.averageTransaction),
+        money(day.paid),
+        money(day.unpaid),
+        money(day.retail),
+        money(day.bulk),
+      ]),
+    });
   };
 
   return (
@@ -270,7 +294,7 @@ export const DailySalesSummary = ({
                   Refresh
                 </Button>
                 {summary.length > 0 && (
-                  <Button onClick={exportExcel} variant="green" size="sm">
+                  <Button onClick={exportPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>

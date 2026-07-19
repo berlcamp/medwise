@@ -6,11 +6,10 @@ import { REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { endOfMonth, format, startOfMonth } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import { Download, Loader2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 
@@ -140,29 +139,48 @@ export const CustomerSalesReport = () => {
     c.customerName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const exportExcel = () => {
-    const rows = filteredData.map((item) => ({
-      "Customer Name": item.customerName,
-      "Total Sales": item.totalAmount,
-      Transactions: item.transactionCount,
-      "Items Purchased": item.itemCount,
-      Paid: item.paid,
-      Unpaid: item.unpaid,
-      Partial: item.partial,
-      "Average Transaction": item.averageTransaction,
-      "Last Transaction": item.lastTransactionDate
-        ? format(item.lastTransactionDate, "MMM dd, yyyy")
-        : "-",
-    }));
+  const exportPdf = () => {
+    const money = (n: number) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Customer Sales");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf]),
-      `customer_sales_report_${format(new Date(), "yyyyMMdd")}.xlsx`
-    );
+    exportReportPdf({
+      title: "Customer Sales Report",
+      fileName: "customer_sales_report",
+      meta: [
+        `Period: ${format(startDate, "MMM dd, yyyy")} - ${format(
+          endDate,
+          "MMM dd, yyyy"
+        )}`,
+      ],
+      columns: [
+        "Customer Name",
+        "Total Sales",
+        "Transactions",
+        "Items Purchased",
+        "Paid",
+        "Unpaid",
+        "Partial",
+        "Average Transaction",
+        "Last Transaction",
+      ],
+      numericColumns: [1, 2, 3, 4, 5, 6, 7],
+      rows: filteredData.map((item) => [
+        item.customerName,
+        money(item.totalAmount),
+        item.transactionCount,
+        item.itemCount,
+        money(item.paid),
+        money(item.unpaid),
+        money(item.partial),
+        money(item.averageTransaction),
+        item.lastTransactionDate
+          ? format(item.lastTransactionDate, "MMM dd, yyyy")
+          : "-",
+      ]),
+    });
   };
 
   return (
@@ -217,7 +235,7 @@ export const CustomerSalesReport = () => {
                   Generate
                 </Button>
                 {filteredData.length > 0 && (
-                  <Button onClick={exportExcel} variant="green" size="sm">
+                  <Button onClick={exportPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>

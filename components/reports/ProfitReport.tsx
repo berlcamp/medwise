@@ -18,7 +18,7 @@ import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
   REPORTABLE_SALE_TYPES,
   CHANNEL_TX_TYPE,
@@ -277,52 +277,97 @@ export const ProfitReport = ({
     setLoading(false);
   };
 
-  const exportExcel = () => {
-    const rows: any[] = [];
+  const exportPdf = () => {
+    const money = (n: any) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    const meta = [
+      `Period: ${format(range[0].startDate, "MMM dd, yyyy")} - ${format(
+        range[0].endDate,
+        "MMM dd, yyyy"
+      )}`,
+      `Basis: ${basis === "collected" ? "Collected (payments received)" : "All sales"}`,
+    ];
+    const summaryStrip = [
+      { label: "Revenue", value: money(summary.totalRevenue) },
+      { label: "Cost", value: money(summary.totalCost) },
+      { label: "Profit", value: money(summary.totalProfit) },
+      { label: "Margin", value: `${summary.profitMargin.toFixed(2)}%` },
+    ];
 
     if (basis === "collected") {
-      collectedRows.forEach((r) => {
-        rows.push({
-          "Payment Date": format(parseISO(r.payment_date), "yyyy-MM-dd HH:mm"),
-          "Transaction Number": r.transaction_number,
-          "Payment Method": r.payment_method,
-          "Amount Collected": r.amount,
-          "Est. Cost": r.cost,
-          "Est. Profit": r.profit,
-          "Margin %": r.amount > 0 ? ((r.profit / r.amount) * 100).toFixed(2) : 0,
-        });
+      exportReportPdf({
+        title: "Profit Report",
+        fileName: "Profit_Report",
+        meta,
+        summary: summaryStrip,
+        columns: [
+          "Payment Date",
+          "Transaction Number",
+          "Payment Method",
+          "Amount Collected",
+          "Est. Cost",
+          "Est. Profit",
+          "Margin %",
+        ],
+        numericColumns: [3, 4, 5, 6],
+        rows: collectedRows.map((r) => [
+          format(parseISO(r.payment_date), "MMM dd, yyyy HH:mm"),
+          r.transaction_number,
+          r.payment_method,
+          money(r.amount),
+          money(r.cost),
+          money(r.profit),
+          r.amount > 0 ? ((r.profit / r.amount) * 100).toFixed(2) : "0",
+        ]),
       });
-    } else {
-      reportData.forEach((t) =>
-        t.transaction_items.forEach((item: any) => {
-          const costPrice = Number(item.stock?.purchase_price || 0);
-          const cost = costPrice * (item.quantity || 0);
-          const profit = Number(item.total) - cost;
-
-          rows.push({
-            Date: format(parseISO(t.created_at), "yyyy-MM-dd HH:mm"),
-            "Transaction Number": t.transaction_number,
-            Product: item.product?.name,
-            Quantity: item.quantity,
-            "Selling Price": item.price,
-            "Line Total": item.total,
-            "Cost Price": costPrice,
-            "Total Cost": cost,
-            Profit: profit,
-            "Profit Margin %":
-              item.total > 0 ? ((profit / item.total) * 100).toFixed(2) : 0,
-          });
-        })
-      );
+      return;
     }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Profit Report");
-    XLSX.writeFile(
-      wb,
-      `Profit_Report_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`
+    const rows: (string | number)[][] = [];
+    reportData.forEach((t) =>
+      t.transaction_items.forEach((item: any) => {
+        const costPrice = Number(item.stock?.purchase_price || 0);
+        const cost = costPrice * (item.quantity || 0);
+        const profit = Number(item.total) - cost;
+        rows.push([
+          format(parseISO(t.created_at), "MMM dd, yyyy HH:mm"),
+          t.transaction_number,
+          item.product?.name || "-",
+          item.quantity,
+          money(item.price),
+          money(item.total),
+          money(costPrice),
+          money(cost),
+          money(profit),
+          item.total > 0 ? ((profit / item.total) * 100).toFixed(2) : "0",
+        ]);
+      })
     );
+
+    exportReportPdf({
+      title: "Profit Report",
+      fileName: "Profit_Report",
+      meta,
+      summary: summaryStrip,
+      columns: [
+        "Date",
+        "Transaction Number",
+        "Product",
+        "Qty",
+        "Selling Price",
+        "Line Total",
+        "Cost Price",
+        "Total Cost",
+        "Profit",
+        "Profit Margin %",
+      ],
+      numericColumns: [3, 4, 5, 6, 7, 8, 9],
+      rows,
+    });
   };
 
   // 🚀 Auto-update date range on mode change
@@ -440,7 +485,7 @@ export const ProfitReport = ({
                   Generate
                 </Button>
                 {hasData && (
-                  <Button onClick={exportExcel} variant="green" size="sm">
+                  <Button onClick={exportPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>

@@ -15,7 +15,7 @@ import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { Transaction } from "@/types";
 import { format, parseISO } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
   DollarSign,
   Download,
@@ -26,7 +26,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
@@ -184,39 +183,66 @@ export default function SalesReport({
     setLoading(false);
   }
 
-  // Download Excel file
-  function downloadExcel() {
+  // Download formatted PDF file
+  function downloadPdf() {
     if (!reportData.length) return;
 
-    const rows: any[] = [];
+    const money = (n: any) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    const fmtDate = (d: any) =>
+      d ? format(parseISO(d), "MMM dd, yyyy HH:mm") : "-";
 
+    const rows: (string | number)[][] = [];
     reportData.forEach((t) => {
       t.transaction_items.forEach((item) => {
-        rows.push({
-          TransactionID: t.transaction_number,
-          Date: t.created_at,
-          ProductID: item.product?.name,
-          Quantity: item.quantity,
-          Price: item.price,
-          LineTotal: item.total,
-          BatchNo: item.batch_no,
-          MfgDate: item.date_manufactured,
-          ExpDate: item.expiration_date,
-          TransactionTotal: t.total_amount,
-        });
+        rows.push([
+          t.transaction_number,
+          fmtDate(t.created_at),
+          item.product?.name || "-",
+          item.quantity,
+          money(item.price),
+          money(item.total),
+          item.batch_no || "-",
+          item.date_manufactured || "-",
+          item.expiration_date || "-",
+          money(t.total_amount),
+        ]);
       });
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sales Report");
-
-    const excelBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-
-    saveAs(
-      new Blob([excelBuffer], { type: "application/octet-stream" }),
-      `Sales_Report_${Date.now()}.xlsx`
-    );
+    exportReportPdf({
+      title: "Sales Report",
+      fileName: "Sales_Report",
+      meta: [
+        `Period: ${format(range[0].startDate, "MMM dd, yyyy")} - ${format(
+          range[0].endDate,
+          "MMM dd, yyyy"
+        )}`,
+      ],
+      summary: [
+        { label: "Total Sales", value: money(summary.totalSales) },
+        { label: "Transactions", value: String(summary.totalTransactions) },
+        { label: "Items", value: String(summary.totalItems) },
+        { label: "Avg. Transaction", value: money(summary.averageTransaction) },
+      ],
+      columns: [
+        "Transaction #",
+        "Date",
+        "Product",
+        "Qty",
+        "Price",
+        "Line Total",
+        "Batch No",
+        "Mfg Date",
+        "Exp Date",
+        "Transaction Total",
+      ],
+      numericColumns: [3, 4, 5, 9],
+      rows,
+    });
   }
 
   useEffect(() => {
@@ -333,7 +359,7 @@ export default function SalesReport({
                 Generate
               </Button>
               {reportData.length > 0 && (
-                <Button onClick={downloadExcel} variant="green" size="sm">
+                <Button onClick={downloadPdf} variant="green" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>

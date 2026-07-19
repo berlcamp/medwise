@@ -6,11 +6,10 @@ import { REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { endOfMonth, format, startOfMonth } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import { Download, Loader2, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 import {
@@ -136,24 +135,40 @@ export const ProductPerformanceReport = () => {
       p.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const exportExcel = () => {
-    const rows = filteredData.map((item) => ({
-      "Product Name": item.productName,
-      Category: item.category,
-      "Total Revenue": item.totalRevenue,
-      "Quantity Sold": item.totalQuantity,
-      Transactions: item.transactionCount,
-      "Average Price": item.averagePrice,
-    }));
+  const exportPdf = () => {
+    const money = (n: number) =>
+      Number(n || 0).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Product Performance");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(
-      new Blob([buf]),
-      `product_performance_report_${format(new Date(), "yyyyMMdd")}.xlsx`
-    );
+    exportReportPdf({
+      title: "Product Performance Report",
+      fileName: "product_performance_report",
+      meta: [
+        `Period: ${format(startDate, "MMM dd, yyyy")} - ${format(
+          endDate,
+          "MMM dd, yyyy"
+        )}`,
+      ],
+      columns: [
+        "Product Name",
+        "Category",
+        "Total Revenue",
+        "Quantity Sold",
+        "Transactions",
+        "Average Price",
+      ],
+      numericColumns: [2, 3, 4, 5],
+      rows: filteredData.map((item) => [
+        item.productName,
+        item.category,
+        money(item.totalRevenue),
+        item.totalQuantity,
+        item.transactionCount,
+        money(item.averagePrice),
+      ]),
+    });
   };
 
   return (
@@ -232,7 +247,7 @@ export const ProductPerformanceReport = () => {
                 Generate
               </Button>
               {filteredData.length > 0 && (
-                <Button onClick={exportExcel} variant="green" size="sm">
+                <Button onClick={exportPdf} variant="green" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>

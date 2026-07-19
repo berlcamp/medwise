@@ -4,14 +4,13 @@ import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { differenceInDays, format, isBefore, parseISO } from "date-fns";
-import { saveAs } from "file-saver";
+import { exportReportPdf } from "@/lib/utils/reportPdf";
 import { Download, Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DateRangePicker } from "react-date-range";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import toast from "react-hot-toast";
-import * as XLSX from "xlsx";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Select,
@@ -150,29 +149,38 @@ export const ExpiryReport = () => {
   }, [selectedBranchId, mode, range]);
 
   // ---------- EXPORT TO EXCEL ----------
-  const exportToExcel = () => {
-    const wsData = list.map((item) => ({
-      Product: item.product_name,
-      "Batch #": item.batch_no || "-",
-      Supplier: item.supplier_name,
-      "Remaining Qty": item.remaining_quantity,
-      Manufacturer: item.manufacturer || "-",
-      "Mfg Date": item.date_manufactured
-        ? format(parseISO(item.date_manufactured), "MMM dd, yyyy")
-        : "-",
-      "Expiry Date": item.expiration_date
-        ? format(parseISO(item.expiration_date), "MMM dd, yyyy")
-        : "-",
-      "Days to Expiry": item.expiration_date
-        ? differenceInDays(parseISO(item.expiration_date), new Date())
-        : "-",
-    }));
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(wsData);
-    XLSX.utils.book_append_sheet(wb, ws, "Expiry Report");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(new Blob([buf]), `expiry_report_${new Date().toISOString()}.xlsx`);
+  const exportToPdf = () => {
+    exportReportPdf({
+      title: "Expiry Report",
+      fileName: "expiry_report",
+      columns: [
+        "Product",
+        "Batch #",
+        "Supplier",
+        "Remaining Qty",
+        "Manufacturer",
+        "Mfg Date",
+        "Expiry Date",
+        "Days to Expiry",
+      ],
+      numericColumns: [3, 7],
+      rows: list.map((item) => [
+        item.product_name,
+        item.batch_no || "-",
+        item.supplier_name,
+        item.remaining_quantity,
+        item.manufacturer || "-",
+        item.date_manufactured
+          ? format(parseISO(item.date_manufactured), "MMM dd, yyyy")
+          : "-",
+        item.expiration_date
+          ? format(parseISO(item.expiration_date), "MMM dd, yyyy")
+          : "-",
+        item.expiration_date
+          ? differenceInDays(parseISO(item.expiration_date), new Date())
+          : "-",
+      ]),
+    });
   };
 
   return (
@@ -231,7 +239,7 @@ export const ExpiryReport = () => {
                   Generate
                 </Button>
                 {list.length > 0 && (
-                  <Button onClick={exportToExcel} variant="green" size="sm">
+                  <Button onClick={exportToPdf} variant="green" size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
