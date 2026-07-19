@@ -133,7 +133,6 @@ export const DailySalesSummary = ({
             customers: new Set(),
             paid: 0,
             unpaid: 0,
-            retail: 0,
             bulk: 0,
           });
         }
@@ -146,8 +145,6 @@ export const DailySalesSummary = ({
           day.paid += Number(tx.total_amount) || 0;
         if (tx.payment_status === "Unpaid")
           day.unpaid += Number(tx.total_amount) || 0;
-        if (tx.transaction_type === "retail")
-          day.retail += Number(tx.total_amount) || 0;
         if (tx.transaction_type === "bulk")
           day.bulk += Number(tx.total_amount) || 0;
       });
@@ -226,10 +223,9 @@ export const DailySalesSummary = ({
         "Avg. Transaction",
         "Paid Amount",
         "Unpaid Amount",
-        "Retail Sales",
         "Bulk Sales",
       ],
-      numericColumns: [1, 2, 3, 4, 5, 6, 7, 8],
+      numericColumns: [1, 2, 3, 4, 5, 6, 7],
       rows: summary.map((day) => [
         format(parseISO(day.date), "MMM dd, yyyy"),
         money(day.sales),
@@ -238,7 +234,6 @@ export const DailySalesSummary = ({
         money(day.averageTransaction),
         money(day.paid),
         money(day.unpaid),
-        money(day.retail),
         money(day.bulk),
       ]),
     });
@@ -403,7 +398,6 @@ export const DailySalesSummary = ({
                     </th>
                     <th className="p-3 text-right font-semibold">Paid</th>
                     <th className="p-3 text-right font-semibold">Unpaid</th>
-                    <th className="p-3 text-right font-semibold">Retail</th>
                     <th className="p-3 text-right font-semibold">Bulk</th>
                   </tr>
                 </thead>
@@ -439,13 +433,6 @@ export const DailySalesSummary = ({
                       <td className="p-3 text-right text-red-600">
                         ₱
                         {day.unpaid.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="p-3 text-right">
-                        ₱
-                        {day.retail.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}

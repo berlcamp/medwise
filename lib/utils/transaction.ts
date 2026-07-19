@@ -12,7 +12,7 @@ export interface CreateTransactionParams {
   org_id: number;
   customer_id: number;
   customer_name: string;
-  transaction_type: "retail" | "bulk" | "consignment";
+  transaction_type: "bulk" | "consignment";
   payment_type: string;
   payment_status?: string;
   total_amount: number;

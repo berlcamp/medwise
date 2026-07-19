@@ -115,7 +115,7 @@ const FormSchema = z
 
 type FormType = z.infer<typeof FormSchema>;
 
-type TransactionType = "bulk" | "retail" | "consignment";
+type TransactionType = "bulk" | "consignment";
 
 interface TransactionFormProps {
   transactionType: TransactionType;
@@ -171,14 +171,6 @@ export default function TransactionForm({
           successMessage: "Transaction completed successfully!",
           allowPriceEdit: false,
         };
-      case "retail":
-        return {
-          title: "New Transaction [Retail]",
-          paymentStatus: "Paid",
-          redirectUrl: "/transactions",
-          successMessage: "Transaction completed successfully!",
-          allowPriceEdit: false,
-        };
       case "consignment":
         return {
           title: "New Consignment",
@@ -191,7 +183,7 @@ export default function TransactionForm({
         return {
           title: "New Transaction",
           paymentStatus: "Paid",
-          redirectUrl: "/transactions",
+          redirectUrl: "/bulktransactions",
           successMessage: "Transaction completed successfully!",
           allowPriceEdit: false,
         };

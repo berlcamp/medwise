@@ -61,11 +61,6 @@ export function AppSidebar() {
       icon: BarChart
     },
     {
-      title: 'Retail Transactions',
-      url: '/transactions',
-      icon: ShoppingCart
-    },
-    {
       title: 'Bulk Transactions',
       url: '/bulktransactions',
       icon: ShoppingCart
@@ -94,9 +89,9 @@ export function AppSidebar() {
 
   console.log('type', user?.type)
 
-  // Filter items for cashier users - only show Home and Retail Transactions
+  // Filter items for cashier users - only show Home
   const items = user?.type === 'cashier'
-    ? allItems.filter(item => item.url === '/home' || item.url === '/transactions')
+    ? allItems.filter(item => item.url === '/home')
     : allItems
 
   const inventoryItems = [
@@ -135,7 +130,7 @@ export function AppSidebar() {
     },
   ]
 
-  // Filter items for cashier users - only show Home and Retail Transactions
+  // Hide Branches from non-super-admin users
   const settingItems = user?.type !== 'super admin'
     ? allSettingItems.filter(item => item.url !== '/branches')
     : allSettingItems

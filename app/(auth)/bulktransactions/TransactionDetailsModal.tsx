@@ -35,10 +35,6 @@ export function TransactionDetailsModal({
 }: Props) {
   const [cart, setCart] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [referenceNumber, setReferenceNumber] = useState(
-    transaction.reference_number || ""
-  );
   const [printData, setPrintData] = useState<any>(null);
   const [receiptDate, setReceiptDate] = useState(
     transaction.delivery_receipt_date || ""
@@ -89,32 +85,6 @@ export function TransactionDetailsModal({
 
     fetchItems();
   }, [transaction]);
-
-  const handleUpdateReference = async () => {
-    if (!transaction?.id) return;
-    if (!referenceNumber.trim()) {
-      toast.error("Reference number cannot be empty");
-      return;
-    }
-
-    setSaving(true);
-    const { error } = await supabase
-      .from("transactions")
-      .update({ reference_number: referenceNumber.trim() })
-      .eq("id", transaction.id);
-
-    if (error) {
-      console.error(error);
-      toast.error("Failed to update reference number");
-    } else {
-      toast.success("Reference number updated successfully");
-    }
-    setSaving(false);
-  };
-
-  useEffect(() => {
-    setReferenceNumber(transaction.reference_number || "");
-  }, [isOpen, transaction.reference_number]);
 
   useEffect(() => {
     setReceiptDate(transaction.delivery_receipt_date || "");
@@ -282,31 +252,6 @@ export function TransactionDetailsModal({
                       )}
                     </div>
                   </div>
-
-                  {/* Reference Number */}
-                  {transaction.transaction_type === "retail" && (
-                    <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-gray-600">
-                          Payment Reference Number:
-                        </label>
-                        <Input
-                          className="w-64 h-8 text-sm"
-                          value={referenceNumber}
-                          onChange={(e) => setReferenceNumber(e.target.value)}
-                          placeholder="Enter reference number"
-                        />
-                        <Button
-                          variant="blue"
-                          size="xs"
-                          onClick={handleUpdateReference}
-                          disabled={saving}
-                        >
-                          {saving ? "Saving..." : "Save"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Delivery Receipt Date */}
                   <div className="mb-4 p-4 bg-gray-50 rounded-lg">

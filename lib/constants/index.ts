@@ -93,9 +93,9 @@ export const procedureCategories = [
 // ===============================
 export type ReportChannel = "bulk" | "consignment" | "agent";
 
-// Transaction types counted by sales/profit reports. Excludes retail and
-// consignment hand-offs (consignment_add). Agent hand-offs create no
-// transaction row, so nothing to exclude there.
+// Transaction types counted by sales/profit reports. Excludes consignment
+// hand-offs (consignment_add). Agent hand-offs create no transaction row,
+// so nothing to exclude there.
 export const REPORTABLE_SALE_TYPES: string[] = [
   "bulk",
   "consignment_sale",

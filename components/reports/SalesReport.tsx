@@ -53,7 +53,7 @@ export default function SalesReport({
     },
   ]);
 
-  const [txnType, setTxnType] = useState("All"); // All, Retail, Bulk
+  const [txnType, setTxnType] = useState("All"); // All, Bulk
   const [paymentStatus, setPaymentStatus] = useState("All"); // All, Paid, Unpaid, Partial
 
   const [mode, setMode] = useState("daily"); // daily / weekly / monthly / custom
@@ -127,7 +127,7 @@ export default function SalesReport({
       .order("created_at", { ascending: false });
 
     // Channel scoping. Inside a channel tab the type is fixed; otherwise limit
-    // to reportable sale types (retail + consignment hand-offs excluded).
+    // to reportable sale types (consignment hand-offs excluded).
     if (channel) {
       query = query.eq("transaction_type", CHANNEL_TX_TYPE[channel]);
     } else {
@@ -302,9 +302,6 @@ export default function SalesReport({
                 <SelectContent>
                   <SelectItem value="All" className="truncate">
                     All Transactions
-                  </SelectItem>
-                  <SelectItem value="retail" className="truncate">
-                    Retail
                   </SelectItem>
                   <SelectItem value="bulk" className="truncate">
                     Bulk
