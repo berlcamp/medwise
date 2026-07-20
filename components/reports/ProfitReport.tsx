@@ -25,6 +25,7 @@ import {
   type ReportChannel,
 } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { CardInfo } from "./CardInfo";
 import {
   Select,
   SelectContent,
@@ -198,6 +199,7 @@ export const ProfitReport = ({
           `
           id,
           transaction_number,
+          customer_name,
           transaction_type,
           transaction_items:transaction_items(
             quantity,
@@ -232,6 +234,7 @@ export const ProfitReport = ({
         );
         txnMap.set(t.id, {
           transaction_number: t.transaction_number,
+          customer_name: t.customer_name,
           marginRatio: revenue > 0 ? cost / revenue : 0,
         });
       });
@@ -259,6 +262,7 @@ export const ProfitReport = ({
         id: p.id,
         payment_date: p.payment_date,
         transaction_number: t.transaction_number,
+        customer_name: t.customer_name,
         payment_method: p.payment_method,
         amount,
         cost,
@@ -291,6 +295,11 @@ export const ProfitReport = ({
       )}`,
       `Basis: ${basis === "collected" ? "Collected (payments received)" : "All sales"}`,
     ];
+    if (basis === "collected") {
+      meta.push(
+        'Note: Cash collected within the period, including payments on invoices from earlier periods, so it can exceed "All sales" for the same range.'
+      );
+    }
     const summaryStrip = [
       { label: "Revenue", value: money(summary.totalRevenue) },
       { label: "Cost", value: money(summary.totalCost) },
@@ -307,16 +316,18 @@ export const ProfitReport = ({
         columns: [
           "Payment Date",
           "Transaction Number",
+          "Customer",
           "Payment Method",
           "Amount Collected",
           "Est. Cost",
           "Est. Profit",
           "Margin %",
         ],
-        numericColumns: [3, 4, 5, 6],
+        numericColumns: [4, 5, 6, 7],
         rows: collectedRows.map((r) => [
           format(parseISO(r.payment_date), "MMM dd, yyyy HH:mm"),
           r.transaction_number,
+          r.customer_name || "-",
           r.payment_method,
           money(r.amount),
           money(r.cost),
@@ -336,6 +347,7 @@ export const ProfitReport = ({
         rows.push([
           format(parseISO(t.created_at), "MMM dd, yyyy HH:mm"),
           t.transaction_number,
+          t.customer_name || "-",
           item.product?.name || "-",
           item.quantity,
           money(item.price),
@@ -356,6 +368,7 @@ export const ProfitReport = ({
       columns: [
         "Date",
         "Transaction Number",
+        "Customer",
         "Product",
         "Qty",
         "Selling Price",
@@ -365,7 +378,7 @@ export const ProfitReport = ({
         "Profit",
         "Profit Margin %",
       ],
-      numericColumns: [3, 4, 5, 6, 7, 8, 9],
+      numericColumns: [4, 5, 6, 7, 8, 9, 10],
       rows,
     });
   };
@@ -527,9 +540,25 @@ export const ProfitReport = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    {basis === "collected" ? "Total Collected" : "Total Revenue"}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">
+                      {basis === "collected"
+                        ? "Total Collected"
+                        : "Total Revenue"}
+                    </p>
+                    <CardInfo
+                      label={
+                        basis === "collected"
+                          ? "Total Collected"
+                          : "Total Revenue"
+                      }
+                      text={
+                        basis === "collected"
+                          ? "Total cash received from payments dated within the selected period and channel — including payments on invoices from earlier periods."
+                          : "Sum of every line-item sales total for transactions in the selected period and channel. Recognized when the sale is made."
+                      }
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {summary.totalRevenue.toLocaleString("en-US", {
@@ -546,9 +575,19 @@ export const ProfitReport = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    {basis === "collected" ? "Est. Cost" : "Total Cost"}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">
+                      {basis === "collected" ? "Est. Cost" : "Total Cost"}
+                    </p>
+                    <CardInfo
+                      label={basis === "collected" ? "Est. Cost" : "Total Cost"}
+                      text={
+                        basis === "collected"
+                          ? "Estimated cost of goods for the cash collected, allocated to each payment in proportion to its transaction's cost-to-revenue ratio."
+                          : "Purchase (FIFO) cost of the items sold: cost price × quantity for each line item."
+                      }
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {summary.totalCost.toLocaleString("en-US", {
@@ -565,9 +604,21 @@ export const ProfitReport = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    {basis === "collected" ? "Est. Profit" : "Total Profit"}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">
+                      {basis === "collected" ? "Est. Profit" : "Total Profit"}
+                    </p>
+                    <CardInfo
+                      label={
+                        basis === "collected" ? "Est. Profit" : "Total Profit"
+                      }
+                      text={
+                        basis === "collected"
+                          ? "Collected amount minus estimated cost."
+                          : "Revenue minus total cost."
+                      }
+                    />
+                  </div>
                   <p
                     className={`text-2xl font-bold ${summary.totalProfit >= 0 ? "text-green-600" : "text-red-600"}`}
                   >
@@ -586,7 +637,13 @@ export const ProfitReport = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Profit Margin</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Profit Margin</p>
+                    <CardInfo
+                      label="Profit Margin"
+                      text="Profit as a percentage of revenue (Profit ÷ Revenue × 100)."
+                    />
+                  </div>
                   <p
                     className={`text-2xl font-bold ${summary.profitMargin >= 0 ? "text-green-600" : "text-red-600"}`}
                   >
@@ -608,7 +665,9 @@ export const ProfitReport = ({
             <p className="text-sm text-gray-500">
               Based on payments received (by payment date). Cost and profit are
               estimated per payment in proportion to each transaction&apos;s
-              margin.
+              margin. This is cash collected within the period and includes
+              payments on invoices from earlier periods, so it can be higher
+              than &quot;All Sales&quot; for the same range.
               {channel && channel !== "bulk" && (
                 <>
                   {" "}
@@ -637,6 +696,7 @@ export const ProfitReport = ({
                     <th className="p-3 text-left font-semibold">
                       Transaction #
                     </th>
+                    <th className="p-3 text-left font-semibold">Customer</th>
                     <th className="p-3 text-left font-semibold">Method</th>
                     <th className="p-3 text-right font-semibold">
                       Amount Collected
@@ -655,6 +715,7 @@ export const ProfitReport = ({
                       <td className="p-3 font-medium">
                         {r.transaction_number}
                       </td>
+                      <td className="p-3">{r.customer_name || "-"}</td>
                       <td className="p-3">{r.payment_method || "-"}</td>
                       <td className="p-3 text-right font-semibold">
                         ₱
@@ -698,6 +759,7 @@ export const ProfitReport = ({
                     <th className="p-3 text-left font-semibold">
                       Transaction #
                     </th>
+                    <th className="p-3 text-left font-semibold">Customer</th>
                     <th className="p-3 text-left font-semibold">Product</th>
                     <th className="p-3 text-right font-semibold">Qty</th>
                     <th className="p-3 text-right font-semibold">
@@ -736,6 +798,7 @@ export const ProfitReport = ({
                           <td className="p-3 font-medium">
                             {t.transaction_number}
                           </td>
+                          <td className="p-3">{t.customer_name || "-"}</td>
                           <td className="p-3">{item.product?.name || "-"}</td>
                           <td className="p-3 text-right">{item.quantity}</td>
                           <td className="p-3 text-right">

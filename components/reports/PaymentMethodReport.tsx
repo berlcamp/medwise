@@ -23,6 +23,7 @@ import {
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { CardInfo } from "./CardInfo";
 import {
   Select,
   SelectContent,
@@ -253,7 +254,13 @@ export const PaymentMethodReport = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Sales</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Total Sales</p>
+                    <CardInfo
+                      label="Total Sales"
+                      text="Sum of the transaction totals across all payment methods for the selected period."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {summary.totalSales.toLocaleString("en-US", {
@@ -270,7 +277,13 @@ export const PaymentMethodReport = () => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Transactions</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Total Transactions</p>
+                    <CardInfo
+                      label="Total Transactions"
+                      text="The number of transactions in the selected period, across all payment methods."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     {summary.totalTransactions}
                   </p>

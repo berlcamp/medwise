@@ -24,6 +24,7 @@ import {
 import toast from "react-hot-toast";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { CardInfo } from "./CardInfo";
 import {
   Select,
   SelectContent,
@@ -356,7 +357,13 @@ export default function GLTransactionsReport() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Sales</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Total Sales</p>
+                    <CardInfo
+                      label="Total Sales"
+                      text="Sum of the transaction totals for GL-paid transactions matching the selected filters (date range and billing agency)."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {summary.totalSales.toLocaleString("en-US", {
@@ -373,7 +380,13 @@ export default function GLTransactionsReport() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Transactions</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Transactions</p>
+                    <CardInfo
+                      label="Transactions"
+                      text="The number of GL transactions matching the selected filters."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     {summary.totalTransactions}
                   </p>
@@ -386,7 +399,13 @@ export default function GLTransactionsReport() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Avg. Transaction</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Avg. Transaction</p>
+                    <CardInfo
+                      label="Avg. Transaction"
+                      text="Total Sales divided by the number of transactions — the average value per GL transaction."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {summary.averageTransaction.toLocaleString("en-US", {
@@ -403,7 +422,13 @@ export default function GLTransactionsReport() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Items</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Total Items</p>
+                    <CardInfo
+                      label="Total Items"
+                      text="The total quantity of items across all matching GL transactions."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">{summary.totalItems}</p>
                 </div>
                 <Package className="h-8 w-8 text-orange-500" />

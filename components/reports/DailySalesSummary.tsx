@@ -30,6 +30,7 @@ import {
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { CardInfo } from "./CardInfo";
 import {
   Select,
   SelectContent,
@@ -307,7 +308,13 @@ export const DailySalesSummary = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Sales</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Total Sales</p>
+                    <CardInfo
+                      label="Total Sales"
+                      text="Sum of the transaction totals for the selected period and channel."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {totals.totalSales.toLocaleString("en-US", {
@@ -324,7 +331,13 @@ export const DailySalesSummary = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Transactions</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Transactions</p>
+                    <CardInfo
+                      label="Transactions"
+                      text="The total number of transactions in the selected period."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     {totals.totalTransactions}
                   </p>
@@ -337,7 +350,13 @@ export const DailySalesSummary = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Customers</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Customers</p>
+                    <CardInfo
+                      label="Customers"
+                      text="The number of distinct customers with at least one transaction in the selected period."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">{totals.totalCustomers}</p>
                 </div>
                 <Users className="h-8 w-8 text-purple-500" />
@@ -348,7 +367,13 @@ export const DailySalesSummary = ({
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Avg. Transaction</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm text-gray-500">Avg. Transaction</p>
+                    <CardInfo
+                      label="Avg. Transaction"
+                      text="Total Sales divided by the number of transactions — the average value per transaction."
+                    />
+                  </div>
                   <p className="text-2xl font-bold">
                     ₱
                     {totals.averageTransaction.toLocaleString("en-US", {
