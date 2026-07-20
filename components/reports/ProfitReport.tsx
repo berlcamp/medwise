@@ -200,6 +200,7 @@ export const ProfitReport = ({
           id,
           transaction_number,
           customer_name,
+          created_at,
           transaction_type,
           transaction_items:transaction_items(
             quantity,
@@ -235,6 +236,7 @@ export const ProfitReport = ({
         txnMap.set(t.id, {
           transaction_number: t.transaction_number,
           customer_name: t.customer_name,
+          transaction_date: t.created_at,
           marginRatio: revenue > 0 ? cost / revenue : 0,
         });
       });
@@ -261,6 +263,7 @@ export const ProfitReport = ({
       rows.push({
         id: p.id,
         payment_date: p.payment_date,
+        transaction_date: t.transaction_date,
         transaction_number: t.transaction_number,
         customer_name: t.customer_name,
         payment_method: p.payment_method,
@@ -316,6 +319,7 @@ export const ProfitReport = ({
         columns: [
           "Payment Date",
           "Transaction Number",
+          "Transaction Date",
           "Customer",
           "Payment Method",
           "Amount Collected",
@@ -323,10 +327,13 @@ export const ProfitReport = ({
           "Est. Profit",
           "Margin %",
         ],
-        numericColumns: [4, 5, 6, 7],
+        numericColumns: [5, 6, 7, 8],
         rows: collectedRows.map((r) => [
           format(parseISO(r.payment_date), "MMM dd, yyyy HH:mm"),
           r.transaction_number,
+          r.transaction_date
+            ? format(parseISO(r.transaction_date), "MMM dd, yyyy")
+            : "-",
           r.customer_name || "-",
           r.payment_method,
           money(r.amount),
@@ -696,6 +703,9 @@ export const ProfitReport = ({
                     <th className="p-3 text-left font-semibold">
                       Transaction #
                     </th>
+                    <th className="p-3 text-left font-semibold">
+                      Transaction Date
+                    </th>
                     <th className="p-3 text-left font-semibold">Customer</th>
                     <th className="p-3 text-left font-semibold">Method</th>
                     <th className="p-3 text-right font-semibold">
@@ -714,6 +724,11 @@ export const ProfitReport = ({
                       </td>
                       <td className="p-3 font-medium">
                         {r.transaction_number}
+                      </td>
+                      <td className="p-3">
+                        {r.transaction_date
+                          ? format(parseISO(r.transaction_date), "MMM dd, yyyy")
+                          : "-"}
                       </td>
                       <td className="p-3">{r.customer_name || "-"}</td>
                       <td className="p-3">{r.payment_method || "-"}</td>
