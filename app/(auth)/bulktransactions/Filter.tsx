@@ -3,6 +3,9 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAppSelector } from '@/lib/redux/hook'
+import { supabase } from '@/lib/supabase/client'
+import { Agent } from '@/types'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { DateRangePicker } from 'react-date-range'
@@ -18,6 +21,7 @@ interface FormType {
   date_from: string
   date_to: string
   delivered_since: string
+  delivery_agent_id: string
 }
 
 export const Filter = ({
@@ -32,6 +36,7 @@ export const Filter = ({
     date_from: string
     date_to: string
     delivered_since: string
+    delivery_agent_id: string
   }
   setFilter: (filter: {
     keyword: string
@@ -41,6 +46,7 @@ export const Filter = ({
     date_from: string
     date_to: string
     delivered_since: string
+    delivery_agent_id: string
   }) => void
 }) => {
   // Determine initial date mode based on existing filter
@@ -60,14 +66,40 @@ export const Filter = ({
     }
   ])
 
+  const [agents, setAgents] = useState<Pick<Agent, 'id' | 'name'>[]>([])
+
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId
+  )
+
   const { reset, register, handleSubmit, control, watch, setValue } = useForm<FormType>({
     defaultValues: {
       ...filter,
       payment_status: filter.payment_status || 'all',
       delivery_status: filter.delivery_status || 'all',
-      delivered_since: filter.delivered_since || 'all'
+      delivered_since: filter.delivered_since || 'all',
+      delivery_agent_id: filter.delivery_agent_id || 'all'
     }
   })
+
+  // Load the branch's agents for the agent dropdown
+  useEffect(() => {
+    if (!selectedBranchId) return
+
+    const fetchAgents = async () => {
+      const { data, error } = await supabase
+        .from('agents')
+        .select('id, name')
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+        .eq('branch_id', selectedBranchId)
+        .order('name', { ascending: true })
+
+      if (error) console.error(error)
+      else setAgents(data || [])
+    }
+
+    fetchAgents()
+  }, [selectedBranchId])
 
   // Handle date mode changes
   useEffect(() => {
@@ -118,7 +150,8 @@ export const Filter = ({
       delivery_status: data.delivery_status === 'all' ? '' : (data.delivery_status || ''),
       date_from: data.date_from || '',
       date_to: data.date_to || '',
-      delivered_since: data.delivered_since === 'all' ? '' : (data.delivered_since || '')
+      delivered_since: data.delivered_since === 'all' ? '' : (data.delivered_since || ''),
+      delivery_agent_id: data.delivery_agent_id === 'all' ? '' : (data.delivery_agent_id || '')
     })
   }
 
@@ -130,7 +163,8 @@ export const Filter = ({
       delivery_status: 'all',
       date_from: '',
       date_to: '',
-      delivered_since: 'all'
+      delivered_since: 'all',
+      delivery_agent_id: 'all'
     })
     setDateMode('all')
     setDateRange([{
@@ -145,7 +179,8 @@ export const Filter = ({
       delivery_status: '',
       date_from: '',
       date_to: '',
-      delivered_since: ''
+      delivered_since: '',
+      delivery_agent_id: ''
     })
   }
 
@@ -229,6 +264,33 @@ export const Filter = ({
                     <SelectItem value="In Transit">In Transit</SelectItem>
                     <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+
+          {/* Agent */}
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-gray-600 mb-1">
+              Agent
+            </label>
+            <Controller
+              control={control}
+              name="delivery_agent_id"
+              render={({ field }) => (
+                <Select value={field.value || 'all'} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="none">No Agent</SelectItem>
+                    {agents.map((agent) => (
+                      <SelectItem key={agent.id} value={String(agent.id)}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )}

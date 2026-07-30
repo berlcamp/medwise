@@ -23,7 +23,8 @@ export default function Page() {
     delivery_status: '',
     date_from: '',
     date_to: '',
-    delivered_since: ''
+    delivered_since: '',
+    delivery_agent_id: ''
   })
 
   const dispatch = useAppDispatch()
@@ -41,7 +42,10 @@ export default function Page() {
       setLoading(true)
       let query = supabase
         .from('transactions')
-        .select('*, customer:customer_id(name,address)', { count: 'exact' })
+        .select(
+          '*, customer:customer_id(name,address), delivery_agent:delivery_agent_id(id,name)',
+          { count: 'exact' }
+        )
         .eq('transaction_type', 'bulk')
         .eq('branch_id', selectedBranchId)
         .ilike('transaction_number', `%${filter.transaction_number}%`)
@@ -60,6 +64,15 @@ export default function Page() {
       // Apply delivery status filter
       if (filter.delivery_status && filter.delivery_status.trim() !== '') {
         query = query.eq('delivery_status', filter.delivery_status)
+      }
+
+      // Apply agent filter ("none" matches transactions with no agent set)
+      if (filter.delivery_agent_id && filter.delivery_agent_id.trim() !== '') {
+        if (filter.delivery_agent_id === 'none') {
+          query = query.is('delivery_agent_id', null)
+        } else {
+          query = query.eq('delivery_agent_id', Number(filter.delivery_agent_id))
+        }
       }
 
       // Apply date range filter
@@ -90,7 +103,7 @@ export default function Page() {
         }
       }
 
-      if (!filter.keyword && !filter.transaction_number && !filter.payment_status && !filter.delivery_status && !filter.date_from && !filter.date_to && !filter.delivered_since) {
+      if (!filter.keyword && !filter.transaction_number && !filter.payment_status && !filter.delivery_status && !filter.date_from && !filter.date_to && !filter.delivered_since && !filter.delivery_agent_id) {
         query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }
 

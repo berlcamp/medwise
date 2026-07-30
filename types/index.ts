@@ -376,6 +376,8 @@ export interface Transaction {
   created_at: string;
   delivered_at?: string | null;
   delivery_receipt_date?: string | null;
+  delivery_agent_id?: number | null;
+  delivery_agent?: { id?: number; name: string } | null;
 }
 
 export interface TransactionItem {

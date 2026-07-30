@@ -249,6 +249,11 @@ export const List = () => {
                     </div>
                   )
                 })()}
+                {item.delivery_agent?.name && (
+                  <div className="text-xs text-gray-500">
+                    Agent: {item.delivery_agent.name}
+                  </div>
+                )}
               </td>
               <td className="app__td text-center">
                 <span
