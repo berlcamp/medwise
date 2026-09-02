@@ -637,3 +637,29 @@ export interface AgentHistory {
   // Relations
   product?: Product;
 }
+
+// ===============================
+// EXPENSES
+// ===============================
+export interface Expense {
+  id: number;
+  org_id: number;
+  branch_id: number;
+  expense_date: string;
+  category: string;
+  description?: string | null;
+  payee?: string | null;
+  payment_method?: string | null;
+  reference_number?: string | null;
+  amount: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string | null;
+}
+
+export interface ExpenseCategory {
+  id: number;
+  org_id: number;
+  name: string;
+  created_at?: string;
+}

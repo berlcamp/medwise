@@ -7,6 +7,7 @@ import {
   List,
   ListChecks,
   Loader2,
+  Receipt,
   ShoppingCart,
   StoreIcon,
   User,
@@ -94,6 +95,9 @@ export function AppSidebar() {
     ? allItems.filter(item => item.url === '/home')
     : allItems
 
+  // Expenses are sensitive financials — admins only.
+  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
+
   const inventoryItems = [
     {
       title: 'Products',
@@ -110,6 +114,15 @@ export function AppSidebar() {
       url: '/suppliers',
       icon: StoreIcon
     },
+    ...(isAdmin
+      ? [
+          {
+            title: 'Expenses',
+            url: '/expenses',
+            icon: Receipt
+          }
+        ]
+      : []),
     {
       title: 'Reports',
       url: '/reports',

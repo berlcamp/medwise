@@ -108,3 +108,15 @@ export const CHANNEL_TX_TYPE: Record<ReportChannel, string> = {
   consignment: "consignment_sale",
   agent: "agent_sale",
 };
+
+// ===============================
+// EXPENSES
+// ===============================
+// Expense categories are admin-editable and live in the
+// `medwise.expense_categories` table — see lib/utils/expenseCategories.ts.
+export const expensePaymentMethods = [
+  "Cash",
+  "Bank Transfer",
+  "Check",
+  "GCash",
+];

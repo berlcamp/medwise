@@ -3,11 +3,13 @@
 import Notfoundpage from "@/components/Notfoundpage";
 import { ChannelReports } from "@/components/reports/ChannelReports";
 import { CustomerSalesReport } from "@/components/reports/CustomerSalesReport";
+import { ExpenseReport } from "@/components/reports/ExpenseReport";
 import { ExpiryReport } from "@/components/reports/ExpiryReport";
 import GLTransactionsReport from "@/components/reports/GLTransactionsReport";
 import InventoryReport from "@/components/reports/InventoryReport";
 import { PaymentMethodReport } from "@/components/reports/PaymentMethodReport";
 import { ProductPerformanceReport } from "@/components/reports/ProductPerformanceReport";
+import { SalesCollectionExpenseReport } from "@/components/reports/SalesCollectionExpenseReport";
 import { StockCardReport } from "@/components/reports/StockCardReport";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +24,8 @@ import {
   Truck,
   Users,
   UserCog,
+  Receipt,
+  Scale,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -45,6 +49,11 @@ export default function ReportsPage() {
     { value: "payment", label: "Payment Methods", icon: CreditCard },
     { value: "gl", label: "GL Transactions", icon: CreditCard },
   ];
+  // Financial tabs. Expenses are sensitive figures — admins only.
+  const financialTabs = [
+    { value: "expenses", label: "Expenses", icon: Receipt },
+    { value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale },
+  ];
   const inventoryTabs = [
     { value: "inventory", label: "Inventory", icon: Package },
     { value: "expiry", label: "Expiry Report", icon: Calendar },
@@ -54,6 +63,7 @@ export default function ReportsPage() {
   const visibleTabs = [
     ...(isBulkUser ? [] : channelTabs),
     ...(isBulkUser ? [] : salesGlobalTabs),
+    ...(isAdmin ? financialTabs : []),
     ...inventoryTabs,
   ];
 
@@ -124,6 +134,16 @@ export default function ReportsPage() {
                     </TabsContent>
                     <TabsContent value="gl" className="mt-0">
                       <GLTransactionsReport />
+                    </TabsContent>
+                  </>
+                )}
+                {isAdmin && (
+                  <>
+                    <TabsContent value="expenses" className="mt-0">
+                      <ExpenseReport />
+                    </TabsContent>
+                    <TabsContent value="salesvsexpenses" className="mt-0">
+                      <SalesCollectionExpenseReport />
                     </TabsContent>
                   </>
                 )}
