@@ -14,8 +14,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { billingAgencies } from "@/lib/constants";
-import { useAppDispatch } from "@/lib/redux/hook";
-import { updateList } from "@/lib/redux/listSlice";
 import { supabase } from "@/lib/supabase/client";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { format } from "date-fns";
@@ -24,14 +22,30 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 
-interface Props {
-  transaction: any;
-  isOpen: boolean;
-  onClose: () => void;
-  onUpdated?: () => void;
+// Which ledger this modal reads and writes. Bulk transactions collect into
+// `transaction_payments`; consignments into `consignment_payments`.
+export interface PaymentLedger {
+  table: string;
+  foreignKey: string;
+  recordId: number;
+  // What is owed in full — the balance is this minus everything recorded.
+  totalAmount: number;
 }
 
-type Payment = {
+interface Props {
+  ledger: PaymentLedger;
+  isOpen: boolean;
+  onClose: () => void;
+  // Called after every save/remove with the fresh total, so the caller can
+  // persist whatever it derives from it (a status, a rollup) and update Redux.
+  onSaved?: (totalPaid: number) => Promise<void> | void;
+  // Builds the payload for the printable payment history.
+  buildPrintData?: (payments: Payment[]) => Promise<any>;
+  onUpdated?: () => void;
+  title?: string;
+}
+
+export type Payment = {
   id: number;
   amount: number | string;
   payment_method: string | null;
@@ -56,17 +70,9 @@ const todayString = () => format(new Date(), "yyyy-MM-dd");
 const paymentTimestamp = (date: string) =>
   date === todayString() ? new Date().toISOString() : `${date}T12:00:00`;
 
-// Payment status is derived from the ledger, never set by hand. Mirrors
-// medwise.recompute_transaction_payment_status() in migration 021.
-const derivePaymentStatus = (totalPaid: number, totalAmount: number) => {
-  if (totalPaid <= 0) return "Unpaid";
-  if (totalPaid >= totalAmount - 0.005) return "Paid";
-  return "Partial";
-};
-
-// Cheque/GL details used to be JSON-encoded into `remarks`. Migration 021 moved
-// them to real columns, but keep reading the old shape so history recorded
-// before the migration still renders.
+// Transaction cheque/GL details used to be JSON-encoded into `remarks`.
+// Migration 021 moved them to real columns, but keep reading the old shape so
+// history recorded before that migration still renders.
 const legacyDetails = (payment: Payment): any => {
   if (!payment.remarks) return null;
   try {
@@ -78,10 +84,13 @@ const legacyDetails = (payment: Payment): any => {
 };
 
 export const ReceivePaymentModal = ({
-  transaction,
+  ledger,
   isOpen,
   onClose,
+  onSaved,
+  buildPrintData,
   onUpdated,
+  title = "Receive Payment",
 }: Props) => {
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(todayString);
@@ -110,10 +119,8 @@ export const ReceivePaymentModal = ({
   // render, so two clicks in the same frame would both reach the insert.
   const savingRef = useRef(false);
 
-  const dispatch = useAppDispatch();
-
-  const transactionId = transaction.id;
-  const totalAmount = Number(transaction.total_amount || 0);
+  const { table, foreignKey, recordId } = ledger;
+  const totalAmount = Number(ledger.totalAmount || 0);
   const balance = round2(totalAmount - totalPaid);
 
   const resetForm = useCallback(() => {
@@ -135,9 +142,9 @@ export const ReceivePaymentModal = ({
   // instead of waiting for state to settle.
   const loadPayments = useCallback(async () => {
     const { data, error } = await supabase
-      .from("transaction_payments")
+      .from(table)
       .select("*")
-      .eq("transaction_id", transactionId)
+      .eq(foreignKey, recordId)
       .order("payment_date", { ascending: false })
       .order("id", { ascending: false });
 
@@ -153,41 +160,17 @@ export const ReceivePaymentModal = ({
     setTotalPaid(paid);
 
     return paid;
-  }, [transactionId]);
-
-  // Persist the derived status. The database trigger from migration 021 does
-  // this too; writing it here keeps the list correct on a deployment where the
-  // migration has not been applied yet, and both write the same value.
-  const syncPaymentStatus = useCallback(
-    async (paid: number) => {
-      const status = derivePaymentStatus(paid, totalAmount);
-
-      const { error } = await supabase
-        .from("transactions")
-        .update({ payment_status: status })
-        .eq("id", transactionId);
-
-      if (error) {
-        toast.error("Payment saved, but the status could not be updated.");
-        return;
-      }
-
-      // updateList merges, so send only what changed — spreading the whole
-      // transaction would overwrite fresher fields in the list.
-      dispatch(updateList({ id: transactionId, payment_status: status }));
-    },
-    [dispatch, totalAmount, transactionId]
-  );
+  }, [table, foreignKey, recordId]);
 
   // Reload whenever the modal opens, and whenever it is reused for a different
-  // transaction, so nothing is carried over from the previous one.
+  // record, so nothing is carried over from the previous one.
   useEffect(() => {
     if (!isOpen) return;
     resetForm();
     setPayments([]);
     setTotalPaid(0);
     loadPayments();
-  }, [isOpen, transactionId, loadPayments, resetForm]);
+  }, [isOpen, recordId, loadPayments, resetForm]);
 
   const savePayment = async () => {
     if (savingRef.current) return;
@@ -242,9 +225,9 @@ export const ReceivePaymentModal = ({
     // Re-read the ledger so the balance check uses what is in the database
     // right now, not what was on screen when the modal was opened.
     const { data: current, error: currentError } = await supabase
-      .from("transaction_payments")
+      .from(table)
       .select("amount")
-      .eq("transaction_id", transactionId);
+      .eq(foreignKey, recordId);
 
     if (currentError) {
       savingRef.current = false;
@@ -269,8 +252,8 @@ export const ReceivePaymentModal = ({
     const isCheque = method === "Cheque";
     const isGL = method === "GL";
 
-    const paymentData = {
-      transaction_id: transactionId,
+    const paymentData: Record<string, any> = {
+      [foreignKey]: recordId,
       amount: amountValue,
       // Sent explicitly so a payment received on an earlier date is reported in
       // the period it was actually collected.
@@ -290,9 +273,7 @@ export const ReceivePaymentModal = ({
       remarks: remarks.trim() || null,
     };
 
-    const { error } = await supabase
-      .from("transaction_payments")
-      .insert(paymentData);
+    const { error } = await supabase.from(table).insert(paymentData);
 
     if (error) {
       savingRef.current = false;
@@ -304,7 +285,7 @@ export const ReceivePaymentModal = ({
     }
 
     const paid = await loadPayments();
-    if (paid !== null) await syncPaymentStatus(paid);
+    if (paid !== null && onSaved) await onSaved(paid);
 
     resetForm();
     savingRef.current = false;
@@ -315,10 +296,7 @@ export const ReceivePaymentModal = ({
   };
 
   const removePayment = async (payment: Payment) => {
-    const { error } = await supabase
-      .from("transaction_payments")
-      .delete()
-      .eq("id", payment.id);
+    const { error } = await supabase.from(table).delete().eq("id", payment.id);
 
     if (error) {
       toast.error("Failed to remove payment.");
@@ -326,7 +304,7 @@ export const ReceivePaymentModal = ({
     }
 
     const paid = await loadPayments();
-    if (paid !== null) await syncPaymentStatus(paid);
+    if (paid !== null && onSaved) await onSaved(paid);
 
     toast.success("Payment removed");
 
@@ -334,31 +312,13 @@ export const ReceivePaymentModal = ({
   };
 
   const printPaymentHistory = async () => {
+    if (!buildPrintData) return;
+
     // Clear print data first
     setPrintData(null);
 
-    // Load customer data if customer_id exists
-    let customerData = null;
-    if (transaction.customer_id) {
-      const { data: customer, error: customerError } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("id", transaction.customer_id)
-        .single();
-
-      if (!customerError && customer) {
-        customerData = customer;
-      }
-    }
-
-    // Combine transaction data with customer
-    const transactionWithCustomer = {
-      ...transaction,
-      customer: customerData,
-    };
-
     // Set print data after clearing
-    setPrintData({ transaction: transactionWithCustomer, payments });
+    setPrintData(await buildPrintData(payments));
 
     // Wait for React to render the component
     setTimeout(() => {
@@ -392,7 +352,7 @@ export const ReceivePaymentModal = ({
           {/* Header */}
           <div className="app__modal_dialog_title_container">
             <DialogTitle className="text-base font-medium">
-              Receive Payment
+              {title}
             </DialogTitle>
           </div>
 
@@ -608,15 +568,17 @@ export const ReceivePaymentModal = ({
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-semibold">Payment History</h3>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={printPaymentHistory}
-                    className="flex items-center gap-1"
-                  >
-                    <Printer className="w-3 h-3" />
-                    Print
-                  </Button>
+                  {buildPrintData && (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={printPaymentHistory}
+                      className="flex items-center gap-1"
+                    >
+                      <Printer className="w-3 h-3" />
+                      Print
+                    </Button>
+                  )}
                 </div>
                 <div className="border rounded-md overflow-auto max-h-[min(58vh,640px)]">
                   <table className="w-full min-w-[56rem] text-sm">

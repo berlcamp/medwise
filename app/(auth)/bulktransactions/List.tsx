@@ -17,7 +17,7 @@ import { useState } from 'react'
 import Avatar from 'react-avatar'
 import { useSelector } from 'react-redux'
 import { DeliveryStatusDropdown } from './DeliveryStatusDropdown'
-import { ReceivePaymentModal } from './PaymentStatusDropdown'
+import { TransactionPaymentModal } from './TransactionPaymentModal'
 import { TransactionDetailsModal } from './TransactionDetailsModal'
 
 interface Props {
@@ -328,7 +328,7 @@ export const List = ({ onRefresh }: Props) => {
             }}
             transaction={selectedItem}
           />
-          <ReceivePaymentModal
+          <TransactionPaymentModal
             transaction={selectedItem}
             isOpen={isPaymentOpen}
             onClose={() => {

@@ -12,17 +12,24 @@ import { supabase } from "@/lib/supabase/client";
 import { formatConsignmentPeriod } from "@/lib/utils/consignment";
 import { Consignment, RootState } from "@/types";
 import { format } from "date-fns";
-import { ChevronDown, Printer, Settings } from "lucide-react";
+import { ChevronDown, CreditCard, Printer, Settings } from "lucide-react";
 import { useState } from "react";
 import Avatar from "react-avatar";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import { ConsignmentDetailsModal } from "./ConsignmentDetailsModal";
+import { ConsignmentPaymentModal } from "./ConsignmentPaymentModal";
 
-export const List = () => {
+interface Props {
+  // Called after a payment is recorded or removed, so the page can re-fetch.
+  onRefresh?: () => void;
+}
+
+export const List = ({ onRefresh }: Props) => {
   const list = useSelector((state: RootState) => state.list.value);
   const [selectedItem, setSelectedItem] = useState<Consignment | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [paymentItem, setPaymentItem] = useState<Consignment | null>(null);
   const [printData, setPrintData] = useState<any>(null);
 
   const handleView = (item: Consignment) => {
@@ -91,6 +98,7 @@ export const List = () => {
             <th className="app__th text-center">Sold</th>
             <th className="app__th text-center">Current Balance</th>
             <th className="app__th text-right">Left Consigned Value</th>
+            <th className="app__th text-right">Payable</th>
             <th className="app__th text-center">Status</th>
             <th className="app__th text-center">Actions</th>
           </tr>
@@ -180,6 +188,39 @@ export const List = () => {
                   );
                 })()}
               </td>
+              <td className="app__td text-right">
+                {(() => {
+                  // Sold, minus what has been collected against it.
+                  const payable = Number(item.balance_due) || 0;
+                  const paid = Number(item.total_paid) || 0;
+                  return (
+                    <div>
+                      <span
+                        className={
+                          payable > 0
+                            ? "text-red-600 font-semibold"
+                            : "text-gray-400"
+                        }
+                      >
+                        ₱
+                        {Math.max(payable, 0).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                      {paid > 0 && (
+                        <div className="text-xs text-green-700">
+                          Paid ₱
+                          {paid.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </td>
               <td className="app__td text-center">
                 <span
                   className={`px-2 py-1 rounded text-xs font-medium ${
@@ -206,6 +247,10 @@ export const List = () => {
                       <Settings className="w-4 h-4 mr-2" />
                       Manage
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setPaymentItem(item)}>
+                      <CreditCard className="w-4 h-4 mr-2" />
+                      Manage Payments
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => printConsignment(item)}>
                       <Printer className="w-4 h-4 mr-2" />
                       Print Summary
@@ -227,6 +272,15 @@ export const List = () => {
             window.location.reload();
           }}
           consignment={selectedItem}
+        />
+      )}
+
+      {paymentItem && (
+        <ConsignmentPaymentModal
+          consignment={paymentItem}
+          isOpen={paymentItem !== null}
+          onClose={() => setPaymentItem(null)}
+          onUpdated={onRefresh}
         />
       )}
 

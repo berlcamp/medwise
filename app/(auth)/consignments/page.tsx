@@ -16,6 +16,8 @@ export default function Page() {
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  // Bumped after a payment is recorded/removed so the payable column refreshes.
+  const [refreshKey, setRefreshKey] = useState(0)
   const [filter, setFilter] = useState({
     keyword: '',
     transaction_number: ''
@@ -70,7 +72,7 @@ export default function Page() {
     return () => {
       isMounted = false
     }
-  }, [page, filter, dispatch, selectedBranchId])
+  }, [page, filter, dispatch, selectedBranchId, refreshKey])
 
   if (user?.type === 'user' || user?.type === 'cashier') return <Notfoundpage />
 
@@ -91,7 +93,7 @@ export default function Page() {
           {Math.min(page * PER_PAGE, totalCount)} of {totalCount} results
         </div>
 
-        <List />
+        <List onRefresh={() => setRefreshKey((key) => key + 1)} />
 
         {loading && <LoadingSkeleton />}
 

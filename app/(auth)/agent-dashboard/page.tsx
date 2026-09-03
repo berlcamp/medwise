@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { ReceivePaymentModal } from "@/app/(auth)/bulktransactions/PaymentStatusDropdown";
+import { TransactionPaymentModal } from "@/app/(auth)/bulktransactions/TransactionPaymentModal";
 import { TransactionDetailsModal } from "@/app/(auth)/bulktransactions/TransactionDetailsModal";
 import Notfoundpage from "@/components/Notfoundpage";
 import { DeliveryReceiptPrint } from "@/components/printables/DeliveryReceiptPrint";
@@ -594,7 +594,7 @@ export default function AgentDashboardPage() {
             }}
             transaction={selectedTransaction}
           />
-          <ReceivePaymentModal
+          <TransactionPaymentModal
             transaction={selectedTransaction}
             isOpen={isPaymentOpen}
             onClose={() => {
