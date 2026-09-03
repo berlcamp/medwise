@@ -176,12 +176,17 @@ export const PaymentHistoryPrint = ({ data }: { data: any }) => {
               </tr>
             ) : (
               payments.map((payment: any) => {
+                // Cheque details live in their own columns since migration
+                // 021; older rows still carry them as JSON in `remarks`.
                 let chequeDetails: any = null;
                 if (payment.payment_method === "Cheque" && payment.remarks) {
                   try {
-                    chequeDetails = JSON.parse(payment.remarks);
+                    const parsed = JSON.parse(payment.remarks);
+                    if (parsed && typeof parsed === "object") {
+                      chequeDetails = parsed;
+                    }
                   } catch {
-                    // If parsing fails, use reference_number
+                    // Not JSON — the remarks are the user's own text.
                   }
                 }
 
@@ -202,14 +207,14 @@ export const PaymentHistoryPrint = ({ data }: { data: any }) => {
                     </td>
                     <td className="border border-black p-2 text-left">
                       {payment.payment_method === "Cheque"
-                        ? chequeDetails?.cheque_number ||
-                          payment.reference_number ||
+                        ? payment.reference_number ||
+                          chequeDetails?.cheque_number ||
                           "-"
                         : payment.reference_number || "-"}
                     </td>
                     <td className="border border-black p-2 text-left">
                       {payment.payment_method === "Cheque"
-                        ? chequeDetails?.bank_name || "-"
+                        ? payment.bank_name || chequeDetails?.bank_name || "-"
                         : "-"}
                     </td>
                     <td className="border border-black p-2 text-left">

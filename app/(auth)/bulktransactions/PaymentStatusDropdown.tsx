@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
+import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { PaymentHistoryPrint } from "@/components/printables/PaymentHistoryPrint";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,9 @@ import { useAppDispatch } from "@/lib/redux/hook";
 import { updateList } from "@/lib/redux/listSlice";
 import { supabase } from "@/lib/supabase/client";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
+import { format } from "date-fns";
 import { Printer, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 
@@ -29,6 +31,52 @@ interface Props {
   onUpdated?: () => void;
 }
 
+type Payment = {
+  id: number;
+  amount: number | string;
+  payment_method: string | null;
+  payment_date: string | null;
+  reference_number: string | null;
+  collection_receipt_number: string | null;
+  remarks: string | null;
+  bank_name: string | null;
+  cheque_date: string | null;
+  billing_agency: string | null;
+  beneficiary_name: string | null;
+};
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+const todayString = () => format(new Date(), "yyyy-MM-dd");
+
+// The collection reports bucket payments by payment_date, so a date needs a
+// time on it. Today keeps the real clock time (what the column defaulted to
+// before); a backdated entry is stamped at noon, which cannot slip into an
+// adjacent day when the value is rendered in another timezone.
+const paymentTimestamp = (date: string) =>
+  date === todayString() ? new Date().toISOString() : `${date}T12:00:00`;
+
+// Payment status is derived from the ledger, never set by hand. Mirrors
+// medwise.recompute_transaction_payment_status() in migration 021.
+const derivePaymentStatus = (totalPaid: number, totalAmount: number) => {
+  if (totalPaid <= 0) return "Unpaid";
+  if (totalPaid >= totalAmount - 0.005) return "Paid";
+  return "Partial";
+};
+
+// Cheque/GL details used to be JSON-encoded into `remarks`. Migration 021 moved
+// them to real columns, but keep reading the old shape so history recorded
+// before the migration still renders.
+const legacyDetails = (payment: Payment): any => {
+  if (!payment.remarks) return null;
+  try {
+    const parsed = JSON.parse(payment.remarks);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 export const ReceivePaymentModal = ({
   transaction,
   isOpen,
@@ -36,6 +84,7 @@ export const ReceivePaymentModal = ({
   onUpdated,
 }: Props) => {
   const [amount, setAmount] = useState("");
+  const [paymentDate, setPaymentDate] = useState(todayString);
   const [method, setMethod] = useState("Cash");
   const [reference, setReference] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -52,73 +101,110 @@ export const ReceivePaymentModal = ({
   const [billingAgency, setBillingAgency] = useState("");
   const [beneficiaryName, setBeneficiaryName] = useState("");
 
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [totalPaid, setTotalPaid] = useState(0);
-  const [balance, setBalance] = useState(0);
   const [printData, setPrintData] = useState<any>(null);
+  const [paymentToRemove, setPaymentToRemove] = useState<Payment | null>(null);
+
+  // Guards a double-click: `loading` only disables the button on the next
+  // render, so two clicks in the same frame would both reach the insert.
+  const savingRef = useRef(false);
 
   const dispatch = useAppDispatch();
 
-  // Load payments
-  const loadPayments = async () => {
-    const { data } = await supabase
+  const transactionId = transaction.id;
+  const totalAmount = Number(transaction.total_amount || 0);
+  const balance = round2(totalAmount - totalPaid);
+
+  const resetForm = useCallback(() => {
+    setAmount("");
+    setPaymentDate(todayString());
+    setMethod("Cash");
+    setReference("");
+    setRemarks("");
+    setCollectionReceiptNumber("");
+    setChequeNumber("");
+    setBankName("");
+    setChequeDate("");
+    setGlNumber("");
+    setBillingAgency("");
+    setBeneficiaryName("");
+  }, []);
+
+  // Load payments. Returns the total paid so callers can act on a fresh number
+  // instead of waiting for state to settle.
+  const loadPayments = useCallback(async () => {
+    const { data, error } = await supabase
       .from("transaction_payments")
       .select("*")
-      .eq("transaction_id", transaction.id)
-      .order("payment_date", { ascending: false });
+      .eq("transaction_id", transactionId)
+      .order("payment_date", { ascending: false })
+      .order("id", { ascending: false });
 
-    setPayments(data || []);
-
-    const totalPaid = (data || []).reduce(
-      (sum, p) => sum + Number(p.amount),
-      0
-    );
-
-    const totalAmount = Number(transaction.total_amount || 0);
-    const balance = Math.round((totalAmount - totalPaid) * 100) / 100;
-
-    // Determine payment status based on totalPaid and balance
-    let paymentStatus: "Paid" | "Partial" | "Unpaid";
-
-    if (balance <= 0) {
-      paymentStatus = "Paid";
-    } else if (totalPaid > 0) {
-      paymentStatus = "Partial";
-    } else {
-      paymentStatus = "Unpaid";
+    if (error) {
+      toast.error("Failed to load payments.");
+      return null;
     }
 
-    // Update Redux with the determined payment status
-    dispatch(
-      updateList({
-        ...transaction,
-        payment_status: paymentStatus,
-        id: transaction.id,
-      })
-    );
+    const rows = (data || []) as Payment[];
+    const paid = round2(rows.reduce((sum, p) => sum + Number(p.amount || 0), 0));
 
-    setTotalPaid(totalPaid);
-    setBalance(
-      Math.round((Number(transaction.total_amount || 0) - totalPaid) * 100) /
-        100
-    );
-  };
+    setPayments(rows);
+    setTotalPaid(paid);
 
+    return paid;
+  }, [transactionId]);
+
+  // Persist the derived status. The database trigger from migration 021 does
+  // this too; writing it here keeps the list correct on a deployment where the
+  // migration has not been applied yet, and both write the same value.
+  const syncPaymentStatus = useCallback(
+    async (paid: number) => {
+      const status = derivePaymentStatus(paid, totalAmount);
+
+      const { error } = await supabase
+        .from("transactions")
+        .update({ payment_status: status })
+        .eq("id", transactionId);
+
+      if (error) {
+        toast.error("Payment saved, but the status could not be updated.");
+        return;
+      }
+
+      // updateList merges, so send only what changed — spreading the whole
+      // transaction would overwrite fresher fields in the list.
+      dispatch(updateList({ id: transactionId, payment_status: status }));
+    },
+    [dispatch, totalAmount, transactionId]
+  );
+
+  // Reload whenever the modal opens, and whenever it is reused for a different
+  // transaction, so nothing is carried over from the previous one.
   useEffect(() => {
-    if (isOpen) loadPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+    if (!isOpen) return;
+    resetForm();
+    setPayments([]);
+    setTotalPaid(0);
+    loadPayments();
+  }, [isOpen, transactionId, loadPayments, resetForm]);
 
   const savePayment = async () => {
-    if (!amount || Number(amount) <= 0) {
+    if (savingRef.current) return;
+
+    const amountValue = Number(amount);
+    if (!amount || Number.isNaN(amountValue) || amountValue <= 0) {
       toast.error("Invalid amount");
       return;
     }
 
-    const amountCents = Math.round(Number(amount) * 100);
-    const balanceCents = Math.round(balance * 100);
-    if (amountCents > balanceCents) {
-      toast.error("Payment cannot exceed remaining balance.");
+    if (!paymentDate) {
+      toast.error("Please select the payment date");
+      return;
+    }
+
+    if (paymentDate > todayString()) {
+      toast.error("Payment date cannot be in the future");
       return;
     }
 
@@ -150,114 +236,100 @@ export const ReceivePaymentModal = ({
       }
     }
 
+    savingRef.current = true;
     setLoading(true);
 
-    // Prepare payment data
-    const paymentData: any = {
-      transaction_id: transaction.id,
-      amount: Number(amount),
-      payment_method: method,
-      reference_number:
-        method === "Cheque"
-          ? chequeNumber
-          : method === "GL"
-            ? glNumber
-            : reference || null,
-      collection_receipt_number: collectionReceiptNumber.trim() || null,
-      remarks:
-        method === "Cheque"
-          ? JSON.stringify({
-              cheque_number: chequeNumber,
-              bank_name: bankName,
-              cheque_date: chequeDate,
-              amount: Number(amount),
-            })
-          : method === "GL"
-            ? JSON.stringify({
-                gl_number: glNumber,
-                billing_agency: billingAgency,
-                beneficiary_name: beneficiaryName || null,
-                amount: Number(amount),
-              })
-            : remarks || null,
-    };
+    // Re-read the ledger so the balance check uses what is in the database
+    // right now, not what was on screen when the modal was opened.
+    const { data: current, error: currentError } = await supabase
+      .from("transaction_payments")
+      .select("amount")
+      .eq("transaction_id", transactionId);
 
-    // If cheque date is today, we'll update payment status after saving
-    const chequeDateObj = method === "Cheque" ? new Date(chequeDate) : null;
-    const today = new Date();
-    const isChequeDateToday =
-      chequeDateObj && chequeDateObj.toDateString() === today.toDateString();
+    if (currentError) {
+      savingRef.current = false;
+      setLoading(false);
+      toast.error("Could not verify the remaining balance. Please try again.");
+      return;
+    }
+
+    const paidNow = (current || []).reduce(
+      (sum, p: any) => sum + Number(p.amount || 0),
+      0
+    );
+    const balanceCents = Math.round((totalAmount - paidNow) * 100);
+    if (Math.round(amountValue * 100) > balanceCents) {
+      savingRef.current = false;
+      setLoading(false);
+      setTotalPaid(round2(paidNow));
+      toast.error("Payment cannot exceed remaining balance.");
+      return;
+    }
+
+    const isCheque = method === "Cheque";
+    const isGL = method === "GL";
+
+    const paymentData = {
+      transaction_id: transactionId,
+      amount: amountValue,
+      // Sent explicitly so a payment received on an earlier date is reported in
+      // the period it was actually collected.
+      payment_date: paymentTimestamp(paymentDate),
+      payment_method: method,
+      reference_number: isCheque
+        ? chequeNumber.trim()
+        : isGL
+          ? glNumber.trim()
+          : reference.trim() || null,
+      collection_receipt_number: collectionReceiptNumber.trim() || null,
+      // Cheque/GL details go to their own columns, so remarks stay the user's.
+      bank_name: isCheque ? bankName.trim() : null,
+      cheque_date: isCheque ? chequeDate : null,
+      billing_agency: isGL ? billingAgency.trim() : null,
+      beneficiary_name: isGL ? beneficiaryName.trim() || null : null,
+      remarks: remarks.trim() || null,
+    };
 
     const { error } = await supabase
       .from("transaction_payments")
       .insert(paymentData);
 
     if (error) {
+      savingRef.current = false;
       setLoading(false);
-      toast.error("Error saving payment.");
+      // Surfaces the database balance guard, which is the authority when two
+      // users record a payment at the same time.
+      toast.error(error.message || "Error saving payment.");
       return;
     }
 
-    // Reload payments to get updated totalPaid
-    await loadPayments();
+    const paid = await loadPayments();
+    if (paid !== null) await syncPaymentStatus(paid);
 
-    // If cheque date is today, update transaction payment status to Paid
-    if (isChequeDateToday && method === "Cheque") {
-      const { error: updateError } = await supabase
-        .from("transactions")
-        .update({ payment_status: "Paid" })
-        .eq("id", transaction.id);
-
-      if (!updateError) {
-        dispatch(
-          updateList({
-            ...transaction,
-            payment_status: "Paid",
-            id: transaction.id,
-          })
-        );
-      }
-    }
-
+    resetForm();
+    savingRef.current = false;
     setLoading(false);
     toast.success("Payment recorded");
 
-    // Pass totalPaid to onUpdated callback
     if (onUpdated) onUpdated();
-
-    // Reset form
-    setAmount("");
-    setReference("");
-    setRemarks("");
-    setCollectionReceiptNumber("");
-    setMethod("Cash");
-    setChequeNumber("");
-    setBankName("");
-    setChequeDate("");
-    setGlNumber("");
-    setBillingAgency("");
-    setBeneficiaryName("");
   };
 
-  const removePayment = async (id: number) => {
-    if (!confirm("Remove this payment?")) return;
-
+  const removePayment = async (payment: Payment) => {
     const { error } = await supabase
       .from("transaction_payments")
       .delete()
-      .eq("id", id);
+      .eq("id", payment.id);
 
     if (error) {
       toast.error("Failed to remove payment.");
       return;
     }
 
-    // Reload payments to get updated totalPaid
-    await loadPayments();
+    const paid = await loadPayments();
+    if (paid !== null) await syncPaymentStatus(paid);
 
     toast.success("Payment removed");
 
-    // Pass totalPaid to onUpdated callback
     if (onUpdated) onUpdated();
   };
 
@@ -298,6 +370,14 @@ export const ReceivePaymentModal = ({
     }, 300);
   };
 
+  const hasChequePayment = payments.some(
+    (p) => p.payment_method === "Cheque"
+  );
+  const hasGLPayment = payments.some((p) => p.payment_method === "GL");
+  // Date, Method, Amount, Ref #, Collection Receipt #, Remarks, Action
+  const totalCols =
+    7 + (hasChequePayment ? 3 : 0) + (hasGLPayment ? 3 : 0);
+
   return (
     <Dialog open={isOpen} onClose={onClose} as="div" className="relative z-50">
       {/* Background overlay */}
@@ -326,6 +406,8 @@ export const ReceivePaymentModal = ({
                   <Input
                     className="app__input_standard"
                     type="number"
+                    min="0"
+                    step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="Enter amount"
@@ -337,6 +419,19 @@ export const ReceivePaymentModal = ({
                       maximumFractionDigits: 2,
                     })}
                   </p>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="app__formlabel_standard">
+                    Payment Date
+                  </Label>
+                  <Input
+                    className="app__input_standard"
+                    type="date"
+                    max={todayString()}
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -477,30 +572,28 @@ export const ReceivePaymentModal = ({
                     </div>
                   </>
                 ) : (
-                  <>
-                    <div className="flex flex-col gap-1">
-                      <Label className="app__formlabel_standard">
-                        Reference Number
-                      </Label>
-                      <Input
-                        className="app__input_standard"
-                        value={reference}
-                        onChange={(e) => setReference(e.target.value)}
-                        placeholder="Reference Number"
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <Label className="app__formlabel_standard">Remarks</Label>
-                      <Input
-                        className="app__input_standard"
-                        value={remarks}
-                        onChange={(e) => setRemarks(e.target.value)}
-                        placeholder="Remarks"
-                      />
-                    </div>
-                  </>
+                  <div className="flex flex-col gap-1">
+                    <Label className="app__formlabel_standard">
+                      Reference Number
+                    </Label>
+                    <Input
+                      className="app__input_standard"
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="Reference Number"
+                    />
+                  </div>
                 )}
+
+                <div className="flex flex-col gap-1">
+                  <Label className="app__formlabel_standard">Remarks</Label>
+                  <Input
+                    className="app__input_standard"
+                    value={remarks}
+                    onChange={(e) => setRemarks(e.target.value)}
+                    placeholder="Remarks"
+                  />
+                </div>
 
                 <Button
                   className="w-full mt-3"
@@ -532,83 +625,46 @@ export const ReceivePaymentModal = ({
                         <th className="p-2 border">Date</th>
                         <th className="p-2 border">Method</th>
                         <th className="p-2 border">Amount</th>
-                        {(() => {
-                          const hasChequePayment = payments.some(
-                            (p) => p.payment_method === "Cheque"
-                          );
-                          const hasGLPayment = payments.some(
-                            (p) => p.payment_method === "GL"
-                          );
-                          return (
-                            <>
-                              {hasChequePayment && (
-                                <>
-                                  <th className="p-2 border">Check No.</th>
-                                  <th className="p-2 border">Bank Name</th>
-                                  <th className="p-2 border">Check Date</th>
-                                </>
-                              )}
-                              {hasGLPayment && (
-                                <>
-                                  <th className="p-2 border">GL Number</th>
-                                  <th className="p-2 border">Billing Agency</th>
-                                  <th className="p-2 border">Beneficiary</th>
-                                </>
-                              )}
-                            </>
-                          );
-                        })()}
+                        {hasChequePayment && (
+                          <>
+                            <th className="p-2 border">Check No.</th>
+                            <th className="p-2 border">Bank Name</th>
+                            <th className="p-2 border">Check Date</th>
+                          </>
+                        )}
+                        {hasGLPayment && (
+                          <>
+                            <th className="p-2 border">GL Number</th>
+                            <th className="p-2 border">Billing Agency</th>
+                            <th className="p-2 border">Beneficiary</th>
+                          </>
+                        )}
                         <th className="p-2 border">Ref #</th>
                         <th className="p-2 border">Collection Receipt #</th>
+                        <th className="p-2 border">Remarks</th>
                         <th className="p-2 border w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {(() => {
-                        const hasChequePayment = payments.some(
-                          (p) => p.payment_method === "Cheque"
-                        );
-                        const hasGLPayment = payments.some(
-                          (p) => p.payment_method === "GL"
-                        );
-                        const baseCols = 6; // Date, Method, Amount, Ref #, Collection Receipt #, Action
-                        const chequeCols = hasChequePayment ? 3 : 0; // Check No., Bank Name, Check Date
-                        const glCols = hasGLPayment ? 3 : 0; // GL Number, Billing Agency, Beneficiary
-                        const totalCols = baseCols + chequeCols + glCols;
-
-                        if (payments.length === 0) {
-                          return (
-                            <tr>
-                              <td
-                                colSpan={totalCols}
-                                className="text-center p-4 text-gray-500"
-                              >
-                                No payments yet
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return payments.map((p, i) => {
-                          // Parse cheque details from remarks if payment method is Cheque
-                          let chequeDetails = null;
-                          if (p.payment_method === "Cheque" && p.remarks) {
-                            try {
-                              chequeDetails = JSON.parse(p.remarks);
-                            } catch {
-                              // If parsing fails, remarks might not be JSON
-                            }
-                          }
-
-                          // Parse GL details from remarks if payment method is GL
-                          let glDetails = null;
-                          if (p.payment_method === "GL" && p.remarks) {
-                            try {
-                              glDetails = JSON.parse(p.remarks);
-                            } catch {
-                              // If parsing fails, remarks might not be JSON
-                            }
-                          }
+                      {payments.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={totalCols}
+                            className="text-center p-4 text-gray-500"
+                          >
+                            No payments yet
+                          </td>
+                        </tr>
+                      ) : (
+                        payments.map((p, i) => {
+                          const isCheque = p.payment_method === "Cheque";
+                          const isGL = p.payment_method === "GL";
+                          // Pre-migration rows still carry the details as JSON
+                          // in `remarks`.
+                          const legacy =
+                            isCheque || isGL ? legacyDetails(p) : null;
+                          const chequeDateValue =
+                            p.cheque_date || legacy?.cheque_date || null;
 
                           return (
                             <tr
@@ -618,9 +674,13 @@ export const ReceivePaymentModal = ({
                               }
                             >
                               <td className="p-2 border">
-                                {new Date(p.payment_date).toLocaleString()}
+                                {p.payment_date
+                                  ? new Date(p.payment_date).toLocaleString()
+                                  : "-"}
                               </td>
-                              <td className="p-2 border">{p.payment_method}</td>
+                              <td className="p-2 border">
+                                {p.payment_method || "-"}
+                              </td>
                               <td className="p-2 border">
                                 ₱
                                 {Number(p.amount).toLocaleString("en-US", {
@@ -631,22 +691,21 @@ export const ReceivePaymentModal = ({
                               {hasChequePayment && (
                                 <>
                                   <td className="p-2 border">
-                                    {p.payment_method === "Cheque"
-                                      ? chequeDetails?.cheque_number ||
-                                        p.reference_number ||
+                                    {isCheque
+                                      ? p.reference_number ||
+                                        legacy?.cheque_number ||
                                         "-"
                                       : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === "Cheque"
-                                      ? chequeDetails?.bank_name || "-"
+                                    {isCheque
+                                      ? p.bank_name || legacy?.bank_name || "-"
                                       : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === "Cheque" &&
-                                    chequeDetails?.cheque_date
+                                    {isCheque && chequeDateValue
                                       ? new Date(
-                                          chequeDetails.cheque_date
+                                          chequeDateValue
                                         ).toLocaleDateString()
                                       : "-"}
                                   </td>
@@ -655,36 +714,42 @@ export const ReceivePaymentModal = ({
                               {hasGLPayment && (
                                 <>
                                   <td className="p-2 border">
-                                    {p.payment_method === "GL"
-                                      ? glDetails?.gl_number ||
-                                        p.reference_number ||
+                                    {isGL
+                                      ? p.reference_number ||
+                                        legacy?.gl_number ||
                                         "-"
                                       : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === "GL"
-                                      ? glDetails?.billing_agency || "-"
+                                    {isGL
+                                      ? p.billing_agency ||
+                                        legacy?.billing_agency ||
+                                        "-"
                                       : "-"}
                                   </td>
                                   <td className="p-2 border">
-                                    {p.payment_method === "GL"
-                                      ? glDetails?.beneficiary_name || "-"
+                                    {isGL
+                                      ? p.beneficiary_name ||
+                                        legacy?.beneficiary_name ||
+                                        "-"
                                       : "-"}
                                   </td>
                                 </>
                               )}
                               <td className="p-2 border">
-                                {p.payment_method !== "Cheque" &&
-                                p.payment_method !== "GL"
+                                {!isCheque && !isGL
                                   ? p.reference_number || "-"
                                   : "-"}
                               </td>
                               <td className="p-2 border">
                                 {p.collection_receipt_number || "-"}
                               </td>
+                              <td className="p-2 border">
+                                {(legacy ? null : p.remarks) || "-"}
+                              </td>
                               <td className="p-2 border text-center">
                                 <button
-                                  onClick={() => removePayment(p.id)}
+                                  onClick={() => setPaymentToRemove(p)}
                                   className="text-red-500 hover:text-red-700"
                                 >
                                   <Trash2 size={16} />
@@ -692,8 +757,8 @@ export const ReceivePaymentModal = ({
                               </td>
                             </tr>
                           );
-                        });
-                      })()}
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -731,6 +796,15 @@ export const ReceivePaymentModal = ({
           </div>
         </DialogPanel>
       </div>
+
+      <ConfirmationModal
+        isOpen={paymentToRemove !== null}
+        onClose={() => setPaymentToRemove(null)}
+        onConfirm={async () => {
+          if (paymentToRemove) await removePayment(paymentToRemove);
+        }}
+        message="Remove this payment? The payment status will be recalculated."
+      />
 
       {typeof window !== "undefined" &&
         createPortal(<PaymentHistoryPrint data={printData} />, document.body)}

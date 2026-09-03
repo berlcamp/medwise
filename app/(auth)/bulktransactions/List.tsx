@@ -20,7 +20,12 @@ import { DeliveryStatusDropdown } from './DeliveryStatusDropdown'
 import { ReceivePaymentModal } from './PaymentStatusDropdown'
 import { TransactionDetailsModal } from './TransactionDetailsModal'
 
-export const List = () => {
+interface Props {
+  // Called after a payment is recorded or removed, so the page can re-fetch.
+  onRefresh?: () => void
+}
+
+export const List = ({ onRefresh }: Props) => {
   const list = useSelector((state: RootState) => state.list.value)
   const [selectedItem, setSelectedItem] = useState<Transaction | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -328,7 +333,9 @@ export const List = () => {
             isOpen={isPaymentOpen}
             onClose={() => {
               setIsPaymentOpen(false)
+              setSelectedItem(null)
             }}
+            onUpdated={onRefresh}
           />
         </>
       )}
