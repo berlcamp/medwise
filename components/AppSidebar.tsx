@@ -95,8 +95,8 @@ export function AppSidebar() {
     ? allItems.filter(item => item.url === '/home')
     : allItems
 
-  // Expenses are sensitive financials — admins only.
-  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
+  // Expenses are open to every role except cashiers.
+  const canAccessExpenses = user?.type !== 'cashier'
 
   const inventoryItems = [
     {
@@ -114,7 +114,7 @@ export function AppSidebar() {
       url: '/suppliers',
       icon: StoreIcon
     },
-    ...(isAdmin
+    ...(canAccessExpenses
       ? [
           {
             title: 'Expenses',

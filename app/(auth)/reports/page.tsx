@@ -49,7 +49,8 @@ export default function ReportsPage() {
     { value: "payment", label: "Payment Methods", icon: CreditCard },
     { value: "gl", label: "GL Transactions", icon: CreditCard },
   ];
-  // Financial tabs. Expenses are sensitive figures — admins only.
+  // Financial tabs — available to every role except cashiers (who cannot
+  // reach this page at all).
   const financialTabs = [
     { value: "expenses", label: "Expenses", icon: Receipt },
     { value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale },
@@ -63,7 +64,7 @@ export default function ReportsPage() {
   const visibleTabs = [
     ...(isBulkUser ? [] : channelTabs),
     ...(isBulkUser ? [] : salesGlobalTabs),
-    ...(isAdmin ? financialTabs : []),
+    ...financialTabs,
     ...inventoryTabs,
   ];
 
@@ -137,16 +138,12 @@ export default function ReportsPage() {
                     </TabsContent>
                   </>
                 )}
-                {isAdmin && (
-                  <>
-                    <TabsContent value="expenses" className="mt-0">
-                      <ExpenseReport />
-                    </TabsContent>
-                    <TabsContent value="salesvsexpenses" className="mt-0">
-                      <SalesCollectionExpenseReport />
-                    </TabsContent>
-                  </>
-                )}
+                <TabsContent value="expenses" className="mt-0">
+                  <ExpenseReport />
+                </TabsContent>
+                <TabsContent value="salesvsexpenses" className="mt-0">
+                  <SalesCollectionExpenseReport />
+                </TabsContent>
                 <TabsContent value="inventory" className="mt-0">
                   <InventoryReport />
                 </TabsContent>

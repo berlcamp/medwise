@@ -37,7 +37,8 @@ export default function Page() {
     (state) => state.branch.selectedBranchId
   )
 
-  const isAdmin = user?.type === 'admin' || user?.type === 'super admin'
+  // Expenses are open to every role except cashiers.
+  const canAccessExpenses = !!user?.type && user.type !== 'cashier'
 
   // Reset to page 1 whenever the filter or branch changes so the offset
   // never points past the end of a smaller result set.
@@ -47,7 +48,7 @@ export default function Page() {
 
   // Fetch data on page load
   useEffect(() => {
-    if (!isAdmin || !selectedBranchId) return
+    if (!canAccessExpenses || !selectedBranchId) return
 
     let isMounted = true
     dispatch(addList([])) // Reset the list first on page load
@@ -117,10 +118,16 @@ export default function Page() {
     return () => {
       isMounted = false
     }
-  }, [page, filter, dispatch, selectedBranchId, isAdmin, categoriesVersion])
+  }, [
+    page,
+    filter,
+    dispatch,
+    selectedBranchId,
+    canAccessExpenses,
+    categoriesVersion
+  ])
 
-  // Expenses are sensitive financials — admins only.
-  if (!isAdmin) {
+  if (!canAccessExpenses) {
     return <Notfoundpage />
   }
 
