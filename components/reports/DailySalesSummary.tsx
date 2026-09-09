@@ -19,6 +19,10 @@ import {
 } from "date-fns";
 import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
+  fetchConsignmentsForSales,
+  saleStatusOf,
+} from "@/lib/utils/consignmentPayments";
+import {
   DollarSign,
   Download,
   Loader2,
@@ -95,10 +99,13 @@ export const DailySalesSummary = ({
     const end = formatLocalDate(endDate);
 
     try {
-      const { data: transactions, error } = await supabase
-        .from("transactions")
-        .select(
-          `
+      // Consignment sales need `consignment_id` (migration 023) to find the
+      // ledger their payments live in; `*` also keeps this working on a
+      // database where that migration has not been applied yet.
+      const columns =
+        channel === "consignment"
+          ? "*"
+          : `
           id,
           transaction_number,
           total_amount,
@@ -107,8 +114,11 @@ export const DailySalesSummary = ({
           created_at,
           payment_status,
           transaction_type
-        `
-        )
+        `;
+
+      const { data: transactions, error } = await supabase
+        .from("transactions")
+        .select(columns)
         .eq("branch_id", selectedBranchId)
         // Exclude consignment hand-off transactions (goods on loan, not sales)
         .in(
@@ -121,10 +131,17 @@ export const DailySalesSummary = ({
 
       if (error) throw error;
 
+      // Consignment sales are settled against their consignment, not against
+      // the sale row (whose payment_status stays 'Pending' forever), so the
+      // paid / unpaid split for that channel is read off the consignment ledger.
+      const consignments = await fetchConsignmentsForSales(
+        (transactions as any[]) || []
+      );
+
       // Group by date
       const dailyMap = new Map<string, any>();
 
-      transactions?.forEach((tx: any) => {
+      (transactions as any[])?.forEach((tx: any) => {
         const date = format(parseISO(tx.created_at), "yyyy-MM-dd");
         if (!dailyMap.has(date)) {
           dailyMap.set(date, {
@@ -142,10 +159,9 @@ export const DailySalesSummary = ({
         day.sales += Number(tx.total_amount) || 0;
         day.transactions += 1;
         if (tx.customer_id) day.customers.add(tx.customer_id);
-        if (tx.payment_status === "Paid")
-          day.paid += Number(tx.total_amount) || 0;
-        if (tx.payment_status === "Unpaid")
-          day.unpaid += Number(tx.total_amount) || 0;
+        const status = saleStatusOf(tx, consignments);
+        if (status === "Paid") day.paid += Number(tx.total_amount) || 0;
+        if (status === "Unpaid") day.unpaid += Number(tx.total_amount) || 0;
         if (tx.transaction_type === "bulk")
           day.bulk += Number(tx.total_amount) || 0;
       });

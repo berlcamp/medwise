@@ -5,6 +5,7 @@ import { REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { exportReportPdf } from "@/lib/utils/reportPdf";
+import { fetchConsignmentCollections } from "@/lib/utils/consignmentPayments";
 import {
   addDays,
   format,
@@ -108,7 +109,9 @@ const bucketOf = (date: Date, groupBy: GroupBy) => {
  *                 transaction date, across all reportable sale channels
  *                 (bulk + consignment sales + agent sales). Consignment
  *                 hand-offs are excluded — they are goods on loan, not sales.
- *  - Collection — cash actually received: `transaction_payments`, dated by
+ *  - Collection — cash actually received: `transaction_payments` plus
+ *                 `consignment_payments` (consignments are settled as a whole,
+ *                 so their collections never touch a sale row), dated by
  *                 payment date. Includes payments on invoices from earlier
  *                 periods, so it can exceed Sales for the same range.
  *  - Expenses   — money paid out: `expenses`, dated by expense date.
@@ -245,6 +248,20 @@ export const SalesCollectionExpenseReport = () => {
       (txns || []).forEach((t: any) => allowedTxnIds.add(t.id));
     }
 
+    // Consignment collections are recorded against the consignment, not
+    // against the `consignment_sale` transactions, so `transaction_payments`
+    // never sees them — without this, Collection ignored every peso collected
+    // on a consignment while Sales still counted the sale.
+    const consignmentCollections = await fetchConsignmentCollections({
+      branchId: selectedBranchId,
+      start,
+      end,
+    });
+
+    if (consignmentCollections.error) {
+      toast.error("Consignment collections could not be loaded");
+    }
+
     // Fold all three sources into one bucket per period.
     const buckets = new Map<string, PeriodRow>();
 
@@ -282,6 +299,13 @@ export const SalesCollectionExpenseReport = () => {
     paymentsData.forEach((p: any) => {
       if (!p.payment_date) return;
       if (!allowedTxnIds.has(p.transaction_id)) return;
+      const amount = Number(p.amount) || 0;
+      totalCollection += amount;
+      bump(parseISO(p.payment_date), "collection", amount);
+    });
+
+    consignmentCollections.payments.forEach((p) => {
+      if (!p.payment_date) return;
       const amount = Number(p.amount) || 0;
       totalCollection += amount;
       bump(parseISO(p.payment_date), "collection", amount);
@@ -518,7 +542,7 @@ export const SalesCollectionExpenseReport = () => {
                     <p className="text-sm text-gray-500">Total Collection</p>
                     <CardInfo
                       label="Total Collection"
-                      text="Cash actually received in the period, dated by payment date. This includes payments on invoices issued in earlier periods, so it can be higher than Total Sales for the same range."
+                      text="Cash actually received in the period, dated by payment date — invoice payments plus collections on consignments. This includes payments on invoices issued in earlier periods, so it can be higher than Total Sales for the same range."
                     />
                   </div>
                   <p className="text-2xl font-bold text-green-600">

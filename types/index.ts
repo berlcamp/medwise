@@ -371,6 +371,9 @@ export interface Transaction {
   status: "completed" | "pending" | "returned" | string; // extendable for future statuses
   branch_id?: number | null;
   customer_id?: number | null;
+  // Set on consignment_sale rows (migration 023): the consignment the sale was
+  // recorded against. Payments for those live on the consignment, not here.
+  consignment_id?: number | null;
   customer?: Customer;
   transaction_items: TransactionItem[];
   created_at: string;
@@ -514,6 +517,28 @@ export interface ConsignmentItem {
   // Relations
   product?: Product;
   transaction?: Transaction;
+}
+
+export interface ConsignmentPayment {
+  id: number;
+  consignment_id: number;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  reference_number?: string | null;
+  collection_receipt_number?: string | null;
+
+  // Cheque details
+  bank_name?: string | null;
+  cheque_date?: string | null;
+
+  // GL details
+  billing_agency?: string | null;
+  beneficiary_name?: string | null;
+
+  remarks?: string | null;
+  created_at: string;
+  created_by?: string | null;
 }
 
 export interface ConsignmentHistory {

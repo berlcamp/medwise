@@ -17,6 +17,11 @@ import { Transaction } from "@/types";
 import { format, parseISO } from "date-fns";
 import { exportReportPdf } from "@/lib/utils/reportPdf";
 import {
+  ConsignmentPaymentSummary,
+  fetchConsignmentsForSales,
+  saleStatusOf,
+} from "@/lib/utils/consignmentPayments";
+import {
   DollarSign,
   Download,
   Loader2,
@@ -60,6 +65,10 @@ export default function SalesReport({
   const [mode, setMode] = useState("daily"); // daily / weekly / monthly / custom
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<Transaction[]>([]);
+  // Consignment sales carry no payment status of their own — see below.
+  const [consignments, setConsignments] = useState<
+    Map<number, ConsignmentPaymentSummary>
+  >(new Map());
   const [summary, setSummary] = useState({
     totalSales: 0,
     totalTransactions: 0,
@@ -139,8 +148,13 @@ export default function SalesReport({
       }
     }
 
-    // Apply payment status filter
-    if (paymentStatus !== "All") {
+    // Apply payment status filter. Consignment sales are never settled on
+    // their own row — the customer pays the whole consignment, and the
+    // collections live in `consignment_payments` — so that channel's status is
+    // resolved from the consignment ledger after the rows come back.
+    const statusFromLedger = channel === "consignment";
+
+    if (paymentStatus !== "All" && !statusFromLedger) {
       query = query.eq("payment_status", paymentStatus);
     }
 
@@ -153,7 +167,19 @@ export default function SalesReport({
       return;
     }
 
-    const transactions = data || [];
+    let transactions = data || [];
+
+    // Resolves the consignment behind each consignment sale, so the table can
+    // show what has actually been collected against it.
+    const consignmentMap = await fetchConsignmentsForSales(transactions);
+    setConsignments(consignmentMap);
+
+    if (statusFromLedger && paymentStatus !== "All") {
+      transactions = transactions.filter(
+        (t: any) => saleStatusOf(t, consignmentMap) === paymentStatus
+      );
+    }
+
     setReportData(transactions);
 
     // Calculate summary
@@ -543,17 +569,22 @@ export default function SalesReport({
                           })}
                         </td>
                         <td className="p-3 text-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs ${
-                              t.payment_status === "Paid"
-                                ? "bg-green-100 text-green-700"
-                                : t.payment_status === "Unpaid"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-orange-100 text-orange-700"
-                            }`}
-                          >
-                            {t.payment_status || "-"}
-                          </span>
+                          {(() => {
+                            const status = saleStatusOf(t, consignments);
+                            return (
+                              <span
+                                className={`px-2 py-1 rounded text-xs ${
+                                  status === "Paid"
+                                    ? "bg-green-100 text-green-700"
+                                    : status === "Unpaid"
+                                      ? "bg-red-100 text-red-700"
+                                      : "bg-orange-100 text-orange-700"
+                                }`}
+                              >
+                                {status}
+                              </span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ))
