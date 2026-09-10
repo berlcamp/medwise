@@ -156,7 +156,12 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       toast.success('Successfully saved!')
     } catch (err) {
       console.error('Submission error:', err)
-      toast.error('Failed to save expense')
+      // Show the database message — a bare "Failed to save expense" hides
+      // things like a missing RLS policy that only the error text reveals.
+      const message = err instanceof Error ? err.message : ''
+      toast.error(
+        message ? `Failed to save expense: ${message}` : 'Failed to save expense'
+      )
     } finally {
       setIsSubmitting(false)
     }
