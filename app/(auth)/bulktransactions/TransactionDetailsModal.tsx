@@ -2,6 +2,7 @@
 "use client";
 
 import { PaymentHistoryPrint } from "@/components/printables/PaymentHistoryPrint";
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ export function TransactionDetailsModal({
     transaction.delivery_receipt_date || ""
   );
   const [savingReceiptDate, setSavingReceiptDate] = useState(false);
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!transaction?.id) return;
@@ -61,6 +63,7 @@ export function TransactionDetailsModal({
           price,
           total,
           product_id,
+          product_stock_id,
           batch_no,
           products ( name, unit ),
           stock:product_stock_id ( purchase_price )
@@ -89,6 +92,7 @@ export function TransactionDetailsModal({
             name: item.products?.name || "Unknown Product",
             unit: item.products?.unit || "",
             batchNo: item.batch_no || "",
+            productStockId: item.product_stock_id || null,
           };
         });
         setCart(formatted);
@@ -340,7 +344,20 @@ export function TransactionDetailsModal({
                                 <div className="text-xs text-gray-500 truncate max-w-[240px]">
                                   {item.unit && <>Unit: {item.unit}</>}
                                   {item.unit && item.batchNo && " • "}
-                                  {item.batchNo && <>Batch: {item.batchNo}</>}
+                                  {item.batchNo &&
+                                    (item.productStockId ? (
+                                      <button
+                                        type="button"
+                                        className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                        onClick={() =>
+                                          setBatchStockId(item.productStockId)
+                                        }
+                                      >
+                                        Batch: {item.batchNo}
+                                      </button>
+                                    ) : (
+                                      <>Batch: {item.batchNo}</>
+                                    ))}
                                 </div>
                               </TableCell>
                               <TableCell className="text-center">
@@ -439,6 +456,13 @@ export function TransactionDetailsModal({
           </DialogPanel>
         </div>
       </Dialog>
+
+      {/* Batch details for a clicked batch number */}
+      <StockBatchDetailsModal
+        isOpen={batchStockId !== null}
+        onClose={() => setBatchStockId(null)}
+        stockId={batchStockId}
+      />
 
       {/* Print Component */}
       {printData && <PaymentHistoryPrint data={printData} />}

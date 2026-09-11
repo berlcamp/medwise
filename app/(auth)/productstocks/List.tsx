@@ -1,6 +1,7 @@
 'use client'
 
 import { ConfirmationModal } from '@/components/ConfirmationModal'
+import { StockBatchDetailsModal } from '@/components/StockBatchDetailsModal'
 import { Button } from '@/components/ui/button'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { deleteItem } from '@/lib/redux/listSlice'
@@ -27,6 +28,7 @@ export const List = () => {
   const [modalRemoveOpen, setModalRemoveOpen] = useState(false)
   const [modalEditOpen, setModalEditOpen] = useState(false)
   const [modalTrackOpen, setModalTrackOpen] = useState(false)
+  const [modalBatchOpen, setModalBatchOpen] = useState(false)
 
   const [selectedItem, setSelectedItem] = useState<ProductStock | null>(null)
 
@@ -116,7 +118,22 @@ export const List = () => {
                     {item.product?.category}
                   </div>
                   <div className="text-xs text-gray-600">
-                    {item.batch_no && <>Batch: {item.batch_no}, </>}
+                    {item.batch_no && (
+                      <>
+                        Batch:{' '}
+                        <button
+                          type="button"
+                          className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setModalBatchOpen(true)
+                          }}
+                        >
+                          {item.batch_no}
+                        </button>
+                        ,{' '}
+                      </>
+                    )}
                     Supplier: {item.supplier?.name || '-'}
                   </div>
                 </td>
@@ -186,6 +203,12 @@ export const List = () => {
         isOpen={modalEditOpen}
         onClose={() => setModalEditOpen(false)}
         selectedItem={selectedItem}
+      />
+
+      <StockBatchDetailsModal
+        isOpen={modalBatchOpen}
+        onClose={() => setModalBatchOpen(false)}
+        stock={selectedItem}
       />
 
       <TrackMovementModal
