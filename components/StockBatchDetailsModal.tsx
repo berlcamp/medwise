@@ -160,7 +160,7 @@ export function StockBatchDetailsModal({
                   <Field label="Consigned Quantity">
                     {item.consigned_quantity ?? 0}
                   </Field>
-                  <Field label="Purchase Price">
+                  <Field label="Purchase Cost">
                     {formatMoney(item.purchase_price)}
                   </Field>
                   <Field label="Reorder Point">

@@ -42,7 +42,7 @@ const FormSchema = z.object({
   product_id: z.coerce.number().min(1, 'Product required'),
   supplier_id: z.coerce.number().min(1, 'Supplier required'),
   quantity: z.coerce.number().min(1, 'Quantity required'),
-  purchase_price: z.coerce.number().min(0, 'Purchase price required'),
+  purchase_price: z.coerce.number().min(0, 'Purchase cost required'),
   batch_no: z.string().min(1, 'Batch number required'),
   manufacturer: z.string().optional(),
   date_manufactured: z.string().min(1, 'Date manufactured required'),
@@ -330,13 +330,13 @@ export const AddStockModal = ({
                     )}
                   />
 
-                  {/* PURCHASE PRICE */}
+                  {/* PURCHASE COST */}
                   <FormField
                     control={form.control}
                     name="purchase_price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Purchase Price</FormLabel>
+                        <FormLabel>Purchase Cost</FormLabel>
                         <FormControl>
                           <Input type="number" {...field} step="any" min={0} />
                         </FormControl>

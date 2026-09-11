@@ -24,7 +24,7 @@ import { z } from 'zod'
 const table = 'product_stocks'
 
 const FormSchema = z.object({
-  purchase_price: z.coerce.number().min(0, 'Purchase price required'),
+  purchase_price: z.coerce.number().min(0, 'Purchase cost required'),
   batch_no: z.string().optional(),
   manufacturer: z.string().optional(),
   date_manufactured: z.string().optional(),
@@ -147,7 +147,7 @@ export const EditStockModal = ({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="app__formlabel_standard">
-                            Purchase Price
+                            Purchase Cost
                           </FormLabel>
                           <FormControl>
                             <Input

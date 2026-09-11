@@ -57,7 +57,7 @@ export const List = () => {
             <th className="app__th">Product / Details</th>
             <th className="app__th">Category / Batch</th>
             <th className="app__th">Remaining Stocks</th>
-            <th className="app__th">Purchase Price</th>
+            <th className="app__th">Purchase Cost</th>
             <th className="app__th"></th>
           </tr>
         </thead>
