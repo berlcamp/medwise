@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 
 interface FormType {
   keyword: string
+  batchNo: string
   category: string
 }
 
@@ -15,8 +16,12 @@ export const Filter = ({
   filter,
   setFilter
 }: {
-  filter: { keyword: string; category: string }
-  setFilter: (filter: { keyword: string; category: string }) => void
+  filter: { keyword: string; batchNo: string; category: string }
+  setFilter: (filter: {
+    keyword: string
+    batchNo: string
+    category: string
+  }) => void
 }) => {
   const { reset, register, handleSubmit } = useForm<FormType>({
     defaultValues: filter
@@ -25,13 +30,14 @@ export const Filter = ({
   const onSubmit = (data: FormType) => {
     setFilter({
       keyword: data.keyword || '',
+      batchNo: data.batchNo || '',
       category: data.category || ''
     })
   }
 
   const handleReset = () => {
-    reset({ keyword: '', category: '' })
-    setFilter({ keyword: '', category: '' })
+    reset({ keyword: '', batchNo: '', category: '' })
+    setFilter({ keyword: '', batchNo: '', category: '' })
   }
 
   return (
@@ -50,6 +56,21 @@ export const Filter = ({
             <Input
               {...register('keyword')}
               placeholder="Search product..."
+              className="border-0 focus-visible:ring-0 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Batch Number Search */}
+        <div className="flex flex-col">
+          <label className="text-xs font-medium text-gray-600 mb-1">
+            Batch Number
+          </label>
+          <div className="flex items-center border rounded-md px-2">
+            <Search size={16} className="text-gray-400" />
+            <Input
+              {...register('batchNo')}
+              placeholder="Search batch no..."
               className="border-0 focus-visible:ring-0 text-sm"
             />
           </div>

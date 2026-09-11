@@ -19,6 +19,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState({
     keyword: '',
+    batchNo: '',
     category: ''
   })
 
@@ -82,6 +83,11 @@ export default function Page() {
         )
         .eq('inventory_type', 'stock')
         .eq('branch_id', selectedBranchId)
+
+      // Batch number lives on product_stocks itself, so filter it directly.
+      if (filter.batchNo) {
+        query = query.ilike('batch_no', `%${filter.batchNo}%`)
+      }
 
       // Apply product filter only if there are matching IDs
       if (productIds.length > 0) {

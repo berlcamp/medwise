@@ -61,6 +61,7 @@ export function TransactionDetailsModal({
           price,
           total,
           product_id,
+          batch_no,
           products ( name, unit ),
           stock:product_stock_id ( purchase_price )
         `
@@ -87,6 +88,7 @@ export function TransactionDetailsModal({
             profit: total - cost * quantity,
             name: item.products?.name || "Unknown Product",
             unit: item.products?.unit || "",
+            batchNo: item.batch_no || "",
           };
         });
         setCart(formatted);
@@ -328,13 +330,18 @@ export function TransactionDetailsModal({
                         ) : (
                           cart.map((item, idx) => (
                             <TableRow key={idx}>
-                              <TableCell>
-                                <div className="font-medium">{item.name}</div>
-                                {item.unit && (
-                                  <div className="text-xs text-gray-500">
-                                    Unit: {item.unit}
-                                  </div>
-                                )}
+                              <TableCell className="max-w-[240px]">
+                                <div
+                                  className="font-medium truncate max-w-[240px]"
+                                  title={item.name}
+                                >
+                                  {item.name}
+                                </div>
+                                <div className="text-xs text-gray-500 truncate max-w-[240px]">
+                                  {item.unit && <>Unit: {item.unit}</>}
+                                  {item.unit && item.batchNo && " • "}
+                                  {item.batchNo && <>Batch: {item.batchNo}</>}
+                                </div>
                               </TableCell>
                               <TableCell className="text-center">
                                 <span className="font-semibold">
