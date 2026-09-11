@@ -37,11 +37,20 @@ type FormType = z.infer<typeof FormSchema>
 export const EditStockModal = ({
   isOpen,
   onClose,
-  selectedItem
+  selectedItem,
+  // The redux list holds whatever the current page listed, so only sync it
+  // when this modal is opened from the product stocks list itself.
+  syncList = true,
+  onUpdated,
+  // Raised when opened on top of another modal (e.g. batch details).
+  zClassName = 'z-50'
 }: {
   isOpen: boolean
   onClose: () => void
   selectedItem: ProductStock | null
+  syncList?: boolean
+  onUpdated?: (updated: ProductStock) => void
+  zClassName?: string
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dispatch = useAppDispatch()
@@ -109,7 +118,10 @@ export const EditStockModal = ({
 
       if (error) throw new Error(error.message)
 
-      dispatch(updateList({ ...updated, id: selectedItem.id }))
+      if (syncList) {
+        dispatch(updateList({ ...updated, id: selectedItem.id }))
+      }
+      onUpdated?.({ ...selectedItem, ...updated } as ProductStock)
       toast.success('Stock updated successfully!')
       onClose()
     } catch (err) {
@@ -125,11 +137,13 @@ export const EditStockModal = ({
     <Dialog
       open={isOpen}
       as="div"
-      className="relative z-50 focus:outline-none"
+      className={`relative ${zClassName} focus:outline-none`}
       onClose={() => {}}
     >
       <div className="fixed inset-0 bg-gray-600 opacity-80" aria-hidden="true" />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className={`fixed inset-0 ${zClassName} flex items-center justify-center p-4`}
+      >
         <DialogPanel transition className="app__modal_dialog_panel_sm">
           <div className="app__modal_dialog_title_container">
             <DialogTitle as="h3" className="text-base font-medium">

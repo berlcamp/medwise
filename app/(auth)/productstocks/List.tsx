@@ -209,6 +209,7 @@ export const List = () => {
         isOpen={modalBatchOpen}
         onClose={() => setModalBatchOpen(false)}
         stock={selectedItem}
+        syncList
       />
 
       <TrackMovementModal
