@@ -3,6 +3,7 @@
 "use client";
 
 import Notfoundpage from "@/components/Notfoundpage";
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
@@ -11,6 +12,7 @@ import { format, startOfMonth, startOfWeek, subDays } from "date-fns";
 import {
   AlertTriangle,
   Calendar,
+  TrendingDownIcon,
   DollarSign,
   Package,
   RefreshCw,
@@ -55,6 +57,16 @@ type ProductStock = {
   remaining_quantity: number;
   reorder_point: number;
 };
+// A stock batch bought for more than the product currently sells for.
+type NegativeMarginStock = {
+  id: number;
+  product_name: string;
+  category: string;
+  batch_no: string | null;
+  remaining_quantity: number;
+  purchase_price: number;
+  selling_price: number;
+};
 
 export default function Page() {
   const [mode, setMode] = useState<"daily" | "weekly" | "monthly" | "custom">(
@@ -72,6 +84,11 @@ export default function Page() {
   const [inventoryTotalValue, setInventoryTotalValue] = useState(0);
   const [inventoryValueCurrentPrice, setInventoryValueCurrentPrice] =
     useState(0);
+  const [negativeMarginStocks, setNegativeMarginStocks] = useState<
+    NegativeMarginStock[]
+  >([]);
+  // Batch number clicked in the negative-margin table -> batch details modal.
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
 
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
@@ -254,6 +271,42 @@ export default function Page() {
             0
           );
           setInventoryValueCurrentPrice(totalValueCurrentPrice);
+        }
+
+        // Batches bought for more than the product's current selling price.
+        // Only on-hand stock is listed: a depleted batch can no longer be
+        // repriced or returned, so it isn't actionable here.
+        const { data: marginStocks, error: marginError } = await supabase
+          .from("product_stocks")
+          .select(
+            `id, batch_no, purchase_price, remaining_quantity,
+             product:product_id(name, category, selling_price)`
+          )
+          .eq("branch_id", selectedBranchId)
+          .gt("remaining_quantity", 0);
+
+        if (marginError) {
+          console.error("error loading negative margin stocks:", marginError);
+        } else {
+          const negative = (marginStocks || [])
+            .map((stock: any) => ({
+              id: stock.id,
+              product_name: stock.product?.name || "Unknown Product",
+              category: stock.product?.category || "-",
+              batch_no: stock.batch_no,
+              remaining_quantity: Number(stock.remaining_quantity) || 0,
+              purchase_price: Number(stock.purchase_price) || 0,
+              selling_price: Number(stock.product?.selling_price) || 0,
+            }))
+            .filter((s) => s.purchase_price > s.selling_price)
+            .sort(
+              (a, b) =>
+                b.purchase_price -
+                b.selling_price -
+                (a.purchase_price - a.selling_price)
+            );
+
+          setNegativeMarginStocks(negative);
         }
       }
     } catch (error) {
@@ -641,6 +694,103 @@ export default function Page() {
           </div>
         )}
 
+        {/* Products Priced Below Cost (admin only, same as the cost widgets) */}
+        {isAdmin && negativeMarginStocks.length > 0 && (
+          <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-rose-500 to-red-600 px-6 py-4">
+              <div className="flex items-center">
+                <TrendingDownIcon className="w-6 h-6 text-white mr-3" />
+                <h3 className="font-bold text-lg text-white">
+                  Products Priced Below Cost
+                </h3>
+              </div>
+              <p className="text-rose-50 text-sm mt-1">
+                {negativeMarginStocks.length}{" "}
+                {negativeMarginStocks.length === 1 ? "batch" : "batches"} on
+                hand cost more than the product&apos;s selling price
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Product
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Batch No.
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Remaining
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Purchase Cost
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Selling Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Loss / Unit
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Potential Loss
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {negativeMarginStocks.map((s) => {
+                    const lossPerUnit = s.purchase_price - s.selling_price;
+
+                    return (
+                      <tr
+                        key={s.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">
+                            {s.product_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {s.category}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {s.batch_no ? (
+                            <button
+                              type="button"
+                              className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={() => setBatchStockId(s.id)}
+                            >
+                              {s.batch_no}
+                            </button>
+                          ) : (
+                            <span className="text-sm text-gray-500">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-center text-gray-600">
+                          {s.remaining_quantity}
+                        </td>
+                        <td className="px-6 py-4 text-right text-gray-900">
+                          {formatMoney(s.purchase_price)}
+                        </td>
+                        <td className="px-6 py-4 text-right text-gray-900">
+                          {formatMoney(s.selling_price)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-semibold text-red-600">
+                          {formatMoney(lossPerUnit)}
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold text-red-600">
+                          {formatMoney(lossPerUnit * s.remaining_quantity)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Low Stock Products Table */}
         {lowStock.length > 0 && (
           <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
@@ -730,6 +880,13 @@ export default function Page() {
             </div>
           </div>
         )}
+
+        {/* Batch details for a clicked batch number */}
+        <StockBatchDetailsModal
+          isOpen={batchStockId !== null}
+          onClose={() => setBatchStockId(null)}
+          stockId={batchStockId}
+        />
 
         {/* Empty State when no branch selected */}
         {!selectedBranchId && (
