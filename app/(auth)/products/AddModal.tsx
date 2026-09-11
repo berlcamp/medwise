@@ -25,10 +25,11 @@ import {
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
 import { supabase } from '@/lib/supabase/client'
-import { generateSKU } from '@/lib/utils'
+import { formatMoney, generateSKU } from '@/lib/utils'
 import { Product, ProductStock } from '@/types'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -63,6 +64,9 @@ type FormType = z.infer<typeof FormSchema>
 
 export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Highest purchase cost among the branch's on-hand batches of this product.
+  // Selling below it means every remaining unit sells at a loss.
+  const [highestCost, setHighestCost] = useState<number | null>(null)
 
   const dispatch = useAppDispatch()
 
@@ -91,6 +95,16 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   const onSubmit = async (data: FormType) => {
     if (isSubmitting) return
     setIsSubmitting(true)
+
+    // Warn (but don't block) when the price won't cover what the stock cost.
+    if (highestCost !== null && data.selling_price < highestCost) {
+      toast(
+        `Warning: selling price ${formatMoney(
+          data.selling_price
+        )} is below the purchase cost of ${formatMoney(highestCost)}.`,
+        { icon: '⚠️', duration: 6000 }
+      )
+    }
 
     try {
       // Only generate SKU for new product
@@ -193,6 +207,49 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       gl_percent: editData?.gl_percent ?? 0
     })
   }, [form, editData, isOpen])
+
+  // Load the product's highest on-hand purchase cost so the form can flag a
+  // selling price that sits below it.
+  useEffect(() => {
+    if (!isOpen || !editData?.id || !selectedBranchId) {
+      setHighestCost(null)
+      return
+    }
+
+    let isMounted = true
+
+    const fetchHighestCost = async () => {
+      const { data, error } = await supabase
+        .from('product_stocks')
+        .select('purchase_price')
+        .eq('product_id', editData.id)
+        .eq('branch_id', selectedBranchId)
+        .gt('remaining_quantity', 0)
+        .order('purchase_price', { ascending: false })
+        .limit(1)
+
+      if (!isMounted) return
+
+      if (error) {
+        console.error('Error loading purchase cost:', error)
+        setHighestCost(null)
+        return
+      }
+
+      setHighestCost(
+        data && data.length > 0 ? Number(data[0].purchase_price) || 0 : null
+      )
+    }
+
+    fetchHighestCost()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen, editData?.id, selectedBranchId])
+
+  const sellingPrice = Number(form.watch('selling_price')) || 0
+  const isBelowCost = highestCost !== null && sellingPrice < highestCost
 
   const selectedCategory = form.watch('category')
   const hasSub =
@@ -453,6 +510,18 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                             <FormControl>
                               <Input {...field} type="number" step="any" />
                             </FormControl>
+                            {isBelowCost && (
+                              <p className="flex items-start gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                <span>
+                                  Selling price is below the purchase cost of{' '}
+                                  <strong>{formatMoney(highestCost ?? 0)}</strong>
+                                  . Each unit sold loses{' '}
+                                  {formatMoney((highestCost ?? 0) - sellingPrice)}
+                                  .
+                                </span>
+                              </p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}

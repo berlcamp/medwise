@@ -5,6 +5,7 @@
 import Notfoundpage from "@/components/Notfoundpage";
 import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Button } from "@/components/ui/button";
+import { REPORTABLE_SALE_TYPES } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
 import { formatMoney } from "@/lib/utils";
@@ -66,6 +67,10 @@ type NegativeMarginStock = {
   remaining_quantity: number;
   purchase_price: number;
   selling_price: number;
+  product_id: number;
+  // Sales activity for the product across the branch (all time).
+  transaction_count: number;
+  quantity_sold: number;
 };
 
 export default function Page() {
@@ -280,7 +285,7 @@ export default function Page() {
       const { data: marginStocks, error: marginError } = await supabase
         .from("product_stocks")
         .select(
-          `id, batch_no, purchase_price, remaining_quantity,
+          `id, product_id, batch_no, purchase_price, remaining_quantity,
            product:product_id(name, category, selling_price)`
         )
         .eq("branch_id", selectedBranchId)
@@ -292,12 +297,15 @@ export default function Page() {
         const negative = (marginStocks || [])
           .map((stock: any) => ({
             id: stock.id,
+            product_id: stock.product_id,
             product_name: stock.product?.name || "Unknown Product",
             category: stock.product?.category || "-",
             batch_no: stock.batch_no,
             remaining_quantity: Number(stock.remaining_quantity) || 0,
             purchase_price: Number(stock.purchase_price) || 0,
             selling_price: Number(stock.product?.selling_price) || 0,
+            transaction_count: 0,
+            quantity_sold: 0,
           }))
           .filter((s) => s.purchase_price > s.selling_price)
           .sort(
@@ -306,6 +314,50 @@ export default function Page() {
               b.selling_price -
               (a.purchase_price - a.selling_price)
           );
+
+        // How much each of those products has actually sold (branch-wide, all
+        // time). Counted per product rather than per batch: the question this
+        // answers is how exposed we are to the bad price.
+        const productIds = Array.from(
+          new Set(negative.map((s) => s.product_id).filter(Boolean))
+        );
+
+        if (productIds.length > 0) {
+          const { data: soldItems, error: soldError } = await supabase
+            .from("transaction_items")
+            .select(
+              `product_id, quantity, transaction_id,
+               transaction:transaction_id!inner(id, branch_id, transaction_type)`
+            )
+            .in("product_id", productIds)
+            .eq("transaction.branch_id", selectedBranchId)
+            .in("transaction.transaction_type", REPORTABLE_SALE_TYPES);
+
+          if (soldError) {
+            console.error("error loading product sales counts:", soldError);
+          } else {
+            // One transaction can hold several batches of the same product, so
+            // count distinct transactions rather than line items.
+            const txIdsByProduct: Record<number, Set<number>> = {};
+            const qtyByProduct: Record<number, number> = {};
+
+            (soldItems || []).forEach((row: any) => {
+              const pid = row.product_id;
+              if (!pid) return;
+              if (!txIdsByProduct[pid]) txIdsByProduct[pid] = new Set();
+              if (row.transaction_id) {
+                txIdsByProduct[pid].add(row.transaction_id);
+              }
+              qtyByProduct[pid] =
+                (qtyByProduct[pid] || 0) + (Number(row.quantity) || 0);
+            });
+
+            negative.forEach((s) => {
+              s.transaction_count = txIdsByProduct[s.product_id]?.size || 0;
+              s.quantity_sold = qtyByProduct[s.product_id] || 0;
+            });
+          }
+        }
 
         setNegativeMarginStocks(negative);
       }
@@ -723,6 +775,9 @@ export default function Page() {
                     <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Remaining
                     </th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Transactions
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Purchase Cost
                     </th>
@@ -769,6 +824,14 @@ export default function Page() {
                         </td>
                         <td className="px-6 py-4 text-center text-gray-600">
                           {s.remaining_quantity}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="font-semibold text-gray-900">
+                            {s.transaction_count}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {s.quantity_sold} sold
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-right text-gray-900">
                           {formatMoney(s.purchase_price)}
