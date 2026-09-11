@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -60,7 +61,8 @@ export function TransactionDetailsModal({
           price,
           total,
           product_id,
-          products ( name, unit )
+          products ( name, unit ),
+          stock:product_stock_id ( purchase_price )
         `
         )
         .eq("transaction_id", transaction.id);
@@ -69,14 +71,24 @@ export function TransactionDetailsModal({
         console.error(error);
         toast.error("Failed to load transaction items");
       } else {
-        const formatted = data.map((item: any) => ({
-          id: item.id,
-          quantity: Number(item.quantity),
-          price: Number(item.price),
-          total: Number(item.total),
-          name: item.products?.name || "Unknown Product",
-          unit: item.products?.unit || "",
-        }));
+        const formatted = data.map((item: any) => {
+          const quantity = Number(item.quantity);
+          const total = Number(item.total);
+          // Unit cost comes from the batch the item was deducted from
+          // (product_stocks.purchase_price), same basis as the profit report.
+          const cost = Number(item.stock?.purchase_price || 0);
+
+          return {
+            id: item.id,
+            quantity,
+            price: Number(item.price),
+            total,
+            cost,
+            profit: total - cost * quantity,
+            name: item.products?.name || "Unknown Product",
+            unit: item.products?.unit || "",
+          };
+        });
         setCart(formatted);
       }
 
@@ -112,6 +124,11 @@ export function TransactionDetailsModal({
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCost = cart.reduce(
+    (sum, item) => sum + item.cost * item.quantity,
+    0
+  );
+  const totalProfit = cart.reduce((sum, item) => sum + item.profit, 0);
 
   // Days lapsed since the order was delivered (delivery date -> today). Nothing
   // is shown while the order is still pending. The delivery date is taken from
@@ -291,14 +308,18 @@ export function TransactionDetailsModal({
                           <TableHead className="text-right">
                             Unit Price
                           </TableHead>
+                          <TableHead className="text-right">
+                            Product Cost
+                          </TableHead>
                           <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Profit</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {cart.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={4}
+                              colSpan={6}
                               className="text-center text-gray-500"
                             >
                               No items found
@@ -323,13 +344,52 @@ export function TransactionDetailsModal({
                               <TableCell className="text-right">
                                 {formatMoney(item.price)}
                               </TableCell>
+                              <TableCell className="text-right">
+                                <div>{formatMoney(item.cost)}</div>
+                                <div className="text-xs text-gray-500">
+                                  {formatMoney(item.cost * item.quantity)} total
+                                </div>
+                              </TableCell>
                               <TableCell className="text-right font-semibold">
                                 {formatMoney(item.total)}
+                              </TableCell>
+                              <TableCell
+                                className={`text-right font-semibold ${
+                                  item.profit < 0
+                                    ? "text-red-600"
+                                    : "text-green-700"
+                                }`}
+                              >
+                                {formatMoney(item.profit)}
                               </TableCell>
                             </TableRow>
                           ))
                         )}
                       </TableBody>
+                      {cart.length > 0 && (
+                        <TableFooter>
+                          <TableRow>
+                            <TableCell colSpan={3} className="text-right">
+                              Total
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(totalCost)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(transaction.total_amount)}
+                            </TableCell>
+                            <TableCell
+                              className={`text-right ${
+                                totalProfit < 0
+                                  ? "text-red-600"
+                                  : "text-green-700"
+                              }`}
+                            >
+                              {formatMoney(totalProfit)}
+                            </TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      )}
                     </Table>
                   </div>
 
