@@ -272,42 +272,42 @@ export default function Page() {
           );
           setInventoryValueCurrentPrice(totalValueCurrentPrice);
         }
+      }
 
-        // Batches bought for more than the product's current selling price.
-        // Only on-hand stock is listed: a depleted batch can no longer be
-        // repriced or returned, so it isn't actionable here.
-        const { data: marginStocks, error: marginError } = await supabase
-          .from("product_stocks")
-          .select(
-            `id, batch_no, purchase_price, remaining_quantity,
-             product:product_id(name, category, selling_price)`
-          )
-          .eq("branch_id", selectedBranchId)
-          .gt("remaining_quantity", 0);
+      // Batches bought for more than the product's current selling price.
+      // Only on-hand stock is listed: a depleted batch can no longer be
+      // repriced or returned, so it isn't actionable here.
+      const { data: marginStocks, error: marginError } = await supabase
+        .from("product_stocks")
+        .select(
+          `id, batch_no, purchase_price, remaining_quantity,
+           product:product_id(name, category, selling_price)`
+        )
+        .eq("branch_id", selectedBranchId)
+        .gt("remaining_quantity", 0);
 
-        if (marginError) {
-          console.error("error loading negative margin stocks:", marginError);
-        } else {
-          const negative = (marginStocks || [])
-            .map((stock: any) => ({
-              id: stock.id,
-              product_name: stock.product?.name || "Unknown Product",
-              category: stock.product?.category || "-",
-              batch_no: stock.batch_no,
-              remaining_quantity: Number(stock.remaining_quantity) || 0,
-              purchase_price: Number(stock.purchase_price) || 0,
-              selling_price: Number(stock.product?.selling_price) || 0,
-            }))
-            .filter((s) => s.purchase_price > s.selling_price)
-            .sort(
-              (a, b) =>
-                b.purchase_price -
-                b.selling_price -
-                (a.purchase_price - a.selling_price)
-            );
+      if (marginError) {
+        console.error("error loading negative margin stocks:", marginError);
+      } else {
+        const negative = (marginStocks || [])
+          .map((stock: any) => ({
+            id: stock.id,
+            product_name: stock.product?.name || "Unknown Product",
+            category: stock.product?.category || "-",
+            batch_no: stock.batch_no,
+            remaining_quantity: Number(stock.remaining_quantity) || 0,
+            purchase_price: Number(stock.purchase_price) || 0,
+            selling_price: Number(stock.product?.selling_price) || 0,
+          }))
+          .filter((s) => s.purchase_price > s.selling_price)
+          .sort(
+            (a, b) =>
+              b.purchase_price -
+              b.selling_price -
+              (a.purchase_price - a.selling_price)
+          );
 
-          setNegativeMarginStocks(negative);
-        }
+        setNegativeMarginStocks(negative);
       }
     } catch (error) {
       console.error("Error loading dashboard:", error);
@@ -694,8 +694,8 @@ export default function Page() {
           </div>
         )}
 
-        {/* Products Priced Below Cost (admin only, same as the cost widgets) */}
-        {isAdmin && negativeMarginStocks.length > 0 && (
+        {/* Products Priced Below Cost (admin and bulk users) */}
+        {(isAdmin || isBulkUser) && negativeMarginStocks.length > 0 && (
           <div className="bg-white shadow-lg rounded-xl border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-rose-500 to-red-600 px-6 py-4">
               <div className="flex items-center">
