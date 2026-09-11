@@ -31,6 +31,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { CardInfo } from "./CardInfo";
@@ -50,6 +51,9 @@ export default function SalesReport({
   const selectedBranchId = useAppSelector(
     (state) => state.branch.selectedBranchId
   );
+
+  // Batch number clicked in the table -> batch details modal.
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
 
   const [range, setRange] = useState([
     {
@@ -552,7 +556,28 @@ export default function SalesReport({
                           {t.transaction_number}
                         </td>
                         <td className="p-3">{t.customer_name || "-"}</td>
-                        <td className="p-3">{item.product?.name || "-"}</td>
+                        <td className="p-3">
+                          <div>{item.product?.name || "-"}</div>
+                          {item.batch_no && (
+                            <div className="text-xs text-gray-500">
+                              {item.product_stock_id ? (
+                                <button
+                                  type="button"
+                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                  onClick={() =>
+                                    setBatchStockId(
+                                      item.product_stock_id ?? null
+                                    )
+                                  }
+                                >
+                                  Batch: {item.batch_no}
+                                </button>
+                              ) : (
+                                <>Batch: {item.batch_no}</>
+                              )}
+                            </div>
+                          )}
+                        </td>
                         <td className="p-3 text-right">{item.quantity}</td>
                         <td className="p-3 text-right">
                           ₱
@@ -595,6 +620,13 @@ export default function SalesReport({
           )}
         </CardContent>
       </Card>
+
+      {/* Batch details for a clicked batch number */}
+      <StockBatchDetailsModal
+        isOpen={batchStockId !== null}
+        onClose={() => setBatchStockId(null)}
+        stockId={batchStockId}
+      />
     </div>
   );
 }

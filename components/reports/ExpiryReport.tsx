@@ -1,5 +1,6 @@
 "use client";
 
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Button } from "@/components/ui/button";
 import { useAppSelector } from "@/lib/redux/hook";
 import { supabase } from "@/lib/supabase/client";
@@ -42,6 +43,8 @@ export const ExpiryReport = () => {
 
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("monthly"); // daily / weekly / monthly / custom
+  // Batch number clicked in the table -> batch details modal.
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
 
   const [range, setRange] = useState([
     {
@@ -328,7 +331,19 @@ export const ExpiryReport = () => {
                       <tr key={item.id} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-medium">{item.product_name}</td>
                         <td className="p-3">
-                          {item.batch_no && <>Batch: {item.batch_no}, </>}
+                          {item.batch_no && (
+                            <>
+                              Batch:{" "}
+                              <button
+                                type="button"
+                                className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                onClick={() => setBatchStockId(item.id)}
+                              >
+                                {item.batch_no}
+                              </button>
+                              ,{" "}
+                            </>
+                          )}
                           Supplier: {item.supplier_name}
                         </td>
                         <td className="p-3 text-right font-semibold">
@@ -370,6 +385,13 @@ export const ExpiryReport = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Batch details for a clicked batch number */}
+      <StockBatchDetailsModal
+        isOpen={batchStockId !== null}
+        onClose={() => setBatchStockId(null)}
+        stockId={batchStockId}
+      />
     </div>
   );
 };

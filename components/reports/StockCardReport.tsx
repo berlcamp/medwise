@@ -1,5 +1,6 @@
 "use client";
 
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppSelector } from "@/lib/redux/hook";
@@ -39,6 +40,8 @@ export const StockCardReport = () => {
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("");
+  // Batch number clicked in the table -> batch details modal.
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
 
   const fetchStockMovements = async () => {
     if (!selectedBranchId) {
@@ -245,7 +248,24 @@ export const StockCardReport = () => {
                         </td>
                         <td className="p-3 font-medium">{m.product_name}</td>
                         <td className="p-3 text-sm">
-                          {m.batch_no ? `Batch: ${m.batch_no}, ` : ""}
+                          {m.batch_no &&
+                            (m.product_stock_id ? (
+                              <>
+                                Batch:{" "}
+                                <button
+                                  type="button"
+                                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                  onClick={() =>
+                                    setBatchStockId(m.product_stock_id)
+                                  }
+                                >
+                                  {m.batch_no}
+                                </button>
+                                ,{" "}
+                              </>
+                            ) : (
+                              `Batch: ${m.batch_no}, `
+                            ))}
                           {m.manufacturer ? `Mfg: ${m.manufacturer}, ` : ""}
                           {m.date_manufactured ? `Date: ${mfg}, ` : ""}
                           Exp: {exp}
@@ -278,6 +298,13 @@ export const StockCardReport = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Batch details for a clicked batch number */}
+      <StockBatchDetailsModal
+        isOpen={batchStockId !== null}
+        onClose={() => setBatchStockId(null)}
+        stockId={batchStockId}
+      />
     </div>
   );
 };

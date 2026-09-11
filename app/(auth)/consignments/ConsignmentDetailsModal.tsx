@@ -4,6 +4,7 @@
 import { ConfirmationModal } from "@/components/ConfirmationModal";
 import { DeliveryReceiptPrint } from "@/components/printables/DeliveryReceiptPrint";
 import { InvoicePrint } from "@/components/printables/InvoicePrint";
+import { StockBatchDetailsModal } from "@/components/StockBatchDetailsModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,8 @@ export function ConsignmentDetailsModal({
 }: Props) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // Batch number clicked in one of the item tables -> batch details modal.
+  const [batchStockId, setBatchStockId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   // Local state for consignment data that can be updated
   const [consignmentData, setConsignmentData] =
@@ -1011,7 +1014,21 @@ export function ConsignmentDetailsModal({
                                       </div>
                                       <div className="text-xs text-gray-500">
                                         {item.batch_no &&
-                                          `Batch: ${item.batch_no}`}
+                                          (item.product_stock_id ? (
+                                            <button
+                                              type="button"
+                                              className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                              onClick={() =>
+                                                setBatchStockId(
+                                                  item.product_stock_id ?? null
+                                                )
+                                              }
+                                            >
+                                              Batch: {item.batch_no}
+                                            </button>
+                                          ) : (
+                                            `Batch: ${item.batch_no}`
+                                          ))}
                                       </div>
                                     </div>
                                   </TableCell>
@@ -1712,7 +1729,21 @@ export function ConsignmentDetailsModal({
                                             </div>
                                             {item.batch_no && (
                                               <div className="text-xs text-gray-500">
-                                                Batch: {item.batch_no}
+                                                {item.product_stock_id ? (
+                                                  <button
+                                                    type="button"
+                                                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                                    onClick={() =>
+                                                      setBatchStockId(
+                                                        item.product_stock_id ?? null
+                                                      )
+                                                    }
+                                                  >
+                                                    Batch: {item.batch_no}
+                                                  </button>
+                                                ) : (
+                                                  <>Batch: {item.batch_no}</>
+                                                )}
                                               </div>
                                             )}
                                           </div>
@@ -1792,6 +1823,13 @@ export function ConsignmentDetailsModal({
       {printType === "delivery" && printData && (
         <DeliveryReceiptPrint data={printData} />
       )}
+
+      {/* Batch details for a clicked batch number */}
+      <StockBatchDetailsModal
+        isOpen={batchStockId !== null}
+        onClose={() => setBatchStockId(null)}
+        stockId={batchStockId}
+      />
 
       {/* Confirmation Modals */}
       <ConfirmationModal

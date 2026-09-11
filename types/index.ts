@@ -388,6 +388,7 @@ export interface TransactionItem {
   transaction_id: number | null;
   item_type: "product" | "service" | string;
   product_id: number | null;
+  product_stock_id?: number | null;
   product?: Product;
   service_id: number | null;
   unit: string | null;
