@@ -1,5 +1,6 @@
 'use client'
 
+import { ConfirmationModal } from '@/components/ConfirmationModal'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -67,6 +68,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   // Highest purchase cost among the branch's on-hand batches of this product.
   // Selling below it means every remaining unit sells at a loss.
   const [highestCost, setHighestCost] = useState<number | null>(null)
+  // Form values held back while the below-cost price is confirmed.
+  const [pendingData, setPendingData] = useState<FormType | null>(null)
 
   const dispatch = useAppDispatch()
 
@@ -92,19 +95,9 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     }
   })
 
-  const onSubmit = async (data: FormType) => {
+  const saveProduct = async (data: FormType) => {
     if (isSubmitting) return
     setIsSubmitting(true)
-
-    // Warn (but don't block) when the price won't cover what the stock cost.
-    if (highestCost !== null && data.selling_price < highestCost) {
-      toast(
-        `Warning: selling price ${formatMoney(
-          data.selling_price
-        )} is below the purchase cost of ${formatMoney(highestCost)}.`,
-        { icon: '⚠️', duration: 6000 }
-      )
-    }
 
     try {
       // Only generate SKU for new product
@@ -208,6 +201,18 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     })
   }, [form, editData, isOpen])
 
+  // A price that doesn't cover the stock on hand has to be confirmed first.
+  const onSubmit = async (data: FormType) => {
+    if (isSubmitting) return
+
+    if (highestCost !== null && data.selling_price < highestCost) {
+      setPendingData(data)
+      return
+    }
+
+    await saveProduct(data)
+  }
+
   // Load the product's highest on-hand purchase cost so the form can flag a
   // selling price that sits below it.
   useEffect(() => {
@@ -258,6 +263,7 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     productSubcategories[selectedCategory].length > 0
 
   return (
+    <>
     <Dialog open={isOpen} as="div" className="relative z-50" onClose={() => {}}>
       <div
         className="fixed inset-0 bg-gray-600 opacity-80"
@@ -574,5 +580,25 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
         </DialogPanel>
       </div>
     </Dialog>
+
+    {/* Selling below the stock's purchase cost needs a deliberate yes */}
+    <ConfirmationModal
+      isOpen={pendingData !== null}
+      onClose={() => setPendingData(null)}
+      onConfirm={async () => {
+        if (pendingData) await saveProduct(pendingData)
+      }}
+      message={
+        <span>
+          The selling price {formatMoney(pendingData?.selling_price ?? 0)} is
+          below the purchase cost of{' '}
+          <strong>{formatMoney(highestCost ?? 0)}</strong> for the stock on
+          hand. Every unit sold would lose{' '}
+          {formatMoney((highestCost ?? 0) - (pendingData?.selling_price ?? 0))}.
+          Save anyway?
+        </span>
+      }
+    />
+    </>
   )
 }
