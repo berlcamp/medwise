@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
-import { supabase2 } from '@/lib/supabase/admin'
+import { createAuthUser } from '@/lib/utils/authUser'
 import { supabase } from '@/lib/supabase/client'
 
 import { User } from '@/types'
@@ -86,21 +86,9 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
 
       let user_id = authUserId
 
-      // 🔹 Step 2: If no auth user found, create one
+      // 🔹 Step 2: If no auth user found, create one (server-side, admin only)
       if (!user_id) {
-        const { data: newAuth, error: createAuthError } =
-          await supabase2.auth.admin.createUser({
-            email: data.email,
-            email_confirm: true,
-            password: process.env.NEXT_PUBLIC_DEFAULT_PASSWORD || 'Password123!' // ✅ Default password (configurable)
-          })
-
-        if (createAuthError)
-          throw new Error(
-            `Error creating auth user: ${createAuthError.message}`
-          )
-
-        user_id = newAuth.user.id
+        user_id = await createAuthUser(data.email)
       }
 
       // 🔹 Step 3: Prepare user data for your app table
