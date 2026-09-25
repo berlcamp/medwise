@@ -1,5 +1,6 @@
 'use client'
 
+import { setSettings } from '@/lib/redux/settingsSlice'
 import { setUser } from '@/lib/redux/userSlice'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -55,6 +56,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         )
       } catch (error) {
         console.error('Failed to load locations:', error)
+      }
+
+      // Org-wide toggles; keep the defaults if the row is missing.
+      const { data: orgSettings } = await supabase
+        .from('org_settings')
+        .select('print_receipts_enabled')
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+        .maybeSingle()
+
+      if (orgSettings) {
+        dispatch(
+          setSettings({
+            printReceiptsEnabled: orgSettings.print_receipts_enabled
+          })
+        )
       }
 
       setLoading(false)

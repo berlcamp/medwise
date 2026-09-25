@@ -31,6 +31,9 @@ import { useEffect, useState } from "react";
 
 export default function AgentDashboardPage() {
   const user = useAppSelector((state) => state.user.user);
+  const printReceiptsEnabled = useAppSelector(
+    (state) => state.settings.printReceiptsEnabled
+  );
   const [agent, setAgent] = useState<any>(null);
   const [agentItems, setAgentItems] = useState<AgentItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -558,18 +561,22 @@ export default function AgentDashboardPage() {
                                 <CreditCard className="w-4 h-4 mr-2" />
                                 Manage Payments
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => printInvoice(item)}
-                              >
-                                <Printer className="w-4 h-4 mr-2" />
-                                Print Invoice
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => printDeliveryReceipt(item)}
-                              >
-                                <FileText className="w-4 h-4 mr-2" />
-                                Print Delivery Receipt
-                              </DropdownMenuItem>
+                              {printReceiptsEnabled && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={() => printInvoice(item)}
+                                  >
+                                    <Printer className="w-4 h-4 mr-2" />
+                                    Print Invoice
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => printDeliveryReceipt(item)}
+                                  >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Print Delivery Receipt
+                                  </DropdownMenuItem>
+                                </>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>

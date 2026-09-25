@@ -4,6 +4,7 @@ import householdsReducer from './householdsSlice'
 import listReducer from './listSlice'
 import locationReducer from './locationSlice'
 import locationsReducer from './locationsSlice'
+import settingsReducer from './settingsSlice'
 import stocksReducer from './stocksSlice'
 import userReducer from './userSlice'
 
@@ -15,7 +16,8 @@ export const store = configureStore({
     branch: branchReducer,
     user: userReducer,
     stocksList: stocksReducer,
-    householdsList: householdsReducer
+    householdsList: householdsReducer,
+    settings: settingsReducer
   }
 })
 

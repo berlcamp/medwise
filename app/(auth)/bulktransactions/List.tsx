@@ -27,6 +27,9 @@ interface Props {
 
 export const List = ({ onRefresh }: Props) => {
   const list = useSelector((state: RootState) => state.list.value)
+  const printReceiptsEnabled = useSelector(
+    (state: RootState) => state.settings.printReceiptsEnabled
+  )
   const [selectedItem, setSelectedItem] = useState<Transaction | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
@@ -300,16 +303,20 @@ export const List = ({ onRefresh }: Props) => {
                       <CreditCard className="w-4 h-4 mr-2" />
                       Manage Payments
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => printInvoice(item)}>
-                      <Printer className="w-4 h-4 mr-2" />
-                      Print Invoice
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => printDeliveryReceipt(item)}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Print Delivery Receipt
-                    </DropdownMenuItem>
+                    {printReceiptsEnabled && (
+                      <>
+                        <DropdownMenuItem onClick={() => printInvoice(item)}>
+                          <Printer className="w-4 h-4 mr-2" />
+                          Print Invoice
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => printDeliveryReceipt(item)}
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Print Delivery Receipt
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </td>

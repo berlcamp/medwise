@@ -61,6 +61,9 @@ export function ConsignmentDetailsModal({
   const [consignmentData, setConsignmentData] =
     useState<Consignment>(consignment);
   const user = useAppSelector((state) => state.user.user);
+  const printReceiptsEnabled = useAppSelector(
+    (state) => state.settings.printReceiptsEnabled
+  );
 
   // Sale recording state
   const [saleItems, setSaleItems] = useState<{ [key: number]: number }>({});
@@ -1095,9 +1098,11 @@ export function ConsignmentDetailsModal({
                             <h4 className="text-sm font-semibold">
                               Added Items
                             </h4>
-                            <p className="text-xs text-muted-foreground">
-                              Printed as delivery receipt or sales invoice
-                            </p>
+                            {printReceiptsEnabled && (
+                              <p className="text-xs text-muted-foreground">
+                                Printed as delivery receipt or sales invoice
+                              </p>
+                            )}
                           </div>
 
                           {addItemsTransactions.length === 0 ? (
@@ -1116,9 +1121,11 @@ export function ConsignmentDetailsModal({
                                     <TableHead className="text-right">
                                       Total Amount
                                     </TableHead>
-                                    <TableHead className="text-center">
-                                      Actions
-                                    </TableHead>
+                                    {printReceiptsEnabled && (
+                                      <TableHead className="text-center">
+                                        Actions
+                                      </TableHead>
+                                    )}
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -1136,30 +1143,32 @@ export function ConsignmentDetailsModal({
                                       <TableCell className="text-right">
                                         {formatMoney(tx.total_amount)}
                                       </TableCell>
-                                      <TableCell className="text-center">
-                                        <div className="flex justify-center gap-2">
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                              printDeliveryReceipt(tx, "add")
-                                            }
-                                          >
-                                            <Printer className="w-4 h-4 mr-1" />
-                                            Delivery Receipt
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() =>
-                                              printInvoice(tx, "add")
-                                            }
-                                          >
-                                            <Printer className="w-4 h-4 mr-1" />
-                                            Sales Invoice
-                                          </Button>
-                                        </div>
-                                      </TableCell>
+                                      {printReceiptsEnabled && (
+                                        <TableCell className="text-center">
+                                          <div className="flex justify-center gap-2">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() =>
+                                                printDeliveryReceipt(tx, "add")
+                                              }
+                                            >
+                                              <Printer className="w-4 h-4 mr-1" />
+                                              Delivery Receipt
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() =>
+                                                printInvoice(tx, "add")
+                                              }
+                                            >
+                                              <Printer className="w-4 h-4 mr-1" />
+                                              Sales Invoice
+                                            </Button>
+                                          </div>
+                                        </TableCell>
+                                      )}
                                     </TableRow>
                                   ))}
                                 </TableBody>

@@ -8,6 +8,7 @@ import {
   ListChecks,
   Loader2,
   Receipt,
+  Settings,
   ShoppingCart,
   StoreIcon,
   User,
@@ -141,11 +142,17 @@ export function AppSidebar() {
       url: '/branches',
       icon: Home
     },
+    {
+      title: 'System Settings',
+      url: '/settings',
+      icon: Settings
+    },
   ]
 
-  // Hide Branches from non-super-admin users
+  // Hide Branches and System Settings from non-super-admin users
+  const superAdminOnlyUrls = ['/branches', '/settings']
   const settingItems = user?.type !== 'super admin'
-    ? allSettingItems.filter(item => item.url !== '/branches')
+    ? allSettingItems.filter(item => !superAdminOnlyUrls.includes(item.url))
     : allSettingItems
 
   return (
@@ -238,13 +245,6 @@ export function AppSidebar() {
               <SidebarGroupContent className="pb-0">
                 <SidebarMenu>
                   {settingItems
-                    .filter((item) => {
-                      // Only show branches for super admin
-                      if (item.url === '/branches') {
-                        return user?.type === 'super admin'
-                      }
-                      return true
-                    })
                     .map((item) => {
                       const isActive = pathname === item.url
                       const isLoading = loadingPath === item.url
