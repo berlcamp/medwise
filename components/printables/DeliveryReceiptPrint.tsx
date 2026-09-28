@@ -34,7 +34,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
         maxWidth: '8.5in',
         margin: '0 auto',
         padding: '0.25in 0.5in 0.5in 0.5in', /* top right bottom left - smaller top padding */
-        fontSize: '12px',
+        fontSize: '14px',
         lineHeight: '1.4',
         color: '#000',
         backgroundColor: '#fff'
@@ -48,22 +48,22 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
         >
           <h1
             className="font-bold uppercase"
-            style={{ fontSize: '20px', marginBottom: '10px' }}
+            style={{ fontSize: '24px', marginBottom: '10px' }}
           >
             DELIVERY RECEIPT
           </h1>
 
-          <p className="font-semibold" style={{ fontSize: '13px', margin: '3px 0' }}>
+          <p className="font-semibold" style={{ fontSize: '15px', margin: '3px 0' }}>
             FEB SACOTE RECORBA
           </p>
-          <p style={{ fontSize: '12px', margin: '3px 0' }}>
+          <p style={{ fontSize: '14px', margin: '3px 0' }}>
             Barangay 1, 8501 San Francisco, Agusan del Sur, Philippines
           </p>
-          <p style={{ fontSize: '12px', margin: '3px 0' }}>
+          <p style={{ fontSize: '14px', margin: '3px 0' }}>
             VAT Reg. TIN: 313-697-244-00000
           </p>
 
-          <p className="font-semibold" style={{ fontSize: '13px', marginTop: '6px' }}>
+          <p className="font-semibold" style={{ fontSize: '15px', marginTop: '6px' }}>
             MEDWISE PHARMACEUTICAL PRODUCTS TRADING
           </p>
         </div>
@@ -71,7 +71,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
         {/* CUSTOMER INFO */}
         <div
           className="flex justify-between"
-          style={{ marginBottom: '20px', fontSize: '12px' }}
+          style={{ marginBottom: '20px', fontSize: '14px' }}
         >
           <div style={{ flex: '1' }}>
             <p style={{ margin: '4px 0' }}>
@@ -114,7 +114,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
           style={{
             borderCollapse: 'collapse',
             marginBottom: '15px',
-            fontSize: '11px',
+            fontSize: '13px',
             pageBreakInside: 'auto'
           }}
         >
@@ -194,7 +194,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
         {/* TOTAL ITEMS AND AMOUNT */}
         <div
           className="flex justify-between items-start"
-          style={{ marginBottom: '25px', fontSize: '12px' }}
+          style={{ marginBottom: '25px', fontSize: '14px' }}
         >
           <div>
             <p>
@@ -215,7 +215,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
           style={{
             marginTop: '40px',
             marginBottom: '20px',
-            fontSize: '12px',
+            fontSize: '14px',
             pageBreakInside: 'avoid'
           }}
         >
@@ -241,7 +241,7 @@ export const DeliveryReceiptPrint = ({ data }: { data: any }) => {
             borderTop: '2px solid #000',
             paddingTop: '12px',
             marginTop: '25px',
-            fontSize: '10px',
+            fontSize: '12px',
             pageBreakInside: 'avoid'
           }}
         >
