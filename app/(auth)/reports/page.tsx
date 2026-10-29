@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 import Notfoundpage from "@/components/Notfoundpage";
 import { ChannelReports } from "@/components/reports/ChannelReports";
@@ -26,30 +27,36 @@ import {
   Receipt,
   Scale,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ReportsPage() {
   const user = useAppSelector((state) => state.user.user);
+  const isBulkUser = user?.type === "bulk";
   const isAdmin = user?.type === "admin" || user?.type === "super admin";
 
-  // Channel tabs (Sales/Profit/Daily inside).
+  // Channel tabs (Sales/Profit/Daily inside) — hidden for bulk users.
   const channelTabs = [
     { value: "bulk", label: "Bulk", icon: ShoppingCart },
     { value: "consignment", label: "Consignment", icon: Truck },
     { value: "agent", label: "Agent", icon: UserCog },
   ];
 
-  // Global sales-analysis tabs.
+  // Global tabs. Customer/Product/Payment/GL are sales-analysis (hidden for
+  // bulk users); Inventory/Expiry/Stock are always available.
   const salesGlobalTabs = [
     { value: "customer", label: "Customer Sales", icon: Users },
     { value: "product", label: "Product Performance", icon: BarChart3 },
     { value: "payment", label: "Payment Methods", icon: CreditCard },
     { value: "gl", label: "GL Transactions", icon: CreditCard },
   ];
-  // Financial tabs.
+  // Financial tabs — Expenses is available to every role except cashiers
+  // (who cannot reach this page at all); Sales vs Collection vs Expenses is
+  // admin-only.
   const financialTabs = [
     { value: "expenses", label: "Expenses", icon: Receipt },
-    { value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale },
+    ...(isAdmin
+      ? [{ value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale }]
+      : []),
   ];
   const inventoryTabs = [
     { value: "inventory", label: "Inventory", icon: Package },
@@ -58,16 +65,24 @@ export default function ReportsPage() {
   ];
 
   const visibleTabs = [
-    ...channelTabs,
-    ...salesGlobalTabs,
+    ...(isBulkUser ? [] : channelTabs),
+    ...(isBulkUser ? [] : salesGlobalTabs),
     ...financialTabs,
     ...inventoryTabs,
   ];
 
-  const [tab, setTab] = useState("bulk");
+  const defaultTab = isBulkUser ? "inventory" : "bulk";
+  const [tab, setTab] = useState(defaultTab);
 
-  // Reports are restricted to admin and super admin users (after all hooks)
-  if (!isAdmin) return <Notfoundpage />;
+  // Reset to a permitted tab if the current one becomes unavailable.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.value === tab)) {
+      setTab(defaultTab);
+    }
+  }, [isBulkUser, isAdmin, tab, defaultTab]);
+
+  // Restrict access for cashier users (after all hooks)
+  if (user?.type === "cashier") return <Notfoundpage />;
 
   return (
     <div className="space-y-6">
@@ -101,33 +116,39 @@ export default function ReportsPage() {
               </TabsList>
 
               <div className="mt-6">
-                <TabsContent value="bulk" className="mt-0">
-                  <ChannelReports channel="bulk" isAdmin={isAdmin} />
-                </TabsContent>
-                <TabsContent value="consignment" className="mt-0">
-                  <ChannelReports channel="consignment" isAdmin={isAdmin} />
-                </TabsContent>
-                <TabsContent value="agent" className="mt-0">
-                  <ChannelReports channel="agent" isAdmin={isAdmin} />
-                </TabsContent>
-                <TabsContent value="customer" className="mt-0">
-                  <CustomerSalesReport />
-                </TabsContent>
-                <TabsContent value="product" className="mt-0">
-                  <ProductPerformanceReport />
-                </TabsContent>
-                <TabsContent value="payment" className="mt-0">
-                  <PaymentMethodReport />
-                </TabsContent>
-                <TabsContent value="gl" className="mt-0">
-                  <GLTransactionsReport />
-                </TabsContent>
+                {!isBulkUser && (
+                  <>
+                    <TabsContent value="bulk" className="mt-0">
+                      <ChannelReports channel="bulk" isAdmin={isAdmin} />
+                    </TabsContent>
+                    <TabsContent value="consignment" className="mt-0">
+                      <ChannelReports channel="consignment" isAdmin={isAdmin} />
+                    </TabsContent>
+                    <TabsContent value="agent" className="mt-0">
+                      <ChannelReports channel="agent" isAdmin={isAdmin} />
+                    </TabsContent>
+                    <TabsContent value="customer" className="mt-0">
+                      <CustomerSalesReport />
+                    </TabsContent>
+                    <TabsContent value="product" className="mt-0">
+                      <ProductPerformanceReport />
+                    </TabsContent>
+                    <TabsContent value="payment" className="mt-0">
+                      <PaymentMethodReport />
+                    </TabsContent>
+                    <TabsContent value="gl" className="mt-0">
+                      <GLTransactionsReport />
+                    </TabsContent>
+                  </>
+                )}
                 <TabsContent value="expenses" className="mt-0">
                   <ExpenseReport />
                 </TabsContent>
-                <TabsContent value="salesvsexpenses" className="mt-0">
-                  <SalesCollectionExpenseReport />
-                </TabsContent>
+                {isAdmin && (
+                  <TabsContent value="salesvsexpenses" className="mt-0">
+                    <SalesCollectionExpenseReport />
+                  </TabsContent>
+                )}
                 <TabsContent value="inventory" className="mt-0">
                   <InventoryReport />
                 </TabsContent>

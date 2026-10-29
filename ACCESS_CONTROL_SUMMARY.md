@@ -25,8 +25,14 @@ This document outlines the access control implementation for different user type
 
 ### 2. Bulk Users
 **Can access everything except:**
-- Reports (admin and super admin only)
-- Sales-related items in Dashboard:
+- Sales-related items in Reports and Dashboard:
+  - Sales Report tab
+  - Daily Summary tab
+  - Profit Report tab
+  - Payment Methods tab
+  - Customer Sales tab
+  - Product Performance tab
+  - Sales vs Collection vs Expenses tab
   - Total Sales card
   - Average Transaction Value card
   - Products Sold metric
@@ -37,6 +43,7 @@ This document outlines the access control implementation for different user type
 
 **Can access:**
 - All other pages and features
+- Inventory, Expiry, and Stock Movements reports
 - All transaction types (retail, bulk, consignments)
 - Products, Customers, Staff, Suppliers management
 
@@ -78,9 +85,9 @@ This document outlines the access control implementation for different user type
 
 **Reports** (`app/(auth)/reports/page.tsx`)
 - Cashier: Blocked
-- Bulk: Blocked
-- Agent: Blocked
-- Admin/Super Admin: Full access (sidebar link hidden for everyone else)
+- Bulk: Sales/profit-related tabs hidden (Sales, Daily, Profit, Payment, Customer, Product)
+- Sales vs Collection vs Expenses tab: Admin/Super Admin only
+- Admin/Super Admin: Full access
 
 **Branches** (`app/(auth)/branches/page.tsx`)
 - Cashier: Blocked
@@ -142,7 +149,7 @@ if (user?.type !== 'super admin') return <Notfoundpage />
 ## Notes
 
 - Cashier users have the most restricted access, limited to retail transaction operations
-- Bulk users can access most features but cannot view reports, sales/profit analytics, or manage branches
+- Bulk users can access most features but cannot view sales/profit analytics or manage branches
 - Admin users have near-full access except for branch management
 - Super Admin has complete system access
 - All access restrictions are enforced both in the sidebar navigation and on individual pages
