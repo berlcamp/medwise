@@ -99,6 +99,9 @@ export function AppSidebar() {
   // Expenses are open to every role except cashiers.
   const canAccessExpenses = user?.type !== 'cashier'
 
+  // Reports are restricted to admin and super admin users.
+  const canAccessReports = user?.type === 'admin' || user?.type === 'super admin'
+
   const inventoryItems = [
     {
       title: 'Products',
@@ -124,11 +127,15 @@ export function AppSidebar() {
           }
         ]
       : []),
-    {
-      title: 'Reports',
-      url: '/reports',
-      icon: List
-    }
+    ...(canAccessReports
+      ? [
+          {
+            title: 'Reports',
+            url: '/reports',
+            icon: List
+          }
+        ]
+      : [])
   ]
 
   const allSettingItems = [
