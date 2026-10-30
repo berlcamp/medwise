@@ -22,6 +22,10 @@ import {
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
 import { createAuthUser } from '@/lib/utils/authUser'
+import {
+  getDefaultReportAccess,
+  REPORT_ACCESS_OPTIONS
+} from '@/lib/constants'
 import { supabase } from '@/lib/supabase/client'
 
 import { User } from '@/types'
@@ -46,10 +50,15 @@ interface ModalProps {
 const FormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().min(1, 'Email is required'),
-  type: z.string().min(1, 'Account Type is required')
+  type: z.string().min(1, 'Account Type is required'),
+  report_access: z.array(z.string())
 })
 
 type FormType = z.infer<typeof FormSchema>
+
+// Saved list if the user has one, otherwise their role's default.
+const initialReportAccess = (user?: ItemType | null): string[] =>
+  user?.report_access ?? getDefaultReportAccess(user?.type)
 
 export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   //
@@ -65,9 +74,15 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     defaultValues: {
       name: editData ? editData.name : '',
       email: editData ? editData.email : '',
-      type: editData ? editData.type : ''
+      type: editData ? editData.type : '',
+      report_access: initialReportAccess(editData)
     }
   })
+
+  const selectedType = form.watch('type')
+  // Cashiers can't open Reports and super admins always see everything.
+  const showReportAccess =
+    !!selectedType && selectedType !== 'cashier' && selectedType !== 'super admin'
 
   // Submit handler
   const onSubmit = async (data: FormType) => {
@@ -97,6 +112,7 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
         email: data.email,
         user_id,
         type: data.type,
+        report_access: showReportAccess ? data.report_access : null,
         branch_id: selectedBranchId,
         org_id: process.env.NEXT_PUBLIC_ORG_ID
       }
@@ -151,7 +167,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
     form.reset({
       name: editData?.name || '',
       email: editData?.email || '',
-      type: editData?.type || ''
+      type: editData?.type || '',
+      report_access: initialReportAccess(editData)
     })
   }, [form, editData, isOpen])
 
@@ -237,8 +254,15 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                         <FormItem>
                           <FormLabel>Account Type</FormLabel>
                           <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value)
+                              // Start from the new role's default reports
+                              form.setValue(
+                                'report_access',
+                                getDefaultReportAccess(value)
+                              )
+                            }}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -261,6 +285,45 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                       )}
                     />
                   </div>
+                  {showReportAccess && (
+                    <FormField
+                      control={form.control}
+                      name="report_access"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Report Access</FormLabel>
+                          <FormDescription>
+                            Reports this account can open on the Reports page
+                          </FormDescription>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            {REPORT_ACCESS_OPTIONS.map((option) => (
+                              <label
+                                key={option.value}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={field.value.includes(option.value)}
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      e.target.checked
+                                        ? [...field.value, option.value]
+                                        : field.value.filter(
+                                            (v) => v !== option.value
+                                          )
+                                    )
+                                  }
+                                />
+                                {option.label}
+                              </label>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
                 <div className="app__modal_dialog_footer">
                   <Button type="button" onClick={onClose} variant="outline">

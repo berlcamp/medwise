@@ -120,3 +120,49 @@ export const expensePaymentMethods = [
   "Check",
   "GCash",
 ];
+
+// ===============================
+// REPORTS — per-user tab access
+// ===============================
+// Every report a staff account can be granted from the Staff modal. "profit"
+// is the Profit sub-tab inside the Bulk/Consignment/Agent channel tabs.
+export const REPORT_ACCESS_OPTIONS = [
+  { value: "bulk", label: "Bulk" },
+  { value: "consignment", label: "Consignment" },
+  { value: "agent", label: "Agent" },
+  { value: "profit", label: "Profit (channel sub-tab)" },
+  { value: "customer", label: "Customer Sales" },
+  { value: "product", label: "Product Performance" },
+  { value: "payment", label: "Payment Methods" },
+  { value: "gl", label: "GL Transactions" },
+  { value: "expenses", label: "Expenses" },
+  { value: "salesvsexpenses", label: "Sales vs Collection vs Expenses" },
+  { value: "inventory", label: "Inventory" },
+  { value: "expiry", label: "Expiry Report" },
+  { value: "stockcard", label: "Stock Movements" },
+] as const;
+
+export type ReportAccessKey = (typeof REPORT_ACCESS_OPTIONS)[number]["value"];
+
+const ALL_REPORT_KEYS: ReportAccessKey[] = REPORT_ACCESS_OPTIONS.map(
+  (r) => r.value
+);
+
+// What each role gets when no explicit list has been saved for the user.
+export function getDefaultReportAccess(type?: string): ReportAccessKey[] {
+  if (type === "admin" || type === "super admin") return ALL_REPORT_KEYS;
+  if (type === "bulk") return ["expenses", "inventory", "expiry", "stockcard"];
+  return [];
+}
+
+// Effective report access: super admins always see everything, cashiers see
+// nothing, everyone else uses their saved list (or the role default if none).
+export function getReportAccess(
+  type?: string,
+  reportAccess?: string[] | null
+): ReportAccessKey[] {
+  if (type === "super admin") return ALL_REPORT_KEYS;
+  if (type === "cashier") return [];
+  if (!reportAccess) return getDefaultReportAccess(type);
+  return ALL_REPORT_KEYS.filter((k) => reportAccess.includes(k));
+}

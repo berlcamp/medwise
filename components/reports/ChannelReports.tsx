@@ -10,10 +10,10 @@ import type { ReportChannel } from "@/lib/constants";
 
 export function ChannelReports({
   channel,
-  isAdmin,
+  canSeeProfit,
 }: {
   channel: ReportChannel;
-  isAdmin: boolean;
+  canSeeProfit: boolean;
 }) {
   const [sub, setSub] = useState("sales");
 
@@ -28,7 +28,7 @@ export function ChannelReports({
         <TabsTrigger value="sales" className="px-4 py-2">
           Sales
         </TabsTrigger>
-        {isAdmin && (
+        {canSeeProfit && (
           <TabsTrigger value="profit" className="px-4 py-2">
             Profit
           </TabsTrigger>
@@ -47,7 +47,7 @@ export function ChannelReports({
         <TabsContent value="sales" className="mt-0">
           <SalesReport channel={channel} />
         </TabsContent>
-        {isAdmin && (
+        {canSeeProfit && (
           <TabsContent value="profit" className="mt-0">
             <ProfitReport channel={channel} />
           </TabsContent>

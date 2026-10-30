@@ -22,6 +22,7 @@ export interface User {
   position?: string;
   branch_id: number;
   type?: string;
+  report_access?: string[] | null;
   is_active: boolean;
   created_at?: string;
   branch: Branch;

@@ -85,9 +85,12 @@ This document outlines the access control implementation for different user type
 
 **Reports** (`app/(auth)/reports/page.tsx`)
 - Cashier: Blocked
-- Bulk: Sales/profit-related tabs hidden (Sales, Daily, Profit, Payment, Customer, Product)
-- Sales vs Collection vs Expenses tab: Admin/Super Admin only
-- Admin/Super Admin: Full access
+- Super Admin: Full access
+- Bulk/Admin: Tabs come from the user's `report_access` list, set with the
+  "Report Access" checkboxes in the Staff add/edit modal. When no list is
+  saved (`NULL`), the role default applies: Bulk gets Expenses, Inventory,
+  Expiry, and Stock Movements; Admin gets everything
+- Logic lives in `getReportAccess` / `REPORT_ACCESS_OPTIONS` in `lib/constants/index.ts`
 
 **Branches** (`app/(auth)/branches/page.tsx`)
 - Cashier: Blocked

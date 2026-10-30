@@ -10,6 +10,7 @@ interface ExtendedUser extends User {
   name?: string
   address?: string
   location_ids?: string[]
+  report_access?: string[] | null
 }
 
 interface UserState {

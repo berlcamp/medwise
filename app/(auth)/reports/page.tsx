@@ -13,6 +13,7 @@ import { SalesCollectionExpenseReport } from "@/components/reports/SalesCollecti
 import { StockCardReport } from "@/components/reports/StockCardReport";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getReportAccess } from "@/lib/constants";
 import { useAppSelector } from "@/lib/redux/hook";
 import {
   BarChart3,
@@ -31,47 +32,31 @@ import { useEffect, useState } from "react";
 
 export default function ReportsPage() {
   const user = useAppSelector((state) => state.user.user);
-  const isBulkUser = user?.type === "bulk";
-  const isAdmin = user?.type === "admin" || user?.type === "super admin";
+  // Which tabs this user may open — set per user from the Staff modal,
+  // falling back to the role default when nothing has been saved.
+  const access = getReportAccess(user?.type, user?.report_access);
+  const can = (key: string) => (access as string[]).includes(key);
+  const canSeeProfit = can("profit");
 
-  // Channel tabs (Sales/Profit/Daily inside) — hidden for bulk users.
-  const channelTabs = [
+  const allTabs = [
     { value: "bulk", label: "Bulk", icon: ShoppingCart },
     { value: "consignment", label: "Consignment", icon: Truck },
     { value: "agent", label: "Agent", icon: UserCog },
-  ];
-
-  // Global tabs. Customer/Product/Payment/GL are sales-analysis (hidden for
-  // bulk users); Inventory/Expiry/Stock are always available.
-  const salesGlobalTabs = [
     { value: "customer", label: "Customer Sales", icon: Users },
     { value: "product", label: "Product Performance", icon: BarChart3 },
     { value: "payment", label: "Payment Methods", icon: CreditCard },
     { value: "gl", label: "GL Transactions", icon: CreditCard },
-  ];
-  // Financial tabs — Expenses is available to every role except cashiers
-  // (who cannot reach this page at all); Sales vs Collection vs Expenses is
-  // admin-only.
-  const financialTabs = [
     { value: "expenses", label: "Expenses", icon: Receipt },
-    ...(isAdmin
-      ? [{ value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale }]
-      : []),
-  ];
-  const inventoryTabs = [
+    { value: "salesvsexpenses", label: "Sales vs Collection vs Expenses", icon: Scale },
     { value: "inventory", label: "Inventory", icon: Package },
     { value: "expiry", label: "Expiry Report", icon: Calendar },
     { value: "stockcard", label: "Stock Movements", icon: FileText },
   ];
 
-  const visibleTabs = [
-    ...(isBulkUser ? [] : channelTabs),
-    ...(isBulkUser ? [] : salesGlobalTabs),
-    ...financialTabs,
-    ...inventoryTabs,
-  ];
+  const visibleTabs = allTabs.filter((t) => can(t.value));
+  const accessKey = visibleTabs.map((t) => t.value).join(",");
 
-  const defaultTab = isBulkUser ? "inventory" : "bulk";
+  const defaultTab = visibleTabs[0]?.value ?? "";
   const [tab, setTab] = useState(defaultTab);
 
   // Reset to a permitted tab if the current one becomes unavailable.
@@ -79,10 +64,23 @@ export default function ReportsPage() {
     if (!visibleTabs.some((t) => t.value === tab)) {
       setTab(defaultTab);
     }
-  }, [isBulkUser, isAdmin, tab, defaultTab]);
+  }, [accessKey, tab, defaultTab]);
 
   // Restrict access for cashier users (after all hooks)
   if (user?.type === "cashier") return <Notfoundpage />;
+
+  if (visibleTabs.length === 0) {
+    return (
+      <div className="app__content">
+        <Card>
+          <CardContent className="p-6 text-sm text-gray-500">
+            You have not been given access to any reports. Ask an admin to
+            enable them on your staff account.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -116,48 +114,66 @@ export default function ReportsPage() {
               </TabsList>
 
               <div className="mt-6">
-                {!isBulkUser && (
-                  <>
-                    <TabsContent value="bulk" className="mt-0">
-                      <ChannelReports channel="bulk" isAdmin={isAdmin} />
-                    </TabsContent>
-                    <TabsContent value="consignment" className="mt-0">
-                      <ChannelReports channel="consignment" isAdmin={isAdmin} />
-                    </TabsContent>
-                    <TabsContent value="agent" className="mt-0">
-                      <ChannelReports channel="agent" isAdmin={isAdmin} />
-                    </TabsContent>
-                    <TabsContent value="customer" className="mt-0">
-                      <CustomerSalesReport />
-                    </TabsContent>
-                    <TabsContent value="product" className="mt-0">
-                      <ProductPerformanceReport />
-                    </TabsContent>
-                    <TabsContent value="payment" className="mt-0">
-                      <PaymentMethodReport />
-                    </TabsContent>
-                    <TabsContent value="gl" className="mt-0">
-                      <GLTransactionsReport />
-                    </TabsContent>
-                  </>
+                {can("bulk") && (
+                  <TabsContent value="bulk" className="mt-0">
+                    <ChannelReports channel="bulk" canSeeProfit={canSeeProfit} />
+                  </TabsContent>
                 )}
-                <TabsContent value="expenses" className="mt-0">
-                  <ExpenseReport />
-                </TabsContent>
-                {isAdmin && (
+                {can("consignment") && (
+                  <TabsContent value="consignment" className="mt-0">
+                    <ChannelReports channel="consignment" canSeeProfit={canSeeProfit} />
+                  </TabsContent>
+                )}
+                {can("agent") && (
+                  <TabsContent value="agent" className="mt-0">
+                    <ChannelReports channel="agent" canSeeProfit={canSeeProfit} />
+                  </TabsContent>
+                )}
+                {can("customer") && (
+                  <TabsContent value="customer" className="mt-0">
+                    <CustomerSalesReport />
+                  </TabsContent>
+                )}
+                {can("product") && (
+                  <TabsContent value="product" className="mt-0">
+                    <ProductPerformanceReport />
+                  </TabsContent>
+                )}
+                {can("payment") && (
+                  <TabsContent value="payment" className="mt-0">
+                    <PaymentMethodReport />
+                  </TabsContent>
+                )}
+                {can("gl") && (
+                  <TabsContent value="gl" className="mt-0">
+                    <GLTransactionsReport />
+                  </TabsContent>
+                )}
+                {can("expenses") && (
+                  <TabsContent value="expenses" className="mt-0">
+                    <ExpenseReport />
+                  </TabsContent>
+                )}
+                {can("salesvsexpenses") && (
                   <TabsContent value="salesvsexpenses" className="mt-0">
                     <SalesCollectionExpenseReport />
                   </TabsContent>
                 )}
-                <TabsContent value="inventory" className="mt-0">
-                  <InventoryReport />
-                </TabsContent>
-                <TabsContent value="expiry" className="mt-0">
-                  <ExpiryReport />
-                </TabsContent>
-                <TabsContent value="stockcard" className="mt-0">
-                  <StockCardReport />
-                </TabsContent>
+                {can("inventory") && (
+                  <TabsContent value="inventory" className="mt-0">
+                    <InventoryReport />
+                  </TabsContent>
+                )}
+                {can("expiry") && (
+                  <TabsContent value="expiry" className="mt-0">
+                    <ExpiryReport />
+                  </TabsContent>
+                )}
+                {can("stockcard") && (
+                  <TabsContent value="stockcard" className="mt-0">
+                    <StockCardReport />
+                  </TabsContent>
+                )}
               </div>
             </Tabs>
           </CardContent>
