@@ -177,6 +177,50 @@ export async function returnConsignmentItems(
 }
 
 /**
+ * Change the unit price of a consignment item.
+ * Reprices only the remaining balance; recorded sales keep their price.
+ */
+export async function updateConsignmentItemPrice(params: {
+  consignment_item_id: number;
+  price: number;
+  created_by: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const { data, error } = await supabase.rpc(
+      "update_consignment_item_price",
+      {
+        p_consignment_item_id: params.consignment_item_id,
+        p_price: params.price,
+        p_created_by: params.created_by,
+      }
+    );
+
+    if (error) {
+      console.error("Update item price error:", error);
+      return {
+        success: false,
+        error: error.message,
+        message: "Failed to update unit price",
+      };
+    }
+
+    const result = typeof data === "string" ? JSON.parse(data) : data;
+    return result;
+  } catch (err: any) {
+    console.error("Update item price exception:", err);
+    return {
+      success: false,
+      error: err.message,
+      message: "Failed to update unit price",
+    };
+  }
+}
+
+/**
  * Add items to an existing consignment
  * This allows adding new products or increasing quantities of existing products
  */

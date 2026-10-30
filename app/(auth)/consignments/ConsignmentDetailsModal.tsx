@@ -26,6 +26,7 @@ import {
   generateTransactionNumber,
   recordConsignmentSale,
   returnConsignmentItems,
+  updateConsignmentItemPrice,
 } from "@/lib/utils/consignment";
 import {
   Consignment,
@@ -37,7 +38,7 @@ import {
 } from "@/types";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { format, isAfter, parseISO, startOfToday } from "date-fns";
-import { Printer, Search } from "lucide-react";
+import { Check, Pencil, Printer, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -76,6 +77,11 @@ export function ConsignmentDetailsModal({
   const [confirmReturnOpen, setConfirmReturnOpen] = useState(false);
 
   const [overviewItemSearch, setOverviewItemSearch] = useState("");
+
+  // Unit price editing state (Item Overview)
+  const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState("");
+  const [savingPrice, setSavingPrice] = useState(false);
   const [returnItemSearch, setReturnItemSearch] = useState("");
 
   // Add items state
@@ -551,6 +557,48 @@ export function ConsignmentDetailsModal({
     }
 
     setReturningItems(false);
+  };
+
+  const handleSavePrice = async (item: ConsignmentItem) => {
+    const price = Number(editingPriceValue);
+    if (editingPriceValue.trim() === "" || isNaN(price) || price < 0) {
+      toast.error("Please enter a valid unit price");
+      return;
+    }
+    if (price === Number(item.unit_price)) {
+      setEditingPriceId(null);
+      return;
+    }
+
+    setSavingPrice(true);
+
+    try {
+      const result = await updateConsignmentItemPrice({
+        consignment_item_id: item.id,
+        price,
+        created_by: user?.name || "System",
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update unit price");
+      }
+
+      toast.success(result.message || "Unit price updated");
+      setEditingPriceId(null);
+
+      // Reloading the consignment also reloads its items
+      const { data } = await supabase
+        .from("consignments")
+        .select("*")
+        .eq("id", consignmentData.id)
+        .single();
+      if (data) setConsignmentData(data);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to update unit price");
+    }
+
+    setSavingPrice(false);
   };
 
   const totalSaleAmount = Object.entries(saleItems).reduce(
@@ -1077,7 +1125,69 @@ export function ConsignmentDetailsModal({
                                     </span>
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {formatMoney(item.unit_price)}
+                                    {editingPriceId === item.id ? (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          step="0.01"
+                                          autoFocus
+                                          value={editingPriceValue}
+                                          onChange={(e) =>
+                                            setEditingPriceValue(e.target.value)
+                                          }
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter")
+                                              handleSavePrice(item);
+                                            if (e.key === "Escape")
+                                              setEditingPriceId(null);
+                                          }}
+                                          disabled={savingPrice}
+                                          className="w-24 h-8 text-right"
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-8 w-8"
+                                          disabled={savingPrice}
+                                          onClick={() => handleSavePrice(item)}
+                                        >
+                                          <Check className="h-4 w-4 text-green-600" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="icon"
+                                          variant="ghost"
+                                          className="h-8 w-8"
+                                          disabled={savingPrice}
+                                          onClick={() => setEditingPriceId(null)}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-end gap-1">
+                                        {formatMoney(item.unit_price)}
+                                        {!hasNewerConsignment && (
+                                          <Button
+                                            type="button"
+                                            size="icon"
+                                            variant="ghost"
+                                            className="h-7 w-7"
+                                            title="Edit unit price"
+                                            onClick={() => {
+                                              setEditingPriceId(item.id);
+                                              setEditingPriceValue(
+                                                String(item.unit_price)
+                                              );
+                                            }}
+                                          >
+                                            <Pencil className="h-3.5 w-3.5 text-gray-500" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {formatMoney(item.total_value)}
