@@ -166,3 +166,68 @@ export function getReportAccess(
   if (!reportAccess) return getDefaultReportAccess(type);
   return ALL_REPORT_KEYS.filter((k) => reportAccess.includes(k));
 }
+
+// ===============================
+// MODULES — per-user page access
+// ===============================
+// Every module a Bulk/Admin account can be granted from the Staff modal, with
+// the routes it covers (list page plus its create/edit form page). Home is open
+// to everyone; Branches and System Settings stay super-admin-only.
+export const MODULE_ACCESS_OPTIONS = [
+  { value: "dashboard", label: "Dashboard", routes: ["/dashboard"] },
+  {
+    value: "bulktransactions",
+    label: "Bulk Transactions",
+    routes: ["/bulktransactions", "/bulktransaction"],
+  },
+  {
+    value: "consignments",
+    label: "Consignments",
+    routes: ["/consignments", "/consignment"],
+  },
+  { value: "agents", label: "Agents", routes: ["/agents", "/agent"] },
+  {
+    value: "quotations",
+    label: "Quotations",
+    routes: ["/quotations", "/quotation"],
+  },
+  { value: "customers", label: "Customers", routes: ["/customers"] },
+  { value: "products", label: "Products", routes: ["/products"] },
+  { value: "productstocks", label: "Stocks in/out", routes: ["/productstocks"] },
+  { value: "suppliers", label: "Suppliers", routes: ["/suppliers"] },
+  { value: "expenses", label: "Expenses", routes: ["/expenses"] },
+  { value: "reports", label: "Reports", routes: ["/reports"] },
+  { value: "staff", label: "Staff", routes: ["/staff"] },
+] as const;
+
+export type ModuleAccessKey = (typeof MODULE_ACCESS_OPTIONS)[number]["value"];
+
+export const ALL_MODULE_KEYS: ModuleAccessKey[] = MODULE_ACCESS_OPTIONS.map(
+  (m) => m.value
+);
+
+// Effective module access: only Bulk and Admin accounts are limited by a saved
+// list (no list means all modules). Other roles keep their own page-level rules.
+export function getModuleAccess(
+  type?: string,
+  moduleAccess?: string[] | null
+): ModuleAccessKey[] {
+  if ((type !== "bulk" && type !== "admin") || !moduleAccess) {
+    return ALL_MODULE_KEYS;
+  }
+  return ALL_MODULE_KEYS.filter((k) => moduleAccess.includes(k));
+}
+
+// Whether a path may be opened. Paths outside every module are always allowed.
+export function canAccessPath(
+  pathname: string,
+  type?: string,
+  moduleAccess?: string[] | null
+): boolean {
+  const match = MODULE_ACCESS_OPTIONS.find((m) =>
+    m.routes.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    )
+  );
+  return !match || getModuleAccess(type, moduleAccess).includes(match.value);
+}

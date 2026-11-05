@@ -23,7 +23,9 @@ import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { addItem, updateList } from '@/lib/redux/listSlice'
 import { createAuthUser } from '@/lib/utils/authUser'
 import {
+  ALL_MODULE_KEYS,
   getDefaultReportAccess,
+  MODULE_ACCESS_OPTIONS,
   REPORT_ACCESS_OPTIONS
 } from '@/lib/constants'
 import { supabase } from '@/lib/supabase/client'
@@ -51,7 +53,8 @@ const FormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().min(1, 'Email is required'),
   type: z.string().min(1, 'Account Type is required'),
-  report_access: z.array(z.string())
+  report_access: z.array(z.string()),
+  module_access: z.array(z.string())
 })
 
 type FormType = z.infer<typeof FormSchema>
@@ -59,6 +62,10 @@ type FormType = z.infer<typeof FormSchema>
 // Saved list if the user has one, otherwise their role's default.
 const initialReportAccess = (user?: ItemType | null): string[] =>
   user?.report_access ?? getDefaultReportAccess(user?.type)
+
+// Saved list if the user has one, otherwise every module.
+const initialModuleAccess = (user?: ItemType | null): string[] =>
+  user?.module_access ?? ALL_MODULE_KEYS
 
 export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
   //
@@ -75,14 +82,19 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       name: editData ? editData.name : '',
       email: editData ? editData.email : '',
       type: editData ? editData.type : '',
-      report_access: initialReportAccess(editData)
+      report_access: initialReportAccess(editData),
+      module_access: initialModuleAccess(editData)
     }
   })
 
   const selectedType = form.watch('type')
-  // Cashiers can't open Reports and super admins always see everything.
-  const showReportAccess =
+  const selectedModules = form.watch('module_access')
+  // Cashiers only get Home and super admins always see everything.
+  const showModuleAccess =
     !!selectedType && selectedType !== 'cashier' && selectedType !== 'super admin'
+  // Report tabs only matter while the Reports module is ticked.
+  const showReportAccess =
+    showModuleAccess && selectedModules.includes('reports')
 
   // Submit handler
   const onSubmit = async (data: FormType) => {
@@ -112,7 +124,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
         email: data.email,
         user_id,
         type: data.type,
-        report_access: showReportAccess ? data.report_access : null,
+        report_access: showModuleAccess ? data.report_access : null,
+        module_access: showModuleAccess ? data.module_access : null,
         branch_id: selectedBranchId,
         org_id: process.env.NEXT_PUBLIC_ORG_ID
       }
@@ -168,7 +181,8 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
       name: editData?.name || '',
       email: editData?.email || '',
       type: editData?.type || '',
-      report_access: initialReportAccess(editData)
+      report_access: initialReportAccess(editData),
+      module_access: initialModuleAccess(editData)
     })
   }, [form, editData, isOpen])
 
@@ -256,11 +270,12 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                           <Select
                             onValueChange={(value) => {
                               field.onChange(value)
-                              // Start from the new role's default reports
+                              // Start from the new role's default access
                               form.setValue(
                                 'report_access',
                                 getDefaultReportAccess(value)
                               )
+                              form.setValue('module_access', ALL_MODULE_KEYS)
                             }}
                             value={field.value}
                           >
@@ -285,6 +300,45 @@ export const AddModal = ({ isOpen, onClose, editData }: ModalProps) => {
                       )}
                     />
                   </div>
+                  {showModuleAccess && (
+                    <FormField
+                      control={form.control}
+                      name="module_access"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Module Access</FormLabel>
+                          <FormDescription>
+                            Modules this account can open from the sidebar
+                          </FormDescription>
+                          <div className="grid grid-cols-2 gap-2 mt-1">
+                            {MODULE_ACCESS_OPTIONS.map((option) => (
+                              <label
+                                key={option.value}
+                                className="flex items-center gap-2 text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={field.value.includes(option.value)}
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      e.target.checked
+                                        ? [...field.value, option.value]
+                                        : field.value.filter(
+                                            (v) => v !== option.value
+                                          )
+                                    )
+                                  }
+                                />
+                                {option.label}
+                              </label>
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   {showReportAccess && (
                     <FormField
                       control={form.control}

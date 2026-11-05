@@ -4,17 +4,22 @@ import { AppSidebar } from '@/components/AppSidebar'
 import { AuthGuard } from '@/components/AuthGuard'
 import LoadingSkeleton from '@/components/LoadingSkeleton'
 import { NavigationProgress } from '@/components/NavigationProgress'
+import Notfoundpage from '@/components/Notfoundpage'
 import { OfflineDetector } from '@/components/OfflineDetector'
 import StickyHeader from '@/components/StickyHeader'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { canAccessPath } from '@/lib/constants'
 import { useAppSelector } from '@/lib/redux/hook'
 import { Providers } from '@/lib/redux/providers'
+import { usePathname } from 'next/navigation'
 import { Suspense } from 'react'
 import { Toaster } from 'react-hot-toast'
 
 function LayoutContent({ children }: { children: React.ReactNode }) {
   const user = useAppSelector((state) => state.user.user)
+  const pathname = usePathname()
   const isAgent = user?.type === 'agent'
+  const canOpenPage = canAccessPath(pathname, user?.type, user?.module_access)
 
   if (isAgent) {
     // Agent layout: no sidebar, just header
@@ -34,7 +39,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <StickyHeader />
       <main className="w-full">
-        <div className="p-4 mt-14">{children}</div>
+        <div className="p-4 mt-14">
+          {canOpenPage ? children : <Notfoundpage />}
+        </div>
       </main>
     </SidebarProvider>
   )

@@ -52,7 +52,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             type: systemUser.type,
             branch_id: systemUser.branch_id,
             address: systemUser.address,
-            report_access: systemUser.report_access
+            report_access: systemUser.report_access,
+            module_access: systemUser.module_access
           })
         )
       } catch (error) {

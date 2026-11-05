@@ -25,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
+import { canAccessPath } from '@/lib/constants'
 import { useAppSelector } from '@/lib/redux/hook'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -91,10 +92,14 @@ export function AppSidebar() {
 
   console.log('type', user?.type)
 
+  // Modules ticked on this user's Staff record
+  const canOpen = (item: { url: string }) =>
+    canAccessPath(item.url, user?.type, user?.module_access)
+
   // Filter items for cashier users - only show Home
   const items = user?.type === 'cashier'
     ? allItems.filter(item => item.url === '/home')
-    : allItems
+    : allItems.filter(canOpen)
 
   // Expenses are open to every role except cashiers.
   const canAccessExpenses = user?.type !== 'cashier'
@@ -129,7 +134,7 @@ export function AppSidebar() {
       url: '/reports',
       icon: List
     }
-  ]
+  ].filter(canOpen)
 
   const allSettingItems = [
     {
@@ -151,9 +156,10 @@ export function AppSidebar() {
 
   // Hide Branches and System Settings from non-super-admin users
   const superAdminOnlyUrls = ['/branches', '/settings']
-  const settingItems = user?.type !== 'super admin'
+  const settingItems = (user?.type !== 'super admin'
     ? allSettingItems.filter(item => !superAdminOnlyUrls.includes(item.url))
     : allSettingItems
+  ).filter(canOpen)
 
   return (
     <Sidebar className="pt-13">
@@ -199,7 +205,7 @@ export function AppSidebar() {
           user?.type === 'admin' ||
           user?.type === 'super admin') && (
           <>
-            <SidebarGroup>
+            <SidebarGroup hidden={inventoryItems.length === 0}>
               <SidebarGroupLabel className="border-t rounded-none border-gray-200 text-gray-500">
                 Inventory
               </SidebarGroupLabel>
@@ -238,7 +244,7 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarGroup>
+            <SidebarGroup hidden={settingItems.length === 0}>
               <SidebarGroupLabel className="border-t rounded-none border-gray-200 text-gray-500">
                 Settings
               </SidebarGroupLabel>

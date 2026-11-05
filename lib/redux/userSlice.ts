@@ -11,6 +11,7 @@ interface ExtendedUser extends User {
   address?: string
   location_ids?: string[]
   report_access?: string[] | null
+  module_access?: string[] | null
 }
 
 interface UserState {

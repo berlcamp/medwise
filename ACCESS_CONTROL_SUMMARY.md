@@ -67,6 +67,16 @@ This document outlines the access control implementation for different user type
 - Staff management
 - System configuration
 
+## Per-User Module Access
+
+Bulk and Admin accounts can be limited further with the "Module Access"
+checkboxes in the Staff add/edit modal (`module_access` on `users`). `NULL` means
+all modules. An unticked module is hidden from the sidebar and its pages show
+Not Found (checked in `app/(auth)/layout.tsx`). Home is always open, and Branches
+and System Settings stay super-admin-only. This is a UI-level restriction, not
+RLS. Logic lives in `getModuleAccess` / `canAccessPath` /
+`MODULE_ACCESS_OPTIONS` in `lib/constants/index.ts`.
+
 ## Implementation Details
 
 ### Files Modified
