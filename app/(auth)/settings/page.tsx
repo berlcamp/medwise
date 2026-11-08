@@ -5,6 +5,7 @@ import { canManageSystemSettings } from '@/lib/constants'
 import { useAppDispatch, useAppSelector } from '@/lib/redux/hook'
 import { setSettings, SettingsState } from '@/lib/redux/settingsSlice'
 import { supabase } from '@/lib/supabase/client'
+import { formatTime12h } from '@/lib/utils/systemClose'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 
@@ -50,6 +51,8 @@ export default function Page() {
   const [closedMessage, setClosedMessage] = useState(
     settings.systemClosedMessage
   )
+  const [closeStart, setCloseStart] = useState(settings.closeStartTime)
+  const [closeEnd, setCloseEnd] = useState(settings.closeEndTime)
 
   // Only super admins and the listed accounts can manage system settings
   if (!canManageSystemSettings(user?.type, user?.email)) {
@@ -68,6 +71,9 @@ export default function Page() {
       print_receipts_enabled: next.printReceiptsEnabled,
       system_closed: next.systemClosed,
       system_closed_message: next.systemClosedMessage.trim() || null,
+      close_schedule_enabled: next.closeScheduleEnabled,
+      close_start_time: next.closeStartTime,
+      close_end_time: next.closeEndTime,
       updated_at: new Date().toISOString(),
       updated_by: user?.system_user_id
     })
@@ -107,6 +113,29 @@ export default function Page() {
       next ? 'System closed to other users' : 'System is open again'
     )
   }
+
+  const validTimes = !!closeStart && !!closeEnd && closeStart !== closeEnd
+
+  const toggleCloseSchedule = () => {
+    const next = !settings.closeScheduleEnabled
+    if (next && !validTimes) {
+      toast.error('Set different start and end times first')
+      return
+    }
+    save(
+      {
+        closeScheduleEnabled: next,
+        closeStartTime: closeStart,
+        closeEndTime: closeEnd
+      },
+      next
+        ? `System will close daily from ${formatTime12h(closeStart)} to ${formatTime12h(closeEnd)}`
+        : 'Scheduled close turned off'
+    )
+  }
+
+  const scheduleChanged =
+    closeStart !== settings.closeStartTime || closeEnd !== settings.closeEndTime
 
   const messageChanged =
     closedMessage.trim() !== settings.systemClosedMessage.trim()
@@ -148,7 +177,7 @@ export default function Page() {
                   )}
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  When on, other users can&apos;t use the system — after
+                  Close now: when on, other users can&apos;t use the system — after
                   signing in they see a &quot;system is currently closed&quot;
                   message. Super admins and accounts allowed to manage system
                   settings can still use it.
@@ -161,6 +190,67 @@ export default function Page() {
                 onClick={toggleSystemClosed}
                 activeClass="bg-red-600"
               />
+            </div>
+
+            <div className="space-y-3 rounded-md border border-gray-200 p-3">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    Close automatically every day
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    The system closes at the start time and opens again at the
+                    end time (Philippine time).
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.closeScheduleEnabled}
+                  label="Close automatically every day"
+                  disabled={saving}
+                  onClick={toggleCloseSchedule}
+                  activeClass="bg-red-600"
+                />
+              </div>
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm text-gray-700">
+                  Close at
+                  <input
+                    type="time"
+                    value={closeStart}
+                    onChange={(e) => setCloseStart(e.target.value)}
+                    className="mt-1 block rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                <label className="text-sm text-gray-700">
+                  Open at
+                  <input
+                    type="time"
+                    value={closeEnd}
+                    onChange={(e) => setCloseEnd(e.target.value)}
+                    className="mt-1 block rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </label>
+                {scheduleChanged && (
+                  <button
+                    type="button"
+                    disabled={saving || !validTimes}
+                    onClick={() =>
+                      save(
+                        { closeStartTime: closeStart, closeEndTime: closeEnd },
+                        'Schedule saved'
+                      )
+                    }
+                    className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    Save times
+                  </button>
+                )}
+              </div>
+              {!validTimes && (
+                <p className="text-sm text-red-600">
+                  Start and end times must be different.
+                </p>
+              )}
             </div>
 
             <div>

@@ -2,6 +2,13 @@
 
 import { canManageSystemSettings } from '@/lib/constants'
 import { setSettings } from '@/lib/redux/settingsSlice'
+import {
+  DEFAULT_CLOSE_END,
+  DEFAULT_CLOSE_START,
+  formatTime12h,
+  isWithinCloseSchedule,
+  toHHMM
+} from '@/lib/utils/systemClose'
 import { setUser } from '@/lib/redux/userSlice'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -10,13 +17,17 @@ import { useDispatch } from 'react-redux'
 import LoadingSkeleton from './LoadingSkeleton'
 import SystemClosed from './SystemClosed'
 
-// How often signed-in users re-check whether the system has been closed.
+// How often signed-in users re-check whether the system has been closed
+// (manually or by the close schedule).
 const SETTINGS_REFRESH_MS = 30_000
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   // Set when the system is closed and this user may not bypass it.
-  const [closedMessage, setClosedMessage] = useState<string | null>(null)
+  const [closed, setClosed] = useState<{
+    message: string
+    reopensAt?: string
+  } | null>(null)
   const router = useRouter()
   const dispatch = useDispatch()
 
@@ -31,24 +42,42 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const { data: orgSettings } = await supabase
         .from('org_settings')
         .select(
-          'print_receipts_enabled, system_closed, system_closed_message'
+          'print_receipts_enabled, system_closed, system_closed_message, close_schedule_enabled, close_start_time, close_end_time'
         )
         .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
         .maybeSingle()
 
       if (!orgSettings) return
 
+      const closeStartTime =
+        toHHMM(orgSettings.close_start_time) || DEFAULT_CLOSE_START
+      const closeEndTime =
+        toHHMM(orgSettings.close_end_time) || DEFAULT_CLOSE_END
+
       dispatch(
         setSettings({
           printReceiptsEnabled: orgSettings.print_receipts_enabled,
           systemClosed: !!orgSettings.system_closed,
-          systemClosedMessage: orgSettings.system_closed_message ?? ''
+          systemClosedMessage: orgSettings.system_closed_message ?? '',
+          closeScheduleEnabled: !!orgSettings.close_schedule_enabled,
+          closeStartTime,
+          closeEndTime
         })
       )
 
-      setClosedMessage(
-        orgSettings.system_closed && !canBypassClosed
-          ? orgSettings.system_closed_message ?? ''
+      const manuallyClosed = !!orgSettings.system_closed
+      const scheduleClosed =
+        !!orgSettings.close_schedule_enabled &&
+        isWithinCloseSchedule(closeStartTime, closeEndTime)
+
+      setClosed(
+        (manuallyClosed || scheduleClosed) && !canBypassClosed
+          ? {
+              message: orgSettings.system_closed_message ?? '',
+              reopensAt: manuallyClosed
+                ? undefined
+                : formatTime12h(closeEndTime)
+            }
           : null
       )
     }
@@ -138,6 +167,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [dispatch, router])
 
   if (loading) return <LoadingSkeleton />
-  if (closedMessage !== null) return <SystemClosed message={closedMessage} />
+  if (closed)
+    return <SystemClosed message={closed.message} reopensAt={closed.reopensAt} />
   return <>{children}</>
 }

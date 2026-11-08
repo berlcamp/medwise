@@ -3,7 +3,14 @@
 import { supabase } from '@/lib/supabase/client'
 import { Lock } from 'lucide-react'
 
-export default function SystemClosed({ message }: { message?: string }) {
+export default function SystemClosed({
+  message,
+  reopensAt
+}: {
+  message?: string
+  // e.g. "7:00 AM", when closed by the daily schedule
+  reopensAt?: string
+}) {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     window.location.href = '/'
@@ -25,6 +32,11 @@ export default function SystemClosed({ message }: { message?: string }) {
           {message?.trim() ||
             'The system is temporarily unavailable. Please check back later or contact your administrator.'}
         </p>
+        {reopensAt && (
+          <p className="mb-6 text-sm font-medium text-gray-700">
+            The system opens again at {reopensAt}.
+          </p>
+        )}
         <button
           type="button"
           onClick={handleSignOut}
