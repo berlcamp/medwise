@@ -16,7 +16,7 @@ const initialState: SettingsState = {
   printReceiptsEnabled: true,
   systemClosed: false,
   systemClosedMessage: '',
-  closeScheduleEnabled: false,
+  closeScheduleEnabled: true,
   closeStartTime: DEFAULT_CLOSE_START,
   closeEndTime: DEFAULT_CLOSE_END
 }
