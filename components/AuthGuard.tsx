@@ -10,6 +10,9 @@ import { useDispatch } from 'react-redux'
 import LoadingSkeleton from './LoadingSkeleton'
 import SystemClosed from './SystemClosed'
 
+// How often signed-in users re-check whether the system has been closed.
+const SETTINGS_REFRESH_MS = 30_000
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   // Set when the system is closed and this user may not bypass it.
@@ -18,6 +21,38 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const dispatch = useDispatch()
 
   useEffect(() => {
+    let canBypassClosed = false
+    let userLoaded = false
+
+    // Org-wide toggles; keep the defaults if the row is missing. Re-run
+    // periodically so users already signed in are shut out (or let back in)
+    // when the system is closed or reopened.
+    const refreshSettings = async () => {
+      const { data: orgSettings } = await supabase
+        .from('org_settings')
+        .select(
+          'print_receipts_enabled, system_closed, system_closed_message'
+        )
+        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
+        .maybeSingle()
+
+      if (!orgSettings) return
+
+      dispatch(
+        setSettings({
+          printReceiptsEnabled: orgSettings.print_receipts_enabled,
+          systemClosed: !!orgSettings.system_closed,
+          systemClosedMessage: orgSettings.system_closed_message ?? ''
+        })
+      )
+
+      setClosedMessage(
+        orgSettings.system_closed && !canBypassClosed
+          ? orgSettings.system_closed_message ?? ''
+          : null
+      )
+    }
+
     const loadSessionAndUser = async () => {
       const {
         data: { session },
@@ -64,36 +99,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         console.error('Failed to load locations:', error)
       }
 
-      // Org-wide toggles; keep the defaults if the row is missing.
-      const { data: orgSettings } = await supabase
-        .from('org_settings')
-        .select(
-          'print_receipts_enabled, system_closed, system_closed_message'
-        )
-        .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
-        .maybeSingle()
-
-      if (orgSettings) {
-        dispatch(
-          setSettings({
-            printReceiptsEnabled: orgSettings.print_receipts_enabled,
-            systemClosed: !!orgSettings.system_closed,
-            systemClosedMessage: orgSettings.system_closed_message ?? ''
-          })
-        )
-
-        if (
-          orgSettings.system_closed &&
-          !canManageSystemSettings(systemUser.type, session.user.email)
-        ) {
-          setClosedMessage(orgSettings.system_closed_message ?? '')
-        }
-      }
+      canBypassClosed = canManageSystemSettings(
+        systemUser.type,
+        session.user.email
+      )
+      await refreshSettings()
+      userLoaded = true
 
       setLoading(false)
     }
 
     loadSessionAndUser()
+
+    const recheck = () => {
+      if (userLoaded && document.visibilityState === 'visible') {
+        refreshSettings()
+      }
+    }
+    const interval = setInterval(recheck, SETTINGS_REFRESH_MS)
+    window.addEventListener('focus', recheck)
+    document.addEventListener('visibilitychange', recheck)
 
     // Optional: handle logout cases live
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -105,6 +130,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
 
     return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', recheck)
+      document.removeEventListener('visibilitychange', recheck)
       authListener?.subscription.unsubscribe()
     }
   }, [dispatch, router])
