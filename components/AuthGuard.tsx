@@ -1,5 +1,6 @@
 'use client'
 
+import { canManageSystemSettings } from '@/lib/constants'
 import { setSettings } from '@/lib/redux/settingsSlice'
 import { setUser } from '@/lib/redux/userSlice'
 import { supabase } from '@/lib/supabase/client'
@@ -7,9 +8,12 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useDispatch } from 'react-redux'
 import LoadingSkeleton from './LoadingSkeleton'
+import SystemClosed from './SystemClosed'
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
+  // Set when the system is closed and this user may not bypass it.
+  const [closedMessage, setClosedMessage] = useState<string | null>(null)
   const router = useRouter()
   const dispatch = useDispatch()
 
@@ -63,16 +67,27 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       // Org-wide toggles; keep the defaults if the row is missing.
       const { data: orgSettings } = await supabase
         .from('org_settings')
-        .select('print_receipts_enabled')
+        .select(
+          'print_receipts_enabled, system_closed, system_closed_message'
+        )
         .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
         .maybeSingle()
 
       if (orgSettings) {
         dispatch(
           setSettings({
-            printReceiptsEnabled: orgSettings.print_receipts_enabled
+            printReceiptsEnabled: orgSettings.print_receipts_enabled,
+            systemClosed: !!orgSettings.system_closed,
+            systemClosedMessage: orgSettings.system_closed_message ?? ''
           })
         )
+
+        if (
+          orgSettings.system_closed &&
+          !canManageSystemSettings(systemUser.type, session.user.email)
+        ) {
+          setClosedMessage(orgSettings.system_closed_message ?? '')
+        }
       }
 
       setLoading(false)
@@ -95,5 +110,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [dispatch, router])
 
   if (loading) return <LoadingSkeleton />
+  if (closedMessage !== null) return <SystemClosed message={closedMessage} />
   return <>{children}</>
 }

@@ -25,7 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from '@/components/ui/sidebar'
-import { canAccessPath } from '@/lib/constants'
+import { canAccessPath, canManageSystemSettings } from '@/lib/constants'
 import { useAppSelector } from '@/lib/redux/hook'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -154,12 +154,20 @@ export function AppSidebar() {
     },
   ]
 
-  // Hide Branches and System Settings from non-super-admin users
-  const superAdminOnlyUrls = ['/branches', '/settings']
-  const settingItems = (user?.type !== 'super admin'
-    ? allSettingItems.filter(item => !superAdminOnlyUrls.includes(item.url))
-    : allSettingItems
-  ).filter(canOpen)
+  // Staff: bulk/admin/super admin. Branches: super admin only.
+  // System Settings: super admin plus the accounts in SYSTEM_SETTINGS_EMAILS.
+  const isStaffManager =
+    user?.type === 'bulk' ||
+    user?.type === 'admin' ||
+    user?.type === 'super admin'
+  const settingItems = allSettingItems
+    .filter((item) => {
+      if (item.url === '/settings')
+        return canManageSystemSettings(user?.type, user?.email)
+      if (item.url === '/branches') return user?.type === 'super admin'
+      return isStaffManager
+    })
+    .filter(canOpen)
 
   return (
     <Sidebar className="pt-13">
@@ -244,48 +252,48 @@ export function AppSidebar() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarGroup hidden={settingItems.length === 0}>
-              <SidebarGroupLabel className="border-t rounded-none border-gray-200 text-gray-500">
-                Settings
-              </SidebarGroupLabel>
-              <SidebarGroupContent className="pb-0">
-                <SidebarMenu>
-                  {settingItems
-                    .map((item) => {
-                      const isActive = pathname === item.url
-                      const isLoading = loadingPath === item.url
-                      return (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton asChild>
-                            <Link
-                              href={item.url}
-                              onClick={() => handleLinkClick(item.url)}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                                isActive
-                                  ? 'bg-gray-100 text-gray-900 font-medium' // Active item
-                                  : 'hover:bg-gray-50 text-gray-700'
-                              } ${isLoading ? 'opacity-60' : ''}`}
-                            >
-                              {isLoading ? (
-                                <Loader2 className="text-base text-blue-600 animate-spin" />
-                              ) : (
-                                <item.icon
-                                  className={`text-base ${
-                                    isActive ? 'text-blue-600' : 'text-gray-500'
-                                  }`}
-                                />
-                              )}
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      )
-                    })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
           </>
         )}
+        <SidebarGroup hidden={settingItems.length === 0}>
+          <SidebarGroupLabel className="border-t rounded-none border-gray-200 text-gray-500">
+            Settings
+          </SidebarGroupLabel>
+          <SidebarGroupContent className="pb-0">
+            <SidebarMenu>
+              {settingItems
+                .map((item) => {
+                  const isActive = pathname === item.url
+                  const isLoading = loadingPath === item.url
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild>
+                        <Link
+                          href={item.url}
+                          onClick={() => handleLinkClick(item.url)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                            isActive
+                              ? 'bg-gray-100 text-gray-900 font-medium' // Active item
+                              : 'hover:bg-gray-50 text-gray-700'
+                          } ${isLoading ? 'opacity-60' : ''}`}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="text-base text-blue-600 animate-spin" />
+                          ) : (
+                            <item.icon
+                              className={`text-base ${
+                                isActive ? 'text-blue-600' : 'text-gray-500'
+                              }`}
+                            />
+                          )}
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>
   )

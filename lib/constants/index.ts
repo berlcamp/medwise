@@ -231,3 +231,17 @@ export function canAccessPath(
   );
   return !match || getModuleAccess(type, moduleAccess).includes(match.value);
 }
+
+// Accounts allowed to open System Settings (and to keep using the system while
+// it is closed), in addition to every super admin.
+export const SYSTEM_SETTINGS_EMAILS = ["nelbertgwapitos@gmail.com"];
+
+export function canManageSystemSettings(
+  type?: string,
+  email?: string | null
+): boolean {
+  return (
+    type === "super admin" ||
+    (!!email && SYSTEM_SETTINGS_EMAILS.includes(email.toLowerCase()))
+  );
+}

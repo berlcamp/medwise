@@ -1,13 +1,17 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 
-// Org-wide toggles from medwise.org_settings, managed on the super-admin
-// Settings page and loaded once by AuthGuard.
+// Org-wide toggles from medwise.org_settings, managed on the System Settings
+// page and loaded once by AuthGuard.
 export interface SettingsState {
   printReceiptsEnabled: boolean
+  systemClosed: boolean
+  systemClosedMessage: string
 }
 
 const initialState: SettingsState = {
-  printReceiptsEnabled: true
+  printReceiptsEnabled: true,
+  systemClosed: false,
+  systemClosedMessage: ''
 }
 
 const settingsSlice = createSlice({
