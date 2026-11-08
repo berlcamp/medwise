@@ -69,7 +69,6 @@ export default function Page() {
     const { error } = await supabase.from('org_settings').upsert({
       org_id: Number(process.env.NEXT_PUBLIC_ORG_ID),
       print_receipts_enabled: next.printReceiptsEnabled,
-      system_closed: next.systemClosed,
       system_closed_message: next.systemClosedMessage.trim() || null,
       close_schedule_enabled: next.closeScheduleEnabled,
       close_start_time: next.closeStartTime,
@@ -95,22 +94,6 @@ export default function Page() {
     save(
       { printReceiptsEnabled: next },
       `Receipt printing turned ${next ? 'on' : 'off'}`
-    )
-  }
-
-  const toggleSystemClosed = () => {
-    const next = !settings.systemClosed
-    if (
-      next &&
-      !confirm(
-        'Close the system? Other users will be blocked from using MedWise until you open it again.'
-      )
-    ) {
-      return
-    }
-    save(
-      { systemClosed: next, systemClosedMessage: closedMessage },
-      next ? 'System closed to other users' : 'System is open again'
     )
   }
 
@@ -169,48 +152,26 @@ export default function Page() {
             <div className="flex items-start justify-between gap-6">
               <div>
                 <div className="font-medium text-gray-900">
-                  Close system
-                  {settings.systemClosed && (
-                    <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                      Closed
-                    </span>
-                  )}
+                  Close automatically every day
                 </div>
                 <p className="mt-1 text-sm text-gray-500">
-                  Close now: when on, other users can&apos;t use the system — after
-                  signing in they see a &quot;system is currently closed&quot;
-                  message. Super admins and accounts allowed to manage system
-                  settings can still use it.
+                  The system closes at the start time and opens again at the
+                  end time (Philippine time). While closed, other users see a
+                  &quot;system is currently closed&quot; message. Super admins
+                  and accounts allowed to manage system settings can still use
+                  it.
                 </p>
               </div>
               <Switch
-                checked={settings.systemClosed}
-                label="Close system"
+                checked={settings.closeScheduleEnabled}
+                label="Close automatically every day"
                 disabled={saving}
-                onClick={toggleSystemClosed}
+                onClick={toggleCloseSchedule}
                 activeClass="bg-red-600"
               />
             </div>
 
-            <div className="space-y-3 rounded-md border border-gray-200 p-3">
-              <div className="flex items-start justify-between gap-6">
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    Close automatically every day
-                  </div>
-                  <p className="mt-1 text-sm text-gray-500">
-                    The system closes at the start time and opens again at the
-                    end time (Philippine time).
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.closeScheduleEnabled}
-                  label="Close automatically every day"
-                  disabled={saving}
-                  onClick={toggleCloseSchedule}
-                  activeClass="bg-red-600"
-                />
-              </div>
+            <div>
               <div className="flex flex-wrap items-end gap-3">
                 <label className="text-sm text-gray-700">
                   Close at

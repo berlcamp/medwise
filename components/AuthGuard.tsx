@@ -18,7 +18,7 @@ import LoadingSkeleton from './LoadingSkeleton'
 import SystemClosed from './SystemClosed'
 
 // How often signed-in users re-check whether the system has been closed
-// (manually or by the close schedule).
+// by the daily close schedule.
 const SETTINGS_REFRESH_MS = 30_000
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -42,7 +42,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       const { data: orgSettings } = await supabase
         .from('org_settings')
         .select(
-          'print_receipts_enabled, system_closed, system_closed_message, close_schedule_enabled, close_start_time, close_end_time'
+          'print_receipts_enabled, system_closed_message, close_schedule_enabled, close_start_time, close_end_time'
         )
         .eq('org_id', process.env.NEXT_PUBLIC_ORG_ID)
         .maybeSingle()
@@ -57,7 +57,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       dispatch(
         setSettings({
           printReceiptsEnabled: orgSettings.print_receipts_enabled,
-          systemClosed: !!orgSettings.system_closed,
           systemClosedMessage: orgSettings.system_closed_message ?? '',
           closeScheduleEnabled: !!orgSettings.close_schedule_enabled,
           closeStartTime,
@@ -65,18 +64,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         })
       )
 
-      const manuallyClosed = !!orgSettings.system_closed
       const scheduleClosed =
         !!orgSettings.close_schedule_enabled &&
         isWithinCloseSchedule(closeStartTime, closeEndTime)
 
       setClosed(
-        (manuallyClosed || scheduleClosed) && !canBypassClosed
+        scheduleClosed && !canBypassClosed
           ? {
               message: orgSettings.system_closed_message ?? '',
-              reopensAt: manuallyClosed
-                ? undefined
-                : formatTime12h(closeEndTime)
+              reopensAt: formatTime12h(closeEndTime)
             }
           : null
       )

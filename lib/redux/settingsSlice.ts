@@ -5,7 +5,6 @@ import { DEFAULT_CLOSE_END, DEFAULT_CLOSE_START } from '@/lib/utils/systemClose'
 // page and loaded by AuthGuard.
 export interface SettingsState {
   printReceiptsEnabled: boolean
-  systemClosed: boolean
   systemClosedMessage: string
   closeScheduleEnabled: boolean
   closeStartTime: string // "HH:MM", Asia/Manila
@@ -14,7 +13,6 @@ export interface SettingsState {
 
 const initialState: SettingsState = {
   printReceiptsEnabled: true,
-  systemClosed: false,
   systemClosedMessage: '',
   closeScheduleEnabled: true,
   closeStartTime: DEFAULT_CLOSE_START,
